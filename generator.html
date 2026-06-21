@@ -1,0 +1,205 @@
+<div id="generatorContainer">
+
+    <!-- KZ -->
+    <div class="generator-section">
+
+        <div class="generator-title">
+            Komendant zmiany IOK Wrocław
+        </div>
+
+        <input
+            type="text"
+            id="kzInput"
+            placeholder="Wpisz KZ">
+
+    </div>
+
+    <!-- PATROLE -->
+    <div class="generator-section">
+
+        <div class="generator-title">
+            Patrole
+        </div>
+
+        <div
+            id="patrolCards"
+            class="card-grid">
+
+        </div>
+
+    </div>
+
+    <!-- PODGLĄD WYBRANYCH PATROLI -->
+    <div class="generator-section">
+
+        <div class="generator-title">
+            Wybrane patrole
+        </div>
+
+        <div
+            id="patrolPreview">
+
+            Wybierz patrol...
+
+        </div>
+
+    </div>
+
+    <!-- SZABLON -->
+    <div class="generator-section">
+
+        <div class="generator-title">
+            Szablon
+        </div>
+
+        <select id="templateSelect">
+
+            <option value="">
+                Wybierz szablon
+            </option>
+
+        </select>
+
+    </div>
+
+    <!-- ZGŁOSZENIA -->
+    <div class="generator-section">
+
+        <div class="generator-title">
+            Zgłoszenia
+        </div>
+
+        <!-- Linie -->
+
+        <div
+            id="zgloszeniaLinie"
+            class="card-grid">
+
+        </div>
+
+        <br>
+
+        <!-- Opisy -->
+
+        <div
+            id="zgloszeniaItems"
+            class="card-grid">
+
+        </div>
+
+    </div>
+
+    <!-- POLECENIA -->
+    <div class="generator-section">
+
+        <div class="generator-title">
+            Polecenia
+        </div>
+
+        <!-- Linie -->
+
+        <div
+            id="poleceniaLinie"
+            class="card-grid">
+
+        </div>
+
+        <br>
+
+        <!-- Opisy -->
+
+        <div
+            id="poleceniaItems"
+            class="card-grid">
+
+        </div>
+
+    </div>
+
+    <!-- MKK -->
+    <div class="generator-section">
+
+        <div class="generator-title">
+            MKK
+        </div>
+
+        <input
+            type="text"
+            id="mkkInput"
+            placeholder="Wpisz MKK">
+
+    </div>
+
+    <!-- GENEROWANIE -->
+    <div class="generator-section">
+
+        <div
+            style="
+                display:flex;
+                align-items:center;
+                gap:10px;
+                flex-wrap:wrap;
+            ">
+
+            <div
+                class="generator-title"
+                style="margin-bottom:0;">
+
+                Generowanie wpisu
+
+            </div>
+
+            <button
+                class="btn-success"
+                onclick="generateEntry()">
+
+                Generuj wpis
+
+            </button>
+
+            <button
+                class="btn-primary"
+                onclick="copyEntry()">
+
+                Kopiuj
+
+            </button>
+
+            <button
+                class="btn-danger"
+                onclick="clearEntry()">
+
+                Wyczyść
+
+            </button>
+
+            <button
+                class="btn-primary"
+                onclick="saveToKsiazka()">
+
+                Zapisz do Książki wydarzeń
+
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- WYNIK -->
+    <div class="generator-section">
+
+        <div class="generator-title">
+            Wygenerowany wpis
+        </div>
+
+        <textarea
+            id="generatedEntry"
+            style="
+                width:100%;
+                min-height:350px;
+            ">
+        </textarea>
+
+    </div>
+
+</div>
