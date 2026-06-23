@@ -1,71 +1,65 @@
 // =====================================
-// PATROLE - Z DYŻURNYMI
+// PATROLE - DYŻURNI + WYBÓR LUDZI
 // =====================================
 
 let selectedPatrolMembers = [];
+let selectedDyzurnyIndex = null;   // który dyżurny jest aktualnie wybrany
 
 function initPatrole() {
     selectedPatrolMembers = [];
+    selectedDyzurnyIndex = null;
     renderPatrole();
 }
-
-// =====================================
-// RENDER
-// =====================================
 
 function renderPatrole() {
     const container = document.getElementById("patroleContainer");
     if (!container) return;
 
-    // Podział na Dyżurnych i resztę
     const dyzurni = appState.dane.rows.filter(osoba => 
         osoba["Dyżurny"] && String(osoba["Dyżurny"]).trim() !== ""
-    );
-
-    const pozostali = appState.dane.rows.filter(osoba => 
-        !osoba["Dyżurny"] || String(osoba["Dyżurny"]).trim() === ""
     );
 
     let html = `
     <div class="card">
         <h2>Patrole</h2>
         <br>
-
-        <!-- DYŻURNI -->
         <h3>Dyżurni</h3>
         <div class="card-grid" style="margin-bottom:25px;">
     `;
 
-    dyzurni.forEach(osoba => {
-        const nazwa = getPersonName(osoba);
-        const originalIndex = appState.dane.rows.indexOf(osoba);
-        const selected = selectedPatrolMembers.includes(originalIndex) ? "selected" : "";
+    // Lista dyżurnych
+    dyzurni.forEach((osoba, idx) => {
+        const globalIndex = appState.dane.rows.indexOf(osoba);
+        const isActive = selectedDyzurnyIndex === globalIndex ? "active" : "";
         html += `
-        <div class="item-card ${selected}" onclick="togglePatrolPerson(${originalIndex})">
-            ${nazwa}
+        <div class="line-pill ${isActive}" onclick="selectDyzurny(${globalIndex})">
+            ${getPersonName(osoba)}
         </div>`;
     });
 
     html += `</div>`;
 
-    // POZOSTALI
-    if (pozostali.length > 0) {
-        html += `
-        <h3>Pozostali funkcjonariusze</h3>
-        <div class="card-grid">
-        `;
+    // Lista ludzi do wyboru (pojawia się po kliknięciu dyżurnego)
+    if (selectedDyzurnyIndex !== null) {
+        const pozostali = appState.dane.rows.filter((osoba, idx) => 
+            idx !== selectedDyzurnyIndex && 
+            !selectedPatrolMembers.includes(idx)
+        );
+
+        html += `<h3>Wybierz funkcjonariuszy do patrolu</h3><div class="card-grid">`;
 
         pozostali.forEach(osoba => {
-            const nazwa = getPersonName(osoba);
-            const originalIndex = appState.dane.rows.indexOf(osoba);
-            const selected = selectedPatrolMembers.includes(originalIndex) ? "selected" : "";
+            const idx = appState.dane.rows.indexOf(osoba);
+            const selected = selectedPatrolMembers.includes(idx) ? "selected" : "";
             html += `
-            <div class="item-card ${selected}" onclick="togglePatrolPerson(${originalIndex})">
-                ${nazwa}
+            <div class="item-card ${selected}" onclick="togglePatrolPerson(${idx})">
+                ${getPersonName(osoba)}
             </div>`;
         });
 
         html += `</div>`;
+    } else {
+        html += `<p style="color:#94a3b8; font-style:italic;">Wybierz dyżurnego, aby dodać funkcjonariuszy...</p>`;
     }
 
     html += `
@@ -73,15 +67,10 @@ function renderPatrole() {
         <label>Nazwa patrolu</label>
         <input type="text" id="patrolName">
         <br><br>
-        <label>Dowódca</label>
-        <select id="dowodcaSelect"><option value="">-- brak --</option></select>
-        <br><br>
-        <label>Kierowca</label>
-        <select id="kierowcaSelect"><option value="">-- brak --</option></select>
-        <br><br>
         <button class="btn-success" onclick="createPatrol()">Stwórz patrol</button>
     </div>
 
+    <!-- Lista utworzonych patroli -->
     <div class="card">
         <h2>Lista patroli</h2>
         <br>
@@ -90,8 +79,6 @@ function renderPatrole() {
                 <tr>
                     <th>Nazwa</th>
                     <th>Skład</th>
-                    <th>Dowódca</th>
-                    <th>Kierowca</th>
                     <th>Edytuj</th>
                     <th>Usuń</th>
                 </tr>
@@ -104,25 +91,31 @@ function renderPatrole() {
         <tr>
             <td>${patrol.nazwa}</td>
             <td>${patrol.sklad.join("<br>")}</td>
-            <td>${patrol.dowodca || ""}</td>
-            <td>${patrol.kierowca || ""}</td>
             <td><button class="btn-primary" onclick="editPatrol(${index})">Edytuj</button></td>
             <td><button class="btn-danger" onclick="removePatrol(${index})">Usuń</button></td>
         </tr>`;
     });
 
     html += `</tbody></table></div>`;
-    container.innerHTML = html;
 
-    updatePatrolLists();
+    container.innerHTML = html;
 }
 
 // =====================================
-// POMOCNICZE
+// FUNKCJE
 // =====================================
 
 function getPersonName(osoba) {
     return `${osoba["Stopień"] || ""} ${osoba["Nazwisko"] || ""} ${osoba["Imię"] || ""}`.trim();
+}
+
+function selectDyzurny(index) {
+    selectedDyzurnyIndex = index;
+    // Automatycznie dodajemy dyżurnego do patrolu
+    if (!selectedPatrolMembers.includes(index)) {
+        selectedPatrolMembers.push(index);
+    }
+    renderPatrole();
 }
 
 function togglePatrolPerson(index) {
@@ -135,60 +128,40 @@ function togglePatrolPerson(index) {
     renderPatrole();
 }
 
-function updatePatrolLists() {
-    const dowodca = document.getElementById("dowodcaSelect");
-    const kierowca = document.getElementById("kierowcaSelect");
-    if (!dowodca || !kierowca) return;
-
-    let options = `<option value="">-- brak --</option>`;
-
-    selectedPatrolMembers.forEach(index => {
-        const osoba = appState.dane.rows[index];
-        const nazwa = getPersonName(osoba);
-        options += `<option value="${nazwa}">${nazwa}</option>`;
-    });
-
-    dowodca.innerHTML = options;
-    kierowca.innerHTML = options;
-}
-
-// =====================================
-// TWORZENIE / EDYCJA / USUWANIE
-// =====================================
-
 async function createPatrol() {
     const nazwa = document.getElementById("patrolName").value.trim();
-    if (!nazwa) { alert("Podaj nazwę patrolu"); return; }
-    if (selectedPatrolMembers.length === 0) { alert("Wybierz funkcjonariuszy"); return; }
+    if (!nazwa) {
+        alert("Podaj nazwę patrolu");
+        return;
+    }
+    if (selectedPatrolMembers.length === 0) {
+        alert("Wybierz przynajmniej dyżurnego i funkcjonariuszy");
+        return;
+    }
 
-    const sklad = selectedPatrolMembers.map(index => getPersonName(appState.dane.rows[index]));
-    const dowodca = document.getElementById("dowodcaSelect").value;
-    const kierowca = document.getElementById("kierowcaSelect").value;
+    const sklad = selectedPatrolMembers.map(i => getPersonName(appState.dane.rows[i]));
 
-    appState.patrole.push({ nazwa, sklad, dowodca, kierowca });
+    appState.patrole.push({
+        nazwa,
+        sklad,
+        dyzurny: getPersonName(appState.dane.rows[selectedDyzurnyIndex])
+    });
 
     await saveState();
     selectedPatrolMembers = [];
+    selectedDyzurnyIndex = null;
     renderPatrole();
 }
 
 async function editPatrol(index) {
+    // prosta edycja - można rozwinąć później
     const patrol = appState.patrole[index];
-    const nowaNazwa = prompt("Nazwa patrolu", patrol.nazwa);
-    if (nowaNazwa === null) return;
-
-    const nowyDowodca = prompt("Dowódca", patrol.dowodca || "");
-    if (nowyDowodca === null) return;
-
-    const nowyKierowca = prompt("Kierowca", patrol.kierowca || "");
-    if (nowyKierowca === null) return;
-
-    patrol.nazwa = nowaNazwa;
-    patrol.dowodca = nowyDowodca;
-    patrol.kierowca = nowyKierowca;
-
-    await saveState();
-    renderPatrole();
+    const nowaNazwa = prompt("Nowa nazwa patrolu", patrol.nazwa);
+    if (nowaNazwa) {
+        patrol.nazwa = nowaNazwa;
+        await saveState();
+        renderPatrole();
+    }
 }
 
 async function removePatrol(index) {
@@ -201,6 +174,7 @@ async function removePatrol(index) {
 // =====================================
 // EXPOSE
 // =====================================
+window.selectDyzurny = selectDyzurny;
 window.togglePatrolPerson = togglePatrolPerson;
 window.createPatrol = createPatrol;
 window.editPatrol = editPatrol;
