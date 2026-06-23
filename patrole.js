@@ -1,5 +1,5 @@
 // =====================================
-// PATROLE
+// PATROLE - Z DYŻURNYMI
 // =====================================
 
 let selectedPatrolMembers = [];
@@ -17,31 +17,58 @@ function renderPatrole() {
     const container = document.getElementById("patroleContainer");
     if (!container) return;
 
-    const funkcjonariusze = [...appState.dane.rows]
-        .sort((a, b) => (a["Nazwisko"] || "").localeCompare(b["Nazwisko"] || "", "pl"));
+    // Podział na Dyżurnych i resztę
+    const dyzurni = appState.dane.rows.filter(osoba => 
+        osoba["Dyżurny"] && String(osoba["Dyżurny"]).trim() !== ""
+    );
+
+    const pozostali = appState.dane.rows.filter(osoba => 
+        !osoba["Dyżurny"] || String(osoba["Dyżurny"]).trim() === ""
+    );
 
     let html = `
     <div class="card">
         <h2>Patrole</h2>
         <br>
-        <h3>Wybierz ludzi</h3>
-        <br>
-        <div class="card-grid">
+
+        <!-- DYŻURNI -->
+        <h3>Dyżurni</h3>
+        <div class="card-grid" style="margin-bottom:25px;">
     `;
 
-    funkcjonariusze.forEach(osoba => {
+    dyzurni.forEach(osoba => {
         const nazwa = getPersonName(osoba);
         const originalIndex = appState.dane.rows.indexOf(osoba);
         const selected = selectedPatrolMembers.includes(originalIndex) ? "selected" : "";
-
         html += `
         <div class="item-card ${selected}" onclick="togglePatrolPerson(${originalIndex})">
             ${nazwa}
         </div>`;
     });
 
+    html += `</div>`;
+
+    // POZOSTALI
+    if (pozostali.length > 0) {
+        html += `
+        <h3>Pozostali funkcjonariusze</h3>
+        <div class="card-grid">
+        `;
+
+        pozostali.forEach(osoba => {
+            const nazwa = getPersonName(osoba);
+            const originalIndex = appState.dane.rows.indexOf(osoba);
+            const selected = selectedPatrolMembers.includes(originalIndex) ? "selected" : "";
+            html += `
+            <div class="item-card ${selected}" onclick="togglePatrolPerson(${originalIndex})">
+                ${nazwa}
+            </div>`;
+        });
+
+        html += `</div>`;
+    }
+
     html += `
-        </div>
         <br><br>
         <label>Nazwa patrolu</label>
         <input type="text" id="patrolName">
@@ -131,14 +158,8 @@ function updatePatrolLists() {
 
 async function createPatrol() {
     const nazwa = document.getElementById("patrolName").value.trim();
-    if (!nazwa) {
-        alert("Podaj nazwę patrolu");
-        return;
-    }
-    if (selectedPatrolMembers.length === 0) {
-        alert("Wybierz funkcjonariuszy");
-        return;
-    }
+    if (!nazwa) { alert("Podaj nazwę patrolu"); return; }
+    if (selectedPatrolMembers.length === 0) { alert("Wybierz funkcjonariuszy"); return; }
 
     const sklad = selectedPatrolMembers.map(index => getPersonName(appState.dane.rows[index]));
     const dowodca = document.getElementById("dowodcaSelect").value;
