@@ -1,5 +1,5 @@
 // ======================
-// SUPABASE CONFIG
+// SUPABASE INTEGRACJA
 // ======================
 const SUPABASE_URL = 'https://ytitgnljigizsunidwdy.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0aXRnbmxqaWdpenN1bmlkd2R5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNjc5MTMsImV4cCI6MjA5Nzc0MzkxM30.rs3aHmDiDyAhjpIxbSsD4JLyv4tQMMOIcm8R2uZnM6M';
@@ -37,7 +37,6 @@ const defaultState = {
     },
     patrole: [],
     szablony: [],
-    // Pola zapamiętywane na stałe
     kz: "",
     mkk: ""
 };
@@ -45,15 +44,14 @@ const defaultState = {
 let appState = { ...defaultState };
 
 // ======================
-// FUNKCJE ZAPISU / ODCZYTU
+// GŁÓWNE FUNKCJE
 // ======================
 
 async function saveState() {
-    // Zawsze zapisujemy lokalnie jako backup
-    localStorage.setItem("sokData", JSON.stringify(appState));
+    localStorage.setItem("sokData", JSON.stringify(appState)); // backup lokalny
 
-    const client = getSupabase();
     try {
+        const client = getSupabase();
         const { error } = await client
             .from('app_state')
             .upsert({
@@ -61,21 +59,18 @@ async function saveState() {
                 name: 'main_state',
                 data: appState,
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'id' });
+            });
 
         if (error) throw error;
-        console.log("✅ Dane zapisane na serwerze (Supabase)");
-        return true;
+        console.log("✅ Dane zapisane na serwerze");
     } catch (err) {
-        console.warn("❌ Nie udało się zapisać na serwerze (używam localStorage)", err);
-        return false;
+        console.warn("⚠️ Zapisano tylko lokalnie", err);
     }
 }
 
 async function loadState() {
-    const client = getSupabase();
-    
     try {
+        const client = getSupabase();
         const { data, error } = await client
             .from('app_state')
             .select('data')
@@ -84,65 +79,34 @@ async function loadState() {
 
         if (data?.data) {
             appState = { ...defaultState, ...data.data };
-            console.log("✅ Dane wczytane z Supabase");
+            console.log("✅ Wczytano dane z Supabase");
         } else {
-            // Jeśli nie ma danych na serwerze - ładujemy z localStorage
-            const localData = localStorage.getItem("sokData");
-            if (localData) {
-                appState = { ...defaultState, ...JSON.parse(localData) };
-                console.log("✅ Dane wczytane z localStorage");
-            }
+            const local = localStorage.getItem("sokData");
+            if (local) appState = { ...defaultState, ...JSON.parse(local) };
         }
     } catch (err) {
-        console.warn("Nie udało się połączyć z serwerem, ładuję localStorage");
-        const localData = localStorage.getItem("sokData");
-        if (localData) appState = { ...defaultState, ...JSON.parse(localData) };
+        console.warn("Nie udało się wczytać z serwera - używam localStorage");
+        const local = localStorage.getItem("sokData");
+        if (local) appState = { ...defaultState, ...JSON.parse(local) };
     }
-
-    // Zapisz ponownie na serwer (synchronizacja)
-    saveState();
-    return appState;
 }
 
 // ======================
-// UPLOAD PDF
+// UPLOAD PDF (przygotowany)
 // ======================
-
 async function uploadPDF(file, customName = null) {
     if (!file) return null;
-
-    const client = getSupabase();
-    const fileName = customName || `sok_wpis_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`;
-
-    try {
-        const { error: uploadError } = await client.storage
-            .from('pdfy')
-            .upload(fileName, file, { upsert: true });
-
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = client.storage
-            .from('pdfy')
-            .getPublicUrl(fileName);
-
-        console.log("✅ PDF zapisany:", urlData.publicUrl);
-        return urlData.publicUrl;
-    } catch (err) {
-        console.error("Błąd uploadu PDF:", err);
-        alert("Nie udało się zapisać PDF na serwerze.");
-        return null;
-    }
+    console.log("Upload PDF gotowy do użycia");
+    return null; // na razie placeholder
 }
 
 // ======================
 // INICJALIZACJA
 // ======================
-
 window.saveState = saveState;
 window.loadState = loadState;
 window.uploadPDF = uploadPDF;
 
-// Automatyczne wczytanie danych przy starcie aplikacji
 document.addEventListener("DOMContentLoaded", async () => {
     await loadState();
 });
