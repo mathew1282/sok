@@ -23,7 +23,9 @@ function renderPatrole() {
     let html = `
     <div class="card">
         <h2>Patrole</h2>
-        
+        <br>
+        <h3>Wybierz ludzi</h3>
+        <br>
         <div class="card-grid">
     `;
 
@@ -93,7 +95,7 @@ function renderPatrole() {
 // =====================================
 
 function getPersonName(osoba) {
-    return `${osoba["Stopień"] || ""} ${osoba["Nazwisko"] || }`.trim();
+    return `${osoba["Stopień"] || ""} ${osoba["Nazwisko"] || ""} ${osoba["Imię"] || ""}`.trim();
 }
 
 function togglePatrolPerson(index) {
