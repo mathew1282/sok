@@ -23,7 +23,7 @@ const defaultState = {
             "Nazwisko",
             "Stopień",
             "Numer służbowy",
-            "Telefon"
+            "NrPLK"
         ],
         rows: []
     },
@@ -39,6 +39,11 @@ const defaultState = {
     szablony: [],
     kz: "",
     mkk: ""
+ linie: {
+        szlak: "",
+        osobowa: "",
+        towarowa: ""
+    }   
 };
 
 let appState = { ...defaultState };
