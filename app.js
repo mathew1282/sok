@@ -95,7 +95,6 @@ const pages = {
         </div>`
     linie: `<div id="linieContainer"></div>`
 };
-};
 
 function loadPage(page) {
     const content = document.getElementById("content");
