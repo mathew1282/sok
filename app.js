@@ -92,7 +92,7 @@ const pages = {
                 <div class="generator-title">Wygenerowany wpis</div>
                 <textarea id="generatedEntry" style="width:100%; min-height:350px;"></textarea>
             </div>
-        </div>`
+        </div>`,
     linie: `<div id="linieContainer"></div>`
 };
 
