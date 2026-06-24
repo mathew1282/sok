@@ -29,12 +29,12 @@ function renderLinie() {
             </thead>
             <tbody>
                 <tr style="background:#1e40af; color:white;">
-                    <td style="padding:14px; font-weight:600;">Szlak główny</td>
+                    <td style="padding:14px; font-weight:600;">Szlak</td>
                     <td style="padding:14px;">
                         <input type="text" value="${appState.linie?.szlak || ''}" 
                                onchange="saveLine('szlak', this.value)" 
                                placeholder="np. 274"
-                               style="width:100%; padding:10px; font-size:16px; color:black;">
+                               style="width:100%; padding:10px; font-size:16px; color:white;">
                     </td>
                 </tr>
                 <tr style="background:#166534; color:white;">
@@ -52,7 +52,7 @@ function renderLinie() {
                         <input type="text" value="${appState.linie?.towarowa || ''}" 
                                onchange="saveLine('towarowa', this.value)" 
                                placeholder="np. 276"
-                               style="width:100%; padding:10px; font-size:16px; color:black;">
+                               style="width:100%; padding:10px; font-size:16px; color:white;">
                     </td>
                 </tr>
             </tbody>
