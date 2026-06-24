@@ -27,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ======================================
-// Wbudowane strony (działa lokalnie)
+// Wbudowane strony
 // ======================================
 
 const pages = {
@@ -93,6 +93,8 @@ const pages = {
                 <textarea id="generatedEntry" style="width:100%; min-height:350px;"></textarea>
             </div>
         </div>`
+    linie: `<div id="linieContainer"></div>`
+};
 };
 
 function loadPage(page) {
