@@ -135,7 +135,7 @@ function createPersonTable(person, today) {
                 <tr style="background:#1e40af; color:white;">
                     <td style="padding:12px; border:1px solid #475569; font-weight:bold; text-align:center; width:15%;">${person.nrPLK}</td>
                     <td style="padding:12px; border:1px solid #475569; color:white;">${appState.linie?.szlak || ''}</td>
-                    <td style="padding:12px; border:1px solid #475569; width:8%;"></td>          <!-- pusta kolumna 1 -->
+                    <td style="padding:12px; border:1px solid #475569;"></td>          <!-- pusta kolumna 1 -->
                     <td style="padding:12px; border:1px solid #475569; text-align:center; width:15%;">${today}</td>
                     <td style="padding:12px; border:1px solid #475569;" contenteditable="true"></td>
                 </tr>
