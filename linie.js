@@ -143,6 +143,7 @@ function createPersonTable(person, today) {
                 <tr style="background:#166534; color:white;">
                     <td style="padding:12px; border:1px solid #475569; font-weight:bold; text-align:center;">${person.nrPLK}</td>
                     <td style="padding:12px; border:1px solid #475569; color:white;">${appState.linie?.osobowa || ''}</td>
+                    <td style="padding:12px; border:1px solid #475569;"></td>
                     <td style="padding:12px; border:1px solid #475569; text-align:center;">${today}</td>
                     
                     <td style="padding:12px; border:1px solid #475569;" contenteditable="true"></td>
@@ -151,6 +152,7 @@ function createPersonTable(person, today) {
                 <tr style="background:#854d0e; color:white;">
                     <td style="padding:12px; border:1px solid #475569; font-weight:bold; text-align:center;">${person.nrPLK}</td>
                     <td style="padding:12px; border:1px solid #475569; color:white;">${appState.linie?.towarowa || ''}</td>
+                    <td style="padding:12px; border:1px solid #475569;"></td>
                     <td style="padding:12px; border:1px solid #475569; text-align:center;">${today}</td>
                     <td style="padding:12px; border:1px solid #475569;" contenteditable="true"></td>
                 </tr>
