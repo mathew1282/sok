@@ -125,7 +125,7 @@ function createPersonTable(person, today) {
     return `
     <div style="margin-bottom:30px;">
         <!-- Scalony wiersz z nazwiskiem i imieniem -->
-        <div style="background: linear-gradient(90deg, #1e40af, #166534, #854d0e); color:white; padding:14px 18px; font-size:18px; font-weight:bold; border-radius:6px 6px 0 0;">
+        <div style="background: #FFFF00; color:white; padding:14px 18px; font-size:18px; font-weight:bold; border-radius:6px 6px 0 0;">
             ${person.fullName}
         </div>
         
@@ -135,7 +135,7 @@ function createPersonTable(person, today) {
                 <tr style="background:#1e40af; color:white;">
                     <td style="padding:12px; border:1px solid #475569; font-weight:bold; text-align:center; width:15%;">${person.nrPLK}</td>
                     <td style="padding:12px; border:1px solid #475569; color:white;">${appState.linie?.szlak || ''}</td>
-                    <td style="padding:12px; border:1px solid #475569;"></td>          <!-- pusta kolumna 1 -->
+                    <td style="padding:12px; border:0px solid #475569;"></td>          <!-- pusta kolumna 1 -->
                     <td style="padding:12px; border:1px solid #475569; text-align:center; width:15%;">${today}</td>
                     <td style="padding:12px; border:1px solid #475569;" contenteditable="true"></td>
                 </tr>
@@ -143,7 +143,7 @@ function createPersonTable(person, today) {
                 <tr style="background:#166534; color:white;">
                     <td style="padding:12px; border:1px solid #475569; font-weight:bold; text-align:center;">${person.nrPLK}</td>
                     <td style="padding:12px; border:1px solid #475569; color:white;">${appState.linie?.osobowa || ''}</td>
-                    <td style="padding:12px; border:1px solid #475569;"></td>
+                    <td style="padding:12px; border:0px solid #475569;"></td>
                     <td style="padding:12px; border:1px solid #475569; text-align:center;">${today}</td>
                     
                     <td style="padding:12px; border:1px solid #475569;" contenteditable="true"></td>
@@ -152,7 +152,7 @@ function createPersonTable(person, today) {
                 <tr style="background:#854d0e; color:white;">
                     <td style="padding:12px; border:1px solid #475569; font-weight:bold; text-align:center;">${person.nrPLK}</td>
                     <td style="padding:12px; border:1px solid #475569; color:white;">${appState.linie?.towarowa || ''}</td>
-                    <td style="padding:12px; border:1px solid #475569;"></td>
+                    <td style="padding:12px; border:0px solid #475569;"></td>
                     <td style="padding:12px; border:1px solid #475569; text-align:center;">${today}</td>
                     <td style="padding:12px; border:1px solid #475569;" contenteditable="true"></td>
                 </tr>
