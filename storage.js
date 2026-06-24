@@ -39,11 +39,7 @@ const defaultState = {
     szablony: [],
     kz: "",
     mkk: ""
- linie: {
-        szlak: "",
-        osobowa: "",
-        towarowa: ""
-    }   
+ 
 };
 
 let appState = { ...defaultState };
