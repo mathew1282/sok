@@ -44,7 +44,6 @@ const defaultState = {
         osobowa: "",
         towarowa: ""
     }  
- 
 };
 
 let appState = { ...defaultState };
@@ -54,8 +53,6 @@ let appState = { ...defaultState };
 // ======================
 
 async function saveState() {
-    localStorage.setItem("sokData", JSON.stringify(appState)); // backup lokalny
-
     try {
         const client = getSupabase();
         const { error } = await client
@@ -70,7 +67,8 @@ async function saveState() {
         if (error) throw error;
         console.log("✅ Dane zapisane na serwerze");
     } catch (err) {
-        console.warn("⚠️ Zapisano tylko lokalnie", err);
+        console.error("❌ Błąd zapisu do Supabase:", err);
+        alert("Nie udało się zapisać danych na serwerze!");
     }
 }
 
@@ -87,23 +85,14 @@ async function loadState() {
             appState = { ...defaultState, ...data.data };
             console.log("✅ Wczytano dane z Supabase");
         } else {
-            const local = localStorage.getItem("sokData");
-            if (local) appState = { ...defaultState, ...JSON.parse(local) };
+            console.warn("⚠️ Brak danych na serwerze - używam domyślnych");
+            appState = { ...defaultState };
         }
     } catch (err) {
-        console.warn("Nie udało się wczytać z serwera - używam localStorage");
-        const local = localStorage.getItem("sokData");
-        if (local) appState = { ...defaultState, ...JSON.parse(local) };
+        console.error("❌ Błąd wczytywania z Supabase:", err);
+        alert("Nie udało się wczytać danych z serwera. Sprawdź połączenie.");
+        appState = { ...defaultState };
     }
-}
-
-// ======================
-// UPLOAD PDF (przygotowany)
-// ======================
-async function uploadPDF(file, customName = null) {
-    if (!file) return null;
-    console.log("Upload PDF gotowy do użycia");
-    return null; // na razie placeholder
 }
 
 // ======================
@@ -111,7 +100,6 @@ async function uploadPDF(file, customName = null) {
 // ======================
 window.saveState = saveState;
 window.loadState = loadState;
-window.uploadPDF = uploadPDF;
 
 document.addEventListener("DOMContentLoaded", async () => {
     await loadState();
