@@ -37,66 +37,66 @@ const pages = {
     patrole: `<div id="patroleContainer"></div>`,
     szablony: `<div id="szablonyContainer"></div>`,
     generator: `
-        <div id="generatorContainer">
+    <div id="generatorContainer">
 
-            <!-- KZ w jednej linii -->
-            <div class="generator-section" style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
-                <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">Komendant zmiany IOK Wrocław</div>
-                <input type="text" id="kzInput" placeholder="Wpisz KZ" style="flex:1; min-width:200px;">
-            </div>
+        <!-- KZ w jednej linii -->
+        <div class="generator-section" style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
+            <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">Komendant zmiany IOK Wrocław</div>
+            <input type="text" id="kzInput" placeholder="Wpisz KZ" style="flex:1; min-width:200px;">
+        </div>
 
-            <!-- Patrole -->
-            <div class="generator-section">
-                <div class="generator-title">Patrole</div>
-                <div id="patrolCards" class="card-grid"></div>
-            </div>
+        <!-- Patrole w jednej linii -->
+        <div class="generator-section" style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
+            <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">Patrole</div>
+            <div id="patrolCards" class="card-grid" style="flex:1;"></div>
+        </div>
 
-            <!-- Szablon -->
-            <div class="generator-section">
-                <div class="generator-title">Szablon</div>
-                <select id="templateSelect">
-                    <option value="">Wybierz szablon</option>
-                </select>
-            </div>
+        <!-- Szablon w jednej linii -->
+        <div class="generator-section" style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
+            <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">Szablon</div>
+            <select id="templateSelect" style="flex:1; min-width:200px;">
+                <option value="">Wybierz szablon</option>
+            </select>
+        </div>
 
-            <!-- Zgłoszenia -->
-            <div class="generator-section">
-                <div class="generator-title">Zgłoszenia</div>
-                <div id="zgloszeniaLinie" class="card-grid"></div>
-                <br>
-                <div id="zgloszeniaItems" class="card-grid"></div>
-            </div>
+        <!-- Zgłoszenia -->
+        <div class="generator-section">
+            <div class="generator-title">Zgłoszenia</div>
+            <div id="zgloszeniaLinie" class="card-grid"></div>
+            <br>
+            <div id="zgloszeniaItems" class="card-grid"></div>
+        </div>
 
-            <!-- Polecenia -->
-            <div class="generator-section">
-                <div class="generator-title">Polecenia</div>
-                <div id="poleceniaLinie" class="card-grid"></div>
-                <br>
-                <div id="poleceniaItems" class="card-grid"></div>
-            </div>
+        <!-- Polecenia -->
+        <div class="generator-section">
+            <div class="generator-title">Polecenia</div>
+            <div id="poleceniaLinie" class="card-grid"></div>
+            <br>
+            <div id="poleceniaItems" class="card-grid"></div>
+        </div>
 
-            <!-- MKK w jednej linii -->
-            <div class="generator-section" style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
-                <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">MKK</div>
-                <input type="text" id="mkkInput" placeholder="Wpisz MKK" style="flex:1; min-width:200px;">
-            </div>
+        <!-- MKK w jednej linii -->
+        <div class="generator-section" style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
+            <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">MKK</div>
+            <input type="text" id="mkkInput" placeholder="Wpisz MKK" style="flex:1; min-width:200px;">
+        </div>
 
-            <!-- Przyciski -->
-            <div class="generator-section">
-                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                    <div class="generator-title" style="margin-bottom:0;">Generowanie wpisu</div>
-                    <button class="btn-success" onclick="generateEntry()">Generuj wpis</button>
-                    <button class="btn-primary" onclick="copyEntry()">Kopiuj</button>
-                    <button class="btn-danger" onclick="clearEntry()">Wyczyść</button>
-                </div>
+        <!-- Przyciski -->
+        <div class="generator-section">
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <div class="generator-title" style="margin-bottom:0;">Generowanie wpisu</div>
+                <button class="btn-success" onclick="generateEntry()">Generuj wpis</button>
+                <button class="btn-primary" onclick="copyEntry()">Kopiuj</button>
+                <button class="btn-danger" onclick="clearEntry()">Wyczyść</button>
             </div>
+        </div>
 
-            <!-- Wygenerowany wpis -->
-            <div class="generator-section">
-                <div class="generator-title">Wygenerowany wpis</div>
-                <textarea id="generatedEntry" style="width:100%; min-height:350px;"></textarea>
-            </div>
-        </div>`,
+        <!-- Wygenerowany wpis -->
+        <div class="generator-section">
+            <div class="generator-title">Wygenerowany wpis</div>
+            <textarea id="generatedEntry" style="width:100%; min-height:350px;"></textarea>
+        </div>
+    </div>`,
     linie: `<div id="linieContainer"></div>`
 };
 
