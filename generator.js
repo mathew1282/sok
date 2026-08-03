@@ -52,22 +52,31 @@ function initGenerator() {
 
     setupPersistentInputs();
     setDefaultTemplate();
+    updateLiveEntry(); // od razu odśwież
 }
 
 function setupPersistentInputs() {
     const kzInput = document.getElementById("kzInput");
     const mkkInput = document.getElementById("mkkInput");
+    const templateSelect = document.getElementById("templateSelect");
 
     if (kzInput) {
         kzInput.addEventListener("input", () => {
             appState.kz = kzInput.value;
             saveState();
+            updateLiveEntry();
         });
     }
     if (mkkInput) {
         mkkInput.addEventListener("input", () => {
             appState.mkk = mkkInput.value;
             saveState();
+            updateLiveEntry();
+        });
+    }
+    if (templateSelect) {
+        templateSelect.addEventListener("change", () => {
+            updateLiveEntry();
         });
     }
 }
@@ -107,6 +116,8 @@ function selectPatrol(index) {
     document.querySelectorAll("#patrolCards .select-card").forEach(card => card.classList.remove("active"));
     const cards = document.querySelectorAll("#patrolCards .select-card");
     if (cards[index]) cards[index].classList.add("active");
+
+    updateLiveEntry();
 }
 
 function renderPatrolPreview() {
@@ -175,6 +186,7 @@ function toggleZgloszenie(opis) {
     if (index > -1) selectedZgloszenia.splice(index, 1);
     else selectedZgloszenia.push(opis);
     renderZgloszeniaItems();
+    updateLiveEntry();
 }
 
 // =====================================
@@ -214,30 +226,40 @@ function togglePolecenie(opis) {
     if (index > -1) selectedPolecenia.splice(index, 1);
     else selectedPolecenia.push(opis);
     renderPoleceniaItems();
+    updateLiveEntry();
 }
 
 // =====================================
-// GENEROWANIE
+// GENEROWANIE NA ŻYWO
 // =====================================
 
-async function generateEntry() {
+function updateLiveEntry() {
+    const textarea = document.getElementById("generatedEntry");
+    if (!textarea) return;
+
+    // Jeśli nie wybrano patrolu lub szablonu – wyczyść
     if (selectedPatrol === null) {
-        alert("Wybierz patrol");
+        textarea.value = "";
         return;
     }
 
-    const templateIndex = document.getElementById("templateSelect").value;
-    if (templateIndex === "") {
-        alert("Wybierz szablon");
+    const templateSelect = document.getElementById("templateSelect");
+    if (!templateSelect || templateSelect.value === "") {
+        textarea.value = "";
         return;
     }
 
-    const template = appState.szablony[templateIndex];
+    const template = appState.szablony[templateSelect.value];
+    if (!template) {
+        textarea.value = "";
+        return;
+    }
+
     const kz = document.getElementById("kzInput")?.value || "";
     const mkk = document.getElementById("mkkInput")?.value || "";
     const patrol = appState.patrole[selectedPatrol];
 
-    let text = template.tresc;
+    let text = template.tresc || "";
 
     const skladLine = forceOneLine(patrol.sklad || []);
     const wszyscyLine = forceOneLine(getAllPatrolMembersOneLine());
@@ -260,25 +282,31 @@ async function generateEntry() {
     text = text.replaceAll("@KZ", kz);
     text = text.replaceAll("@MKK", mkk);
 
+    // Usuwamy zbędne enter’y
     text = text.replace(/\n+/g, " ").trim();
 
-    document.getElementById("generatedEntry").value = text;
+    textarea.value = text;
+}
 
-    // Reset zaznaczeń
-    selectedZgloszenia = [];
-    selectedPolecenia = [];
-    renderZgloszeniaItems();
-    renderPoleceniaItems();
+// =====================================
+// PRZYCISKI
+// =====================================
+
+function generateEntry() {
+    updateLiveEntry();
 }
 
 function copyEntry() {
     const textarea = document.getElementById("generatedEntry");
     if (!textarea || !textarea.value.trim()) {
-        alert("Najpierw wygeneruj wpis");
+        showToast("Najpierw wygeneruj wpis");
         return;
     }
+
     navigator.clipboard.writeText(textarea.value).then(() => {
-        alert("✅ Skopiowano do schowka!");
+        showToast("✅ Skopiowano do schowka");
+    }).catch(() => {
+        showToast("Nie udało się skopiować");
     });
 }
 
@@ -288,6 +316,46 @@ function clearEntry() {
     selectedPolecenia = [];
     renderZgloszeniaItems();
     renderPoleceniaItems();
+    updateLiveEntry();
+}
+
+// =====================================
+// MAŁE POWIADOMIENIE (toast)
+// =====================================
+function showToast(message) {
+    // Usuń poprzedni toast jeśli istnieje
+    const old = document.getElementById("toastMsg");
+    if (old) old.remove();
+
+    const toast = document.createElement("div");
+    toast.id = "toastMsg";
+    toast.innerText = message;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        background: #16a34a;
+        color: white;
+        padding: 14px 22px;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        z-index: 9999;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    `;
+
+    document.body.appendChild(toast);
+
+    // Animacja pojawienia
+    setTimeout(() => toast.style.opacity = "1", 10);
+
+    // Znika po 2 sekundach
+    setTimeout(() => {
+        toast.style.opacity = "0";
+        setTimeout(() => toast.remove(), 300);
+    }, 2000);
 }
 
 // =====================================
@@ -301,3 +369,5 @@ window.selectZgloszeniaLine = selectZgloszeniaLine;
 window.toggleZgloszenie = toggleZgloszenie;
 window.selectPoleceniaLine = selectPoleceniaLine;
 window.togglePolecenie = togglePolecenie;
+window.updateLiveEntry = updateLiveEntry;
+window.showToast = showToast;
