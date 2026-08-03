@@ -7,7 +7,6 @@ let selectedZgloszenia = [];
 let selectedPolecenia = [];
 let selectedZgloszeniaLine = null;
 let selectedPoleceniaLine = null;
-let horyzontOpen = false;
 
 // =====================================
 // POMOCNICZE FUNKCJE
@@ -90,20 +89,6 @@ function setDefaultTemplate() {
         appState.defaultTemplateIndex < appState.szablony.length) {
         select.value = appState.defaultTemplateIndex;
     }
-}
-
-// =====================================
-// ZWIJANIE HORYZONT
-// =====================================
-
-function toggleHoryzont() {
-    const content = document.getElementById("horyzontContent");
-    const arrow = document.getElementById("horyzontArrow");
-    if (!content) return;
-
-    horyzontOpen = !horyzontOpen;
-    content.style.display = horyzontOpen ? "block" : "none";
-    arrow.innerText = horyzontOpen ? "▲" : "▼";
 }
 
 // =====================================
@@ -300,6 +285,10 @@ function updateLiveEntry() {
     const data = now.toLocaleDateString("pl-PL");
     const godzina = now.toLocaleTimeString("pl-PL", { hour: '2-digit', minute: '2-digit' });
 
+    // WOT i Policjant z wybranego patrolu
+    const wotList = [patrol.wot1, patrol.wot2].filter(x => x && x.trim()).join(", ");
+    const policjantList = [patrol.policjant1, patrol.policjant2].filter(x => x && x.trim()).join(", ");
+
     text = text.replaceAll("@patrol", patrol.nazwa || "");
     text = text.replaceAll("@dowodca", patrol.dowodca || "");
     text = text.replaceAll("@kierowca", patrol.kierowca || "");
@@ -311,12 +300,8 @@ function updateLiveEntry() {
     text = text.replaceAll("@godzina", godzina);
     text = text.replaceAll("@KZ", kz);
     text = text.replaceAll("@MKK", mkk);
-
-    // Dane z wybranego patrolu
-    text = text.replaceAll("@wot1", patrol.wot1 || "");
-    text = text.replaceAll("@wot2", patrol.wot2 || "");
-    text = text.replaceAll("@policjant1", patrol.policjant1 || "");
-    text = text.replaceAll("@policjant2", patrol.policjant2 || "");
+    text = text.replaceAll("@wot", wotList);
+    text = text.replaceAll("@policjant", policjantList);
 
     text = text.replace(/\n+/g, " ").trim();
     textarea.value = text;
@@ -402,4 +387,3 @@ window.selectPoleceniaLine = selectPoleceniaLine;
 window.togglePolecenie = togglePolecenie;
 window.updateLiveEntry = updateLiveEntry;
 window.showToast = showToast;
-window.toggleHoryzont = toggleHoryzont;
