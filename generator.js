@@ -52,7 +52,7 @@ function initGenerator() {
 
     setupPersistentInputs();
     setDefaultTemplate();
-    updateLiveEntry(); // od razu odśwież
+    updateLiveEntry();
 }
 
 function setupPersistentInputs() {
@@ -111,27 +111,11 @@ function renderPatroleCards() {
 
 function selectPatrol(index) {
     selectedPatrol = index;
-    renderPatrolPreview();
-
     document.querySelectorAll("#patrolCards .select-card").forEach(card => card.classList.remove("active"));
     const cards = document.querySelectorAll("#patrolCards .select-card");
     if (cards[index]) cards[index].classList.add("active");
 
     updateLiveEntry();
-}
-
-function renderPatrolPreview() {
-    const preview = document.getElementById("patrolPreview");
-    if (selectedPatrol === null) {
-        preview.innerHTML = "Wybierz patrol...";
-        return;
-    }
-    const patrol = appState.patrole[selectedPatrol];
-    preview.innerHTML = `
-        <div class="patrol-header">
-            <span>Wybrany patrol:</span>
-            <span class="patrol-name">${patrol.nazwa}</span>
-        </div>`;
 }
 
 // =====================================
@@ -156,17 +140,32 @@ function renderTemplateList() {
 function renderZgloszeniaLines() {
     const container = document.getElementById("zgloszeniaLinie");
     if (!container) return;
+
     const lines = [...new Set(appState.zgloszenia.rows.map(row => row.Linia))];
     let html = "";
+
     lines.forEach(line => {
-        if (line) html += `<div class="line-pill" onclick="selectZgloszeniaLine('${line}')">${line}</div>`;
+        if (!line) return;
+
+        const hasSelected = appState.zgloszenia.rows
+            .filter(row => row.Linia === line)
+            .some(row => selectedZgloszenia.includes(row.Opis));
+
+        const isActive = selectedZgloszeniaLine === line;
+        let className = "line-pill";
+        if (isActive) className += " active";
+        if (hasSelected) className += " has-selected";
+
+        html += `<div class="${className}" onclick="selectZgloszeniaLine('${line}')">${line}</div>`;
     });
+
     container.innerHTML = html || "<p>Brak zgłoszeń</p>";
 }
 
 function selectZgloszeniaLine(line) {
     selectedZgloszeniaLine = line;
     renderZgloszeniaItems();
+    renderZgloszeniaLines();
 }
 
 function renderZgloszeniaItems() {
@@ -186,6 +185,7 @@ function toggleZgloszenie(opis) {
     if (index > -1) selectedZgloszenia.splice(index, 1);
     else selectedZgloszenia.push(opis);
     renderZgloszeniaItems();
+    renderZgloszeniaLines();
     updateLiveEntry();
 }
 
@@ -196,17 +196,32 @@ function toggleZgloszenie(opis) {
 function renderPoleceniaLines() {
     const container = document.getElementById("poleceniaLinie");
     if (!container) return;
+
     const lines = [...new Set(appState.polecenia.rows.map(row => row.Linia))];
     let html = "";
+
     lines.forEach(line => {
-        if (line) html += `<div class="line-pill" onclick="selectPoleceniaLine('${line}')">${line}</div>`;
+        if (!line) return;
+
+        const hasSelected = appState.polecenia.rows
+            .filter(row => row.Linia === line)
+            .some(row => selectedPolecenia.includes(row.Opis));
+
+        const isActive = selectedPoleceniaLine === line;
+        let className = "line-pill";
+        if (isActive) className += " active";
+        if (hasSelected) className += " has-selected";
+
+        html += `<div class="${className}" onclick="selectPoleceniaLine('${line}')">${line}</div>`;
     });
+
     container.innerHTML = html || "<p>Brak poleceń</p>";
 }
 
 function selectPoleceniaLine(line) {
     selectedPoleceniaLine = line;
     renderPoleceniaItems();
+    renderPoleceniaLines();
 }
 
 function renderPoleceniaItems() {
@@ -226,6 +241,7 @@ function togglePolecenie(opis) {
     if (index > -1) selectedPolecenia.splice(index, 1);
     else selectedPolecenia.push(opis);
     renderPoleceniaItems();
+    renderPoleceniaLines();
     updateLiveEntry();
 }
 
@@ -237,7 +253,6 @@ function updateLiveEntry() {
     const textarea = document.getElementById("generatedEntry");
     if (!textarea) return;
 
-    // Jeśli nie wybrano patrolu lub szablonu – wyczyść
     if (selectedPatrol === null) {
         textarea.value = "";
         return;
@@ -282,9 +297,7 @@ function updateLiveEntry() {
     text = text.replaceAll("@KZ", kz);
     text = text.replaceAll("@MKK", mkk);
 
-    // Usuwamy zbędne enter’y
     text = text.replace(/\n+/g, " ").trim();
-
     textarea.value = text;
 }
 
@@ -316,6 +329,8 @@ function clearEntry() {
     selectedPolecenia = [];
     renderZgloszeniaItems();
     renderPoleceniaItems();
+    renderZgloszeniaLines();
+    renderPoleceniaLines();
     updateLiveEntry();
 }
 
@@ -323,7 +338,6 @@ function clearEntry() {
 // MAŁE POWIADOMIENIE (toast)
 // =====================================
 function showToast(message) {
-    // Usuń poprzedni toast jeśli istnieje
     const old = document.getElementById("toastMsg");
     if (old) old.remove();
 
@@ -347,11 +361,7 @@ function showToast(message) {
     `;
 
     document.body.appendChild(toast);
-
-    // Animacja pojawienia
     setTimeout(() => toast.style.opacity = "1", 10);
-
-    // Znika po 2 sekundach
     setTimeout(() => {
         toast.style.opacity = "0";
         setTimeout(() => toast.remove(), 300);
