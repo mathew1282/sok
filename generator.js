@@ -194,8 +194,14 @@ function renderZgloszeniaLines() {
 }
 
 function selectZgloszeniaLine(line) {
-    selectedZgloszeniaLine = line;
-    renderZgloszeniaItems();
+    if (selectedZgloszeniaLine === line) {
+        // Drugi klik – odznacz
+        selectedZgloszeniaLine = null;
+        document.getElementById("zgloszeniaItems").innerHTML = "";
+    } else {
+        selectedZgloszeniaLine = line;
+        renderZgloszeniaItems();
+    }
     renderZgloszeniaLines();
 }
 
