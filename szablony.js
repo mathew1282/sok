@@ -72,6 +72,10 @@ function renderSzablony() {
                 <button type="button" class="btn-primary" onclick="insertTag('@MKK')">@MKK</button>
                 <button type="button" class="btn-primary" onclick="insertTag('@data')">@data</button>
                 <button type="button" class="btn-primary" onclick="insertTag('@godzina')">@godzina</button>
+                <button type="button" class="btn-primary" onclick="insertTag('@wot1')">@wot1</button>
+                <button type="button" class="btn-primary" onclick="insertTag('@wot2')">@wot2</button>
+                <button type="button" class="btn-primary" onclick="insertTag('@policjant1')">@policjant1</button>
+                <button type="button" class="btn-primary" onclick="insertTag('@policjant2')">@policjant2</button>
             </div>
 
             <div class="modal-actions">
