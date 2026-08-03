@@ -43,10 +43,14 @@ const defaultState = {
         szlak: "",
         osobowa: "",
         towarowa: ""
-    }  
- 
+    },
+    // Działania horyzont
+    wot1: "",
+    wot2: "",
+    policjant1: "",
+    policjant2: ""
 };
-
+ 
 let appState = { ...defaultState };
 
 // ======================
