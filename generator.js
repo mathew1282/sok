@@ -7,6 +7,7 @@ let selectedZgloszenia = [];
 let selectedPolecenia = [];
 let selectedZgloszeniaLine = null;
 let selectedPoleceniaLine = null;
+let horyzontOpen = false;
 
 // =====================================
 // POMOCNICZE FUNKCJE
@@ -46,9 +47,17 @@ function initGenerator() {
 
     const kzInput = document.getElementById("kzInput");
     const mkkInput = document.getElementById("mkkInput");
+    const wot1Input = document.getElementById("wot1Input");
+    const wot2Input = document.getElementById("wot2Input");
+    const policjant1Input = document.getElementById("policjant1Input");
+    const policjant2Input = document.getElementById("policjant2Input");
 
     if (kzInput) kzInput.value = appState.kz || "";
     if (mkkInput) mkkInput.value = appState.mkk || "";
+    if (wot1Input) wot1Input.value = appState.wot1 || "";
+    if (wot2Input) wot2Input.value = appState.wot2 || "";
+    if (policjant1Input) policjant1Input.value = appState.policjant1 || "";
+    if (policjant2Input) policjant2Input.value = appState.policjant2 || "";
 
     setupPersistentInputs();
     setDefaultTemplate();
@@ -59,6 +68,10 @@ function setupPersistentInputs() {
     const kzInput = document.getElementById("kzInput");
     const mkkInput = document.getElementById("mkkInput");
     const templateSelect = document.getElementById("templateSelect");
+    const wot1Input = document.getElementById("wot1Input");
+    const wot2Input = document.getElementById("wot2Input");
+    const policjant1Input = document.getElementById("policjant1Input");
+    const policjant2Input = document.getElementById("policjant2Input");
 
     if (kzInput) {
         kzInput.addEventListener("input", () => {
@@ -70,6 +83,34 @@ function setupPersistentInputs() {
     if (mkkInput) {
         mkkInput.addEventListener("input", () => {
             appState.mkk = mkkInput.value;
+            saveState();
+            updateLiveEntry();
+        });
+    }
+    if (wot1Input) {
+        wot1Input.addEventListener("input", () => {
+            appState.wot1 = wot1Input.value;
+            saveState();
+            updateLiveEntry();
+        });
+    }
+    if (wot2Input) {
+        wot2Input.addEventListener("input", () => {
+            appState.wot2 = wot2Input.value;
+            saveState();
+            updateLiveEntry();
+        });
+    }
+    if (policjant1Input) {
+        policjant1Input.addEventListener("input", () => {
+            appState.policjant1 = policjant1Input.value;
+            saveState();
+            updateLiveEntry();
+        });
+    }
+    if (policjant2Input) {
+        policjant2Input.addEventListener("input", () => {
+            appState.policjant2 = policjant2Input.value;
             saveState();
             updateLiveEntry();
         });
@@ -89,6 +130,20 @@ function setDefaultTemplate() {
         appState.defaultTemplateIndex < appState.szablony.length) {
         select.value = appState.defaultTemplateIndex;
     }
+}
+
+// =====================================
+// ZWIJANIE HORYZONT
+// =====================================
+
+function toggleHoryzont() {
+    const content = document.getElementById("horyzontContent");
+    const arrow = document.getElementById("horyzontArrow");
+    if (!content) return;
+
+    horyzontOpen = !horyzontOpen;
+    content.style.display = horyzontOpen ? "block" : "none";
+    arrow.innerText = horyzontOpen ? "▲" : "▼";
 }
 
 // =====================================
@@ -296,6 +351,10 @@ function updateLiveEntry() {
     text = text.replaceAll("@godzina", godzina);
     text = text.replaceAll("@KZ", kz);
     text = text.replaceAll("@MKK", mkk);
+    text = text.replaceAll("@wot1", appState.wot1 || "");
+    text = text.replaceAll("@wot2", appState.wot2 || "");
+    text = text.replaceAll("@policjant1", appState.policjant1 || "");
+    text = text.replaceAll("@policjant2", appState.policjant2 || "");
 
     text = text.replace(/\n+/g, " ").trim();
     textarea.value = text;
@@ -381,3 +440,4 @@ window.selectPoleceniaLine = selectPoleceniaLine;
 window.togglePolecenie = togglePolecenie;
 window.updateLiveEntry = updateLiveEntry;
 window.showToast = showToast;
+window.toggleHoryzont = toggleHoryzont;
