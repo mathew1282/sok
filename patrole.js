@@ -52,6 +52,18 @@ function renderPatrole() {
         <label>Kierowca</label>
         <select id="kierowcaSelect"><option value="">-- brak --</option></select>
         <br><br>
+        <label>WOT 1</label>
+        <input type="text" id="wot1Input" placeholder="Imię i nazwisko">
+        <br><br>
+        <label>WOT 2</label>
+        <input type="text" id="wot2Input" placeholder="Imię i nazwisko">
+        <br><br>
+        <label>Policjant 1</label>
+        <input type="text" id="policjant1Input" placeholder="Imię i nazwisko">
+        <br><br>
+        <label>Policjant 2</label>
+        <input type="text" id="policjant2Input" placeholder="Imię i nazwisko">
+        <br><br>
         <button class="btn-success" onclick="createPatrol()">Stwórz patrol</button>
     </div>
 
@@ -65,6 +77,10 @@ function renderPatrole() {
                     <th>Skład</th>
                     <th>Dowódca</th>
                     <th>Kierowca</th>
+                    <th>WOT 1</th>
+                    <th>WOT 2</th>
+                    <th>Policjant 1</th>
+                    <th>Policjant 2</th>
                     <th>Edytuj</th>
                     <th>Usuń</th>
                 </tr>
@@ -76,9 +92,13 @@ function renderPatrole() {
         html += `
         <tr>
             <td>${patrol.nazwa}</td>
-            <td>${patrol.sklad.join("<br>")}</td>
+            <td>${(patrol.sklad || []).join("<br>")}</td>
             <td>${patrol.dowodca || ""}</td>
             <td>${patrol.kierowca || ""}</td>
+            <td>${patrol.wot1 || ""}</td>
+            <td>${patrol.wot2 || ""}</td>
+            <td>${patrol.policjant1 || ""}</td>
+            <td>${patrol.policjant2 || ""}</td>
             <td><button class="btn-primary" onclick="editPatrol(${index})">Edytuj</button></td>
             <td><button class="btn-danger" onclick="removePatrol(${index})">Usuń</button></td>
         </tr>`;
@@ -143,8 +163,21 @@ async function createPatrol() {
     const sklad = selectedPatrolMembers.map(index => getPersonName(appState.dane.rows[index]));
     const dowodca = document.getElementById("dowodcaSelect").value;
     const kierowca = document.getElementById("kierowcaSelect").value;
+    const wot1 = document.getElementById("wot1Input")?.value.trim() || "";
+    const wot2 = document.getElementById("wot2Input")?.value.trim() || "";
+    const policjant1 = document.getElementById("policjant1Input")?.value.trim() || "";
+    const policjant2 = document.getElementById("policjant2Input")?.value.trim() || "";
 
-    appState.patrole.push({ nazwa, sklad, dowodca, kierowca });
+    appState.patrole.push({ 
+        nazwa, 
+        sklad, 
+        dowodca, 
+        kierowca,
+        wot1,
+        wot2,
+        policjant1,
+        policjant2
+    });
 
     await saveState();
     selectedPatrolMembers = [];
@@ -153,6 +186,7 @@ async function createPatrol() {
 
 async function editPatrol(index) {
     const patrol = appState.patrole[index];
+
     const nowaNazwa = prompt("Nazwa patrolu", patrol.nazwa);
     if (nowaNazwa === null) return;
 
@@ -162,9 +196,25 @@ async function editPatrol(index) {
     const nowyKierowca = prompt("Kierowca", patrol.kierowca || "");
     if (nowyKierowca === null) return;
 
+    const nowyWot1 = prompt("WOT 1", patrol.wot1 || "");
+    if (nowyWot1 === null) return;
+
+    const nowyWot2 = prompt("WOT 2", patrol.wot2 || "");
+    if (nowyWot2 === null) return;
+
+    const nowyPolicjant1 = prompt("Policjant 1", patrol.policjant1 || "");
+    if (nowyPolicjant1 === null) return;
+
+    const nowyPolicjant2 = prompt("Policjant 2", patrol.policjant2 || "");
+    if (nowyPolicjant2 === null) return;
+
     patrol.nazwa = nowaNazwa;
     patrol.dowodca = nowyDowodca;
     patrol.kierowca = nowyKierowca;
+    patrol.wot1 = nowyWot1;
+    patrol.wot2 = nowyWot2;
+    patrol.policjant1 = nowyPolicjant1;
+    patrol.policjant2 = nowyPolicjant2;
 
     await saveState();
     renderPatrole();
