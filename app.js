@@ -39,40 +39,6 @@ const pages = {
     generator: `
     <div id="generatorContainer">
 
-        <!-- DZIAŁANIA HORYZONT (zwijane) -->
-        <div class="generator-section">
-            <div onclick="toggleHoryzont()" style="display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none;">
-                <div class="generator-title" style="margin-bottom:0;">Działania horyzont</div>
-                <span id="horyzontArrow" style="font-size:18px;">▼</span>
-            </div>
-
-            <div id="horyzontContent" style="display:none; margin-top:15px;">
-                <div style="display:flex; flex-wrap:wrap; gap:15px; align-items:center;">
-                    
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="white-space:nowrap; font-weight:600;">WOT 1</span>
-                        <input type="text" id="wot1Input" placeholder="Imię i nazwisko" style="width:180px;">
-                    </div>
-
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="white-space:nowrap; font-weight:600;">WOT 2</span>
-                        <input type="text" id="wot2Input" placeholder="Imię i nazwisko" style="width:180px;">
-                    </div>
-
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="white-space:nowrap; font-weight:600;">Policjant 1</span>
-                        <input type="text" id="policjant1Input" placeholder="Imię i nazwisko" style="width:180px;">
-                    </div>
-
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <span style="white-space:nowrap; font-weight:600;">Policjant 2</span>
-                        <input type="text" id="policjant2Input" placeholder="Imię i nazwisko" style="width:180px;">
-                    </div>
-
-                </div>
-            </div>
-        </div>
-
         <!-- KZ w jednej linii -->
         <div class="generator-section" style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
             <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">Komendant zmiany IOK Wrocław</div>
