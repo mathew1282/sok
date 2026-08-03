@@ -2,7 +2,7 @@
 // GENERATOR WPISÓW
 // =====================================
 
-let selectedPatrols = [];   // dowolna liczba patroli
+let selectedPatrols = [];
 let selectedZgloszenia = [];
 let selectedPolecenia = [];
 let selectedZgloszeniaLine = null;
@@ -32,6 +32,32 @@ function getAllPatrolMembersOneLine() {
         }
     });
     return Array.from(members);
+}
+
+function sortLinesNatural(lines) {
+    return lines.sort((a, b) => {
+        const aStr = String(a || "").trim();
+        const bStr = String(b || "").trim();
+
+        const aIsNum = /^\d/.test(aStr);
+        const bIsNum = /^\d/.test(bStr);
+
+        // Liczby najpierw
+        if (aIsNum && !bIsNum) return -1;
+        if (!aIsNum && bIsNum) return 1;
+
+        // Oba numeryczne → sortuj numerycznie
+        if (aIsNum && bIsNum) {
+            const aNum = parseInt(aStr, 10);
+            const bNum = parseInt(bStr, 10);
+            if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) {
+                return aNum - bNum;
+            }
+        }
+
+        // Alfabetycznie (polski)
+        return aStr.localeCompare(bStr, "pl", { numeric: true, sensitivity: "base" });
+    });
 }
 
 // =====================================
@@ -147,12 +173,11 @@ function renderZgloszeniaLines() {
     const container = document.getElementById("zgloszeniaLinie");
     if (!container) return;
 
-    const lines = [...new Set(appState.zgloszenia.rows.map(row => row.Linia))];
+    let lines = [...new Set(appState.zgloszenia.rows.map(row => row.Linia).filter(Boolean))];
+    lines = sortLinesNatural(lines);
+
     let html = "";
-
     lines.forEach(line => {
-        if (!line) return;
-
         const hasSelected = appState.zgloszenia.rows
             .filter(row => row.Linia === line)
             .some(row => selectedZgloszenia.includes(row.Opis));
@@ -203,12 +228,11 @@ function renderPoleceniaLines() {
     const container = document.getElementById("poleceniaLinie");
     if (!container) return;
 
-    const lines = [...new Set(appState.polecenia.rows.map(row => row.Linia))];
+    let lines = [...new Set(appState.polecenia.rows.map(row => row.Linia).filter(Boolean))];
+    lines = sortLinesNatural(lines);
+
     let html = "";
-
     lines.forEach(line => {
-        if (!line) return;
-
         const hasSelected = appState.polecenia.rows
             .filter(row => row.Linia === line)
             .some(row => selectedPolecenia.includes(row.Opis));
@@ -279,7 +303,6 @@ function updateLiveEntry() {
     const kz = document.getElementById("kzInput")?.value || "";
     const mkk = document.getElementById("mkkInput")?.value || "";
 
-    // Zbieramy dane ze wszystkich zaznaczonych patroli
     const patrolNames = [];
     const allSklad = [];
     const allDowodcy = [];
