@@ -36,7 +36,7 @@ const pages = {
     polecenia: `<div id="poleceniaContainer"></div>`,
     patrole: `<div id="patroleContainer"></div>`,
     szablony: `<div id="szablonyContainer"></div>`,
-        generator: `
+    generator: `
         <div id="generatorContainer">
 
             <!-- KZ w jednej linii -->
@@ -96,7 +96,7 @@ const pages = {
                 <div class="generator-title">Wygenerowany wpis</div>
                 <textarea id="generatedEntry" style="width:100%; min-height:350px;"></textarea>
             </div>
-        </div>`
+        </div>`,
     linie: `<div id="linieContainer"></div>`
 };
 
