@@ -2,7 +2,7 @@
 // GENERATOR WPISÓW
 // =====================================
 
-let selectedPatrol = null;
+let selectedPatrols = [];   // dowolna liczba patroli
 let selectedZgloszenia = [];
 let selectedPolecenia = [];
 let selectedZgloszeniaLine = null;
@@ -39,6 +39,7 @@ function getAllPatrolMembersOneLine() {
 // =====================================
 
 function initGenerator() {
+    selectedPatrols = [];
     renderPatroleCards();
     renderTemplateList();
     renderZgloszeniaLines();
@@ -92,7 +93,7 @@ function setDefaultTemplate() {
 }
 
 // =====================================
-// PATROLE
+// PATROLE (dowolna liczba)
 // =====================================
 
 function renderPatroleCards() {
@@ -101,20 +102,25 @@ function renderPatroleCards() {
 
     let html = "";
     appState.patrole.forEach((patrol, index) => {
+        const isSelected = selectedPatrols.includes(index) ? "active" : "";
         html += `
-        <div class="select-card" onclick="selectPatrol(${index})">
+        <div class="select-card ${isSelected}" onclick="togglePatrol(${index})">
             <div class="select-card-title">${patrol.nazwa}</div>
         </div>`;
     });
     container.innerHTML = html || "<p>Brak utworzonych patroli</p>";
 }
 
-function selectPatrol(index) {
-    selectedPatrol = index;
-    document.querySelectorAll("#patrolCards .select-card").forEach(card => card.classList.remove("active"));
-    const cards = document.querySelectorAll("#patrolCards .select-card");
-    if (cards[index]) cards[index].classList.add("active");
+function togglePatrol(index) {
+    const pos = selectedPatrols.indexOf(index);
 
+    if (pos > -1) {
+        selectedPatrols.splice(pos, 1);
+    } else {
+        selectedPatrols.push(index);
+    }
+
+    renderPatroleCards();
     updateLiveEntry();
 }
 
@@ -253,7 +259,7 @@ function updateLiveEntry() {
     const textarea = document.getElementById("generatedEntry");
     if (!textarea) return;
 
-    if (selectedPatrol === null) {
+    if (selectedPatrols.length === 0) {
         textarea.value = "";
         return;
     }
@@ -272,26 +278,45 @@ function updateLiveEntry() {
 
     const kz = document.getElementById("kzInput")?.value || "";
     const mkk = document.getElementById("mkkInput")?.value || "";
-    const patrol = appState.patrole[selectedPatrol];
+
+    // Zbieramy dane ze wszystkich zaznaczonych patroli
+    const patrolNames = [];
+    const allSklad = [];
+    const allDowodcy = [];
+    const allKierowcy = [];
+    const allWot = [];
+    const allPolicjanci = [];
+
+    selectedPatrols.forEach(index => {
+        const patrol = appState.patrole[index];
+        if (!patrol) return;
+
+        patrolNames.push(patrol.nazwa || "");
+        if (patrol.sklad) allSklad.push(...patrol.sklad);
+        if (patrol.dowodca) allDowodcy.push(patrol.dowodca);
+        if (patrol.kierowca) allKierowcy.push(patrol.kierowca);
+        if (patrol.wot1) allWot.push(patrol.wot1);
+        if (patrol.wot2) allWot.push(patrol.wot2);
+        if (patrol.policjant1) allPolicjanci.push(patrol.policjant1);
+        if (patrol.policjant2) allPolicjanci.push(patrol.policjant2);
+    });
 
     let text = template.tresc || "";
 
-    const skladLine = forceOneLine(patrol.sklad || []);
+    const skladLine = forceOneLine(allSklad);
     const wszyscyLine = forceOneLine(getAllPatrolMembersOneLine());
     const zgloszeniaLine = forceOneLine(selectedZgloszenia);
     const poleceniaLine = forceOneLine(selectedPolecenia);
+    const wotList = forceOneLine(allWot);
+    const policjantList = forceOneLine(allPolicjanci);
 
     const now = new Date();
     const data = now.toLocaleDateString("pl-PL");
     const godzina = now.toLocaleTimeString("pl-PL", { hour: '2-digit', minute: '2-digit' });
 
-    // WOT i Policjant z wybranego patrolu
-    const wotList = [patrol.wot1, patrol.wot2].filter(x => x && x.trim()).join(", ");
-    const policjantList = [patrol.policjant1, patrol.policjant2].filter(x => x && x.trim()).join(", ");
-
-    text = text.replaceAll("@patrol", patrol.nazwa || "");
-    text = text.replaceAll("@dowodca", patrol.dowodca || "");
-    text = text.replaceAll("@kierowca", patrol.kierowca || "");
+    text = text.replaceAll("@patrol", forceOneLine(patrolNames));
+    text = text.replaceAll("@dowodca", forceOneLine(allDowodcy));
+    text = text.replaceAll("@kierowca", forceOneLine(allKierowcy));
     text = text.replaceAll("@sklad", skladLine);
     text = text.replaceAll("@wszyscy", wszyscyLine);
     text = text.replaceAll("@zgloszenia", zgloszeniaLine);
@@ -333,6 +358,8 @@ function clearEntry() {
     document.getElementById("generatedEntry").value = "";
     selectedZgloszenia = [];
     selectedPolecenia = [];
+    selectedPatrols = [];
+    renderPatroleCards();
     renderZgloszeniaItems();
     renderPoleceniaItems();
     renderZgloszeniaLines();
@@ -380,7 +407,7 @@ function showToast(message) {
 window.generateEntry = generateEntry;
 window.copyEntry = copyEntry;
 window.clearEntry = clearEntry;
-window.selectPatrol = selectPatrol;
+window.togglePatrol = togglePatrol;
 window.selectZgloszeniaLine = selectZgloszeniaLine;
 window.toggleZgloszenie = toggleZgloszenie;
 window.selectPoleceniaLine = selectPoleceniaLine;
