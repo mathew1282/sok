@@ -255,8 +255,14 @@ function renderPoleceniaLines() {
 }
 
 function selectPoleceniaLine(line) {
-    selectedPoleceniaLine = line;
-    renderPoleceniaItems();
+    if (selectedPoleceniaLine === line) {
+        // Drugi klik – odznacz
+        selectedPoleceniaLine = null;
+        document.getElementById("poleceniaItems").innerHTML = "";
+    } else {
+        selectedPoleceniaLine = line;
+        renderPoleceniaItems();
+    }
     renderPoleceniaLines();
 }
 
