@@ -1,14 +1,20 @@
 // =====================================
-// ZGŁOSZENIA
+// ZGŁOSZENIA (jak szablony)
 // =====================================
 
-let zgloszeniaFilterLinia = "";
-let zgloszeniaFilterOpis = "";
-let zgloszeniaSortField = null;   // "Linia" lub "Opis"
-let zgloszeniaSortAsc = true;
-let currentOpisTextarea = null;   // aktualnie fokusowane pole Opis
+let currentZgloszenieEdit = null;
 
 function initZgloszenia() {
+    // migracja starych danych: Opis -> OpisKrotki + Opis
+    if (appState.zgloszenia?.rows) {
+        appState.zgloszenia.rows.forEach(row => {
+            if (row.OpisKrotki === undefined) {
+                row.OpisKrotki = row.Opis || "";
+            }
+            if (row.Opis === undefined) row.Opis = "";
+            if (row.Linia === undefined) row.Linia = "";
+        });
+    }
     renderZgloszenia();
 }
 
@@ -16,40 +22,70 @@ function renderZgloszenia() {
     const container = document.getElementById("zgloszeniaContainer");
     if (!container) return;
 
-    // Filtrowanie
-    let rows = appState.zgloszenia.rows.map((row, index) => ({ ...row, _index: index }));
-
-    if (zgloszeniaFilterLinia) {
-        const f = zgloszeniaFilterLinia.toLowerCase();
-        rows = rows.filter(r => (r.Linia || "").toLowerCase().includes(f));
-    }
-    if (zgloszeniaFilterOpis) {
-        const f = zgloszeniaFilterOpis.toLowerCase();
-        rows = rows.filter(r => (r.Opis || "").toLowerCase().includes(f));
-    }
-
-    // Sortowanie
-    if (zgloszeniaSortField) {
-        rows.sort((a, b) => {
-            const va = (a[zgloszeniaSortField] || "").toLowerCase();
-            const vb = (b[zgloszeniaSortField] || "").toLowerCase();
-            if (va < vb) return zgloszeniaSortAsc ? -1 : 1;
-            if (va > vb) return zgloszeniaSortAsc ? 1 : -1;
-            return 0;
-        });
-    }
+    const rows = appState.zgloszenia?.rows || [];
 
     let html = `
     <div class="card">
         <h2>Zgłoszenia</h2>
         <br>
-        <button class="btn-success" onclick="addZgloszenie()">Dodaj zgłoszenie</button>
+        <button class="btn-success" onclick="openZgloszenieModal()">Dodaj zgłoszenie</button>
         <br><br>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nr linii</th>
+                    <th>Opis krótki</th>
+                    <th>Opis</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
 
-        <!-- Znaczniki do wstawiania w Opis -->
-        <div style="margin-bottom:15px;">
-            <h3 style="margin-bottom:8px; font-size:15px;">Znaczniki (kliknij, aby wstawić do pola Opis)</h3>
-            <div class="tag-buttons" style="display:flex; flex-wrap:wrap; gap:6px;">
+    rows.forEach((row, index) => {
+        const krotki = (row.OpisKrotki || "").substring(0, 80);
+        const opis = (row.Opis || "").substring(0, 120);
+
+        html += `
+        <tr>
+            <td>${escapeHtml(row.Linia || "")}</td>
+            <td>${escapeHtml(krotki)}</td>
+            <td style="white-space: pre-wrap; max-width: 420px;">${escapeHtml(opis)}${(row.Opis || "").length > 120 ? "…" : ""}</td>
+            <td style="white-space:nowrap;">
+                <button class="btn-primary" onclick="editZgloszenie(${index})">Edytuj</button>
+                <button class="btn-danger" onclick="removeZgloszenie(${index})">Usuń</button>
+            </td>
+        </tr>`;
+    });
+
+    if (rows.length === 0) {
+        html += `<tr><td colspan="4" style="text-align:center; color:#94a3b8;">Brak zgłoszeń</td></tr>`;
+    }
+
+    html += `
+            </tbody>
+        </table>
+    </div>
+
+    <!-- MODAL -->
+    <div id="zgloszenieModal" class="modal-overlay" style="display:none;">
+        <div class="modal">
+            <h2 id="zgloszenieModalTitle">Zgłoszenie</h2>
+
+            <label>Nr linii</label>
+            <input type="text" id="zgloszenieLinia" placeholder="np. 275, 1, Legnica">
+
+            <br><br>
+            <label>Opis krótki (widoczny na kafelku w Generatorze)</label>
+            <input type="text" id="zgloszenieOpisKrotki" placeholder="Krótka nazwa zgłoszenia">
+
+            <br><br>
+            <label>Opis (tekst generowany do wpisu)</label>
+            <textarea id="zgloszenieOpis" rows="10" style="width:100%; font-family: monospace;" placeholder="Pełny opis z możliwością znaczników..."></textarea>
+
+            <br><br>
+            <h3>Dostępne znaczniki</h3>
+            <div class="tag-buttons">
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@patrol')">@patrol</button>
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@dowodca')">@dowodca</button>
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@kierowca')">@kierowca</button>
@@ -64,117 +100,88 @@ function renderZgloszenia() {
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@wot')">@wot</button>
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@policjant')">@policjant</button>
             </div>
-            <p style="font-size:12px; color:#94a3b8; margin-top:6px;">
-                Najpierw kliknij w pole Opis, potem wybierz znacznik.
-            </p>
-        </div>
 
-        <!-- Filtry -->
-        <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:15px; align-items:center;">
-            <div>
-                <label style="font-size:13px; color:#94a3b8;">Filtr Linia</label><br>
-                <input type="text" id="zglFilterLinia" value="${zgloszeniaFilterLinia}" 
-                       placeholder="Szukaj linii..." style="width:160px;"
-                       oninput="zgloszeniaFilterLinia=this.value; renderZgloszenia();">
-            </div>
-            <div>
-                <label style="font-size:13px; color:#94a3b8;">Filtr Opis</label><br>
-                <input type="text" id="zglFilterOpis" value="${zgloszeniaFilterOpis}" 
-                       placeholder="Szukaj opisu..." style="width:220px;"
-                       oninput="zgloszeniaFilterOpis=this.value; renderZgloszenia();">
-            </div>
-            <div style="padding-top:18px;">
-                <button class="btn-primary" onclick="sortZgloszenia('Linia')">Sortuj Linia</button>
-                <button class="btn-primary" onclick="sortZgloszenia('Opis')">Sortuj Opis</button>
-                <button class="btn-danger" onclick="clearZgloszeniaFilter()">Wyczyść filtry</button>
+            <div class="modal-actions">
+                <button class="btn-success" onclick="saveZgloszenie()">Zapisz zgłoszenie</button>
+                <button class="btn-danger" onclick="closeZgloszenieModal()">Anuluj</button>
             </div>
         </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th style="cursor:pointer;" onclick="sortZgloszenia('Linia')">Linia ${zgloszeniaSortField==='Linia' ? (zgloszeniaSortAsc?'▲':'▼') : ''}</th>
-                    <th style="cursor:pointer;" onclick="sortZgloszenia('Opis')">Opis ${zgloszeniaSortField==='Opis' ? (zgloszeniaSortAsc?'▲':'▼') : ''}</th>
-                    <th>Akcje</th>
-                </tr>
-            </thead>
-            <tbody>
+    </div>
     `;
 
-    rows.forEach(row => {
-        const index = row._index;
-        html += `
-        <tr>
-            <td>
-                <input type="text" value="${row.Linia || ''}" 
-                       onchange="updateZgloszenie(${index}, 'Linia', this.value)">
-            </td>
-            <td>
-                <textarea rows="2" style="width:100%; min-width:250px; resize:vertical;"
-                          onfocus="currentOpisTextarea=this"
-                          onchange="updateZgloszenie(${index}, 'Opis', this.value)">${row.Opis || ''}</textarea>
-            </td>
-            <td>
-                <button class="btn-danger" onclick="removeZgloszenie(${index})">Usuń</button>
-            </td>
-        </tr>`;
-    });
-
-    if (rows.length === 0) {
-        html += `<tr><td colspan="3" style="text-align:center; color:#94a3b8;">Brak wyników</td></tr>`;
-    }
-
-    html += `</tbody></table></div>`;
     container.innerHTML = html;
 }
 
-function insertZgloszenieTag(tag) {
-    if (!currentOpisTextarea) {
-        alert("Najpierw kliknij w pole Opis, do którego chcesz wstawić znacznik.");
+function escapeHtml(str) {
+    return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+function openZgloszenieModal() {
+    currentZgloszenieEdit = null;
+    document.getElementById("zgloszenieModalTitle").innerText = "Dodaj zgłoszenie";
+    document.getElementById("zgloszenieLinia").value = "";
+    document.getElementById("zgloszenieOpisKrotki").value = "";
+    document.getElementById("zgloszenieOpis").value = "";
+    document.getElementById("zgloszenieModal").style.display = "flex";
+}
+
+function closeZgloszenieModal() {
+    document.getElementById("zgloszenieModal").style.display = "none";
+    currentZgloszenieEdit = null;
+}
+
+async function saveZgloszenie() {
+    const linia = document.getElementById("zgloszenieLinia").value.trim();
+    const opisKrotki = document.getElementById("zgloszenieOpisKrotki").value.trim();
+    const opis = document.getElementById("zgloszenieOpis").value.trim();
+
+    if (!linia) {
+        alert("Podaj nr linii");
+        return;
+    }
+    if (!opisKrotki) {
+        alert("Podaj opis krótki (będzie widoczny na kafelku)");
         return;
     }
 
-    const textarea = currentOpisTextarea;
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = textarea.value;
+    const item = {
+        Linia: linia,
+        OpisKrotki: opisKrotki,
+        Opis: opis
+    };
 
-    textarea.value = text.substring(0, start) + tag + text.substring(end);
-    textarea.focus();
-    textarea.selectionStart = start + tag.length;
-    textarea.selectionEnd = start + tag.length;
-
-    // od razu zapisujemy zmianę
-    const rowIndex = Array.from(document.querySelectorAll("textarea")).indexOf(textarea);
-    // bezpieczniej: wywołujemy onchange
-    textarea.dispatchEvent(new Event("change"));
-}
-
-function sortZgloszenia(field) {
-    if (zgloszeniaSortField === field) {
-        zgloszeniaSortAsc = !zgloszeniaSortAsc;
-    } else {
-        zgloszeniaSortField = field;
-        zgloszeniaSortAsc = true;
+    if (!appState.zgloszenia) {
+        appState.zgloszenia = { columns: ["Linia", "OpisKrotki", "Opis"], rows: [] };
     }
-    renderZgloszenia();
-}
+    if (!Array.isArray(appState.zgloszenia.rows)) {
+        appState.zgloszenia.rows = [];
+    }
 
-function clearZgloszeniaFilter() {
-    zgloszeniaFilterLinia = "";
-    zgloszeniaFilterOpis = "";
-    zgloszeniaSortField = null;
-    renderZgloszenia();
-}
+    if (currentZgloszenieEdit === null) {
+        appState.zgloszenia.rows.push(item);
+    } else {
+        appState.zgloszenia.rows[currentZgloszenieEdit] = item;
+    }
 
-// =====================================
-// FUNKCJE Z ASYNC SAVE
-// =====================================
-
-async function addZgloszenie() {
-    appState.zgloszenia.rows.push({ Linia: "", Opis: "" });
     await saveState();
+    closeZgloszenieModal();
     renderZgloszenia();
+}
+
+async function editZgloszenie(index) {
+    currentZgloszenieEdit = index;
+    const row = appState.zgloszenia.rows[index];
+    if (!row) return;
+
+    document.getElementById("zgloszenieModalTitle").innerText = "Edytuj zgłoszenie";
+    document.getElementById("zgloszenieLinia").value = row.Linia || "";
+    document.getElementById("zgloszenieOpisKrotki").value = row.OpisKrotki || row.Opis || "";
+    document.getElementById("zgloszenieOpis").value = row.Opis || "";
+    document.getElementById("zgloszenieModal").style.display = "flex";
 }
 
 async function removeZgloszenie(index) {
@@ -184,17 +191,26 @@ async function removeZgloszenie(index) {
     renderZgloszenia();
 }
 
-async function updateZgloszenie(index, field, value) {
-    appState.zgloszenia.rows[index][field] = value;
-    await saveState();
+function insertZgloszenieTag(tag) {
+    const textarea = document.getElementById("zgloszenieOpis");
+    if (!textarea) return;
+
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? textarea.value.length;
+    const text = textarea.value;
+
+    textarea.value = text.substring(0, start) + tag + text.substring(end);
+    textarea.focus();
+    textarea.selectionStart = start + tag.length;
+    textarea.selectionEnd = start + tag.length;
 }
 
 // =====================================
 // EXPOSE
 // =====================================
-window.addZgloszenie = addZgloszenie;
+window.openZgloszenieModal = openZgloszenieModal;
+window.closeZgloszenieModal = closeZgloszenieModal;
+window.saveZgloszenie = saveZgloszenie;
+window.editZgloszenie = editZgloszenie;
 window.removeZgloszenie = removeZgloszenie;
-window.updateZgloszenie = updateZgloszenie;
-window.sortZgloszenia = sortZgloszenia;
-window.clearZgloszeniaFilter = clearZgloszeniaFilter;
 window.insertZgloszenieTag = insertZgloszenieTag;
