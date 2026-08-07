@@ -256,14 +256,14 @@ function renderPoleceniaItems() {
         .filter(row => row.Linia === selectedPoleceniaLine)
         .filter(row => {
             if (!search) return true;
-            const t = `${row.Opis || ""}`.toLowerCase();
+            const t = `${row.OpisKrotki || ""} ${row.Opis || ""}`.toLowerCase();
             return t.includes(search);
         });
 
     let html = "";
     rows.forEach(row => {
         const isSelected = selectedPoleceniaIndexes.includes(row._index);
-        const label = (row.Opis || "(bez opisu)").substring(0, 120);
+        const label = (row.OpisKrotki || row.Opis || "(bez opisu)").substring(0, 120);
         html += `
         <div class="item-card ${isSelected ? "selected" : ""}" onclick="togglePolecenie(${row._index})">
             ${escapeHtml(label)}
@@ -355,13 +355,11 @@ function updateLiveEntry() {
 
     const replacements = buildReplacements();
 
-    // pełne opisy wybranych zgłoszeń
     const zgloszeniaParts = selectedZgloszeniaIndexes
         .map(i => appState.zgloszenia?.rows?.[i]?.Opis)
         .filter(Boolean)
         .map(t => applyTags(t, replacements));
 
-    // pełne opisy wybranych poleceń
     const poleceniaParts = selectedPoleceniaIndexes
         .map(i => appState.polecenia?.rows?.[i]?.Opis)
         .filter(Boolean)
