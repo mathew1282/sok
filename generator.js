@@ -1,10 +1,10 @@
 // =====================================
-// GENERATOR WPISÓW
+// GENERATOR WPISÓW (bez szablonów)
 // =====================================
 
 let selectedPatrols = [];
-let selectedZgloszeniaIndexes = []; // indeksy z appState.zgloszenia.rows
-let selectedPoleceniaIndexes = [];  // indeksy z appState.polecenia.rows
+let selectedZgloszeniaIndexes = [];
+let selectedPoleceniaIndexes = [];
 let selectedZgloszeniaLine = null;
 let selectedPoleceniaLine = null;
 
@@ -39,9 +39,7 @@ function sortLinesNatural(lines) {
         if (aIsNum && bIsNum) {
             const aNum = parseInt(aStr, 10);
             const bNum = parseInt(bStr, 10);
-            if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) {
-                return aNum - bNum;
-            }
+            if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) return aNum - bNum;
         }
 
         return aStr.localeCompare(bStr, "pl", { numeric: true, sensitivity: "base" });
@@ -53,6 +51,13 @@ function escapeAttr(str) {
         .replace(/\\/g, "\\\\")
         .replace(/'/g, "\\'")
         .replace(/"/g, "&quot;");
+}
+
+function escapeHtml(str) {
+    return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
 }
 
 // =====================================
@@ -67,54 +72,35 @@ function initGenerator() {
     selectedPoleceniaLine = null;
 
     renderPatroleCards();
-    renderTemplateList();
     renderZgloszeniaLines();
     renderPoleceniaLines();
 
     const kzInput = document.getElementById("kzInput");
     const mkkInput = document.getElementById("mkkInput");
-
     if (kzInput) kzInput.value = appState.kz || "";
     if (mkkInput) mkkInput.value = appState.mkk || "";
 
     setupPersistentInputs();
-    setDefaultTemplate();
     updateLiveEntry();
 }
 
 function setupPersistentInputs() {
     const kzInput = document.getElementById("kzInput");
     const mkkInput = document.getElementById("mkkInput");
-    const templateSelect = document.getElementById("templateSelect");
 
     if (kzInput) {
-        kzInput.addEventListener("input", () => {
+        kzInput.oninput = () => {
             appState.kz = kzInput.value;
             saveState();
             updateLiveEntry();
-        });
+        };
     }
     if (mkkInput) {
-        mkkInput.addEventListener("input", () => {
+        mkkInput.oninput = () => {
             appState.mkk = mkkInput.value;
             saveState();
             updateLiveEntry();
-        });
-    }
-    if (templateSelect) {
-        templateSelect.addEventListener("change", () => {
-            updateLiveEntry();
-        });
-    }
-}
-
-function setDefaultTemplate() {
-    const select = document.getElementById("templateSelect");
-    if (!select) return;
-
-    if (appState.defaultTemplateIndex !== undefined &&
-        appState.defaultTemplateIndex < appState.szablony.length) {
-        select.value = appState.defaultTemplateIndex;
+        };
     }
 }
 
@@ -131,45 +117,29 @@ function renderPatroleCards() {
         const isSelected = selectedPatrols.includes(index) ? "active" : "";
         html += `
         <div class="select-card ${isSelected}" onclick="togglePatrol(${index})">
-            <div class="select-card-title">${patrol.nazwa || ("Patrol " + (index + 1))}</div>
+            <div class="select-card-title">${escapeHtml(patrol.nazwa || ("Patrol " + (index + 1)))}</div>
         </div>`;
     });
-    container.innerHTML = html || "<p>Brak utworzonych patroli</p>";
+    container.innerHTML = html || "<p>Brak patroli</p>";
 }
 
 function togglePatrol(index) {
     const pos = selectedPatrols.indexOf(index);
     if (pos > -1) selectedPatrols.splice(pos, 1);
     else selectedPatrols.push(index);
-
     renderPatroleCards();
     updateLiveEntry();
 }
 
 // =====================================
-// SZABLONY
-// =====================================
-
-function renderTemplateList() {
-    const select = document.getElementById("templateSelect");
-    if (!select) return;
-
-    let html = `<option value="">Wybierz szablon</option>`;
-    (appState.szablony || []).forEach((template, index) => {
-        html += `<option value="${index}">${template.nazwa || ("Szablon " + (index + 1))}</option>`;
-    });
-    select.innerHTML = html;
-}
-
-// =====================================
-// ZGŁOSZENIA (po indeksach!)
+// ZGŁOSZENIA
 // =====================================
 
 function renderZgloszeniaLines() {
     const container = document.getElementById("zgloszeniaLinie");
     if (!container) return;
 
-    let lines = [...new Set((appState.zgloszenia?.rows || []).map(row => row.Linia).filter(Boolean))];
+    let lines = [...new Set((appState.zgloszenia?.rows || []).map(r => r.Linia).filter(Boolean))];
     lines = sortLinesNatural(lines);
 
     let html = "";
@@ -177,13 +147,11 @@ function renderZgloszeniaLines() {
         const hasSelected = (appState.zgloszenia.rows || []).some((row, idx) =>
             row.Linia === line && selectedZgloszeniaIndexes.includes(idx)
         );
-
-        const isActive = selectedZgloszeniaLine === line;
         let className = "line-pill";
-        if (isActive) className += " active";
+        if (selectedZgloszeniaLine === line) className += " active";
         if (hasSelected) className += " has-selected";
 
-        html += `<div class="${className}" onclick="selectZgloszeniaLine('${escapeAttr(line)}')">${line}</div>`;
+        html += `<div class="${className}" onclick="selectZgloszeniaLine('${escapeAttr(line)}')">${escapeHtml(line)}</div>`;
     });
 
     container.innerHTML = html || "<p>Brak zgłoszeń</p>";
@@ -205,18 +173,24 @@ function renderZgloszeniaItems() {
     const container = document.getElementById("zgloszeniaItems");
     if (!container) return;
 
+    const search = (document.getElementById("zglSearch")?.value || "").toLowerCase().trim();
+
     const rows = (appState.zgloszenia?.rows || [])
         .map((row, index) => ({ ...row, _index: index }))
-        .filter(row => row.Linia === selectedZgloszeniaLine);
+        .filter(row => row.Linia === selectedZgloszeniaLine)
+        .filter(row => {
+            if (!search) return true;
+            const t = `${row.OpisKrotki || ""} ${row.Opis || ""}`.toLowerCase();
+            return t.includes(search);
+        });
 
     let html = "";
     rows.forEach(row => {
         const isSelected = selectedZgloszeniaIndexes.includes(row._index);
-        const label = (row.Opis || "(bez opisu)").substring(0, 120);
+        const label = (row.OpisKrotki || row.Opis || "(bez opisu)").substring(0, 120);
         html += `
-        <div class="item-card ${isSelected ? "selected" : ""}"
-             onclick="toggleZgloszenie(${row._index})">
-            ${label.replace(/</g, "&lt;").replace(/>/g, "&gt;")}
+        <div class="item-card ${isSelected ? "selected" : ""}" onclick="toggleZgloszenie(${row._index})">
+            ${escapeHtml(label)}
         </div>`;
     });
 
@@ -234,14 +208,14 @@ function toggleZgloszenie(index) {
 }
 
 // =====================================
-// POLECENIA (po indeksach!)
+// POLECENIA
 // =====================================
 
 function renderPoleceniaLines() {
     const container = document.getElementById("poleceniaLinie");
     if (!container) return;
 
-    let lines = [...new Set((appState.polecenia?.rows || []).map(row => row.Linia).filter(Boolean))];
+    let lines = [...new Set((appState.polecenia?.rows || []).map(r => r.Linia).filter(Boolean))];
     lines = sortLinesNatural(lines);
 
     let html = "";
@@ -249,13 +223,11 @@ function renderPoleceniaLines() {
         const hasSelected = (appState.polecenia.rows || []).some((row, idx) =>
             row.Linia === line && selectedPoleceniaIndexes.includes(idx)
         );
-
-        const isActive = selectedPoleceniaLine === line;
         let className = "line-pill";
-        if (isActive) className += " active";
+        if (selectedPoleceniaLine === line) className += " active";
         if (hasSelected) className += " has-selected";
 
-        html += `<div class="${className}" onclick="selectPoleceniaLine('${escapeAttr(line)}')">${line}</div>`;
+        html += `<div class="${className}" onclick="selectPoleceniaLine('${escapeAttr(line)}')">${escapeHtml(line)}</div>`;
     });
 
     container.innerHTML = html || "<p>Brak poleceń</p>";
@@ -277,18 +249,24 @@ function renderPoleceniaItems() {
     const container = document.getElementById("poleceniaItems");
     if (!container) return;
 
+    const search = (document.getElementById("polSearch")?.value || "").toLowerCase().trim();
+
     const rows = (appState.polecenia?.rows || [])
         .map((row, index) => ({ ...row, _index: index }))
-        .filter(row => row.Linia === selectedPoleceniaLine);
+        .filter(row => row.Linia === selectedPoleceniaLine)
+        .filter(row => {
+            if (!search) return true;
+            const t = `${row.Opis || ""}`.toLowerCase();
+            return t.includes(search);
+        });
 
     let html = "";
     rows.forEach(row => {
         const isSelected = selectedPoleceniaIndexes.includes(row._index);
         const label = (row.Opis || "(bez opisu)").substring(0, 120);
         html += `
-        <div class="item-card ${isSelected ? "selected" : ""}"
-             onclick="togglePolecenie(${row._index})">
-            ${label.replace(/</g, "&lt;").replace(/>/g, "&gt;")}
+        <div class="item-card ${isSelected ? "selected" : ""}" onclick="togglePolecenie(${row._index})">
+            ${escapeHtml(label)}
         </div>`;
     });
 
@@ -305,33 +283,18 @@ function togglePolecenie(index) {
     updateLiveEntry();
 }
 
+function filterGeneratorTiles() {
+    if (selectedZgloszeniaLine) renderZgloszeniaItems();
+    if (selectedPoleceniaLine) renderPoleceniaItems();
+}
+
 // =====================================
-// GENEROWANIE
+// GENEROWANIE (bez szablonów)
 // =====================================
 
-function updateLiveEntry() {
-    const textarea = document.getElementById("generatedEntry");
-    if (!textarea) return;
-
-    if (!selectedPatrols.length) {
-        textarea.value = "";
-        return;
-    }
-
-    const templateSelect = document.getElementById("templateSelect");
-    if (!templateSelect || templateSelect.value === "") {
-        textarea.value = "";
-        return;
-    }
-
-    const template = appState.szablony?.[templateSelect.value];
-    if (!template) {
-        textarea.value = "";
-        return;
-    }
-
-    const kz = document.getElementById("kzInput")?.value || "";
-    const mkk = document.getElementById("mkkInput")?.value || "";
+function buildReplacements() {
+    const kz = document.getElementById("kzInput")?.value || appState.kz || "";
+    const mkk = document.getElementById("mkkInput")?.value || appState.mkk || "";
 
     const patrolNames = [];
     const allSklad = [];
@@ -345,13 +308,9 @@ function updateLiveEntry() {
         if (!patrol) return;
 
         if (patrol.nazwa) patrolNames.push(patrol.nazwa);
-
         if (Array.isArray(patrol.sklad)) {
-            patrol.sklad.forEach(p => {
-                if (p) allSklad.push(p);
-            });
+            patrol.sklad.forEach(p => { if (p) allSklad.push(p); });
         }
-
         if (patrol.dowodca) allDowodcy.push(patrol.dowodca);
         if (patrol.kierowca) allKierowcy.push(patrol.kierowca);
         if (patrol.wot1) allWot.push(patrol.wot1);
@@ -360,58 +319,56 @@ function updateLiveEntry() {
         if (patrol.policjant2) allPolicjanci.push(patrol.policjant2);
     });
 
-    // Opisy wybranych zgłoszeń / poleceń
-    const selectedZgloszeniaTexts = selectedZgloszeniaIndexes
-        .map(i => appState.zgloszenia?.rows?.[i]?.Opis)
-        .filter(Boolean);
-
-    const selectedPoleceniaTexts = selectedPoleceniaIndexes
-        .map(i => appState.polecenia?.rows?.[i]?.Opis)
-        .filter(Boolean);
-
-    const patrolLine     = forceOneLine(uniqueNonEmpty(patrolNames));
-    const skladLine      = forceOneLine(uniqueNonEmpty(allSklad));
-    const dowodcaLine    = forceOneLine(uniqueNonEmpty(allDowodcy));
-    const kierowcaLine   = forceOneLine(uniqueNonEmpty(allKierowcy));
-    const wszyscyLine    = forceOneLine(uniqueNonEmpty([...allSklad, ...allDowodcy, ...allKierowcy]));
-    const zgloszeniaLine = forceOneLine(selectedZgloszeniaTexts);
-    const poleceniaLine  = forceOneLine(selectedPoleceniaTexts);
-    const wotList        = forceOneLine(uniqueNonEmpty(allWot));
-    const policjantList  = forceOneLine(uniqueNonEmpty(allPolicjanci));
-
     const now = new Date();
     const data = now.toLocaleDateString("pl-PL");
     const godzina = now.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
 
-    let text = template.tresc || "";
-
-    const replacements = {
-        "@patrol":     patrolLine,
-        "@dowodca":    dowodcaLine,
-        "@kierowca":   kierowcaLine,
-        "@sklad":      skladLine,
-        "@wszyscy":    wszyscyLine,
-        "@zgloszenia": zgloszeniaLine,
-        "@polecenia":  poleceniaLine,
+    return {
+        "@patrol":     forceOneLine(uniqueNonEmpty(patrolNames)),
+        "@dowodca":    forceOneLine(uniqueNonEmpty(allDowodcy)),
+        "@kierowca":   forceOneLine(uniqueNonEmpty(allKierowcy)),
+        "@sklad":      forceOneLine(uniqueNonEmpty(allSklad)),
+        "@wszyscy":    forceOneLine(uniqueNonEmpty([...allSklad, ...allDowodcy, ...allKierowcy])),
         "@data":       data,
         "@godzina":    godzina,
         "@KZ":         kz,
         "@MKK":        mkk,
-        "@wot":        wotList,
-        "@policjant":  policjantList
+        "@wot":        forceOneLine(uniqueNonEmpty(allWot)),
+        "@policjant":  forceOneLine(uniqueNonEmpty(allPolicjanci))
     };
+}
 
-    // 2 przebiegi: najpierw szablon, potem znaczniki wewnątrz opisów
+function applyTags(text, replacements) {
+    let out = String(text || "");
     for (let pass = 0; pass < 2; pass++) {
         Object.entries(replacements).forEach(([tag, value]) => {
             const safe = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            const regex = new RegExp(safe, "gi");
-            text = text.replace(regex, value || "");
+            out = out.replace(new RegExp(safe, "gi"), value || "");
         });
     }
+    return out.replace(/\n+/g, " ").trim();
+}
 
-    text = text.replace(/\n+/g, " ").trim();
-    textarea.value = text;
+function updateLiveEntry() {
+    const textarea = document.getElementById("generatedEntry");
+    if (!textarea) return;
+
+    const replacements = buildReplacements();
+
+    // pełne opisy wybranych zgłoszeń
+    const zgloszeniaParts = selectedZgloszeniaIndexes
+        .map(i => appState.zgloszenia?.rows?.[i]?.Opis)
+        .filter(Boolean)
+        .map(t => applyTags(t, replacements));
+
+    // pełne opisy wybranych poleceń
+    const poleceniaParts = selectedPoleceniaIndexes
+        .map(i => appState.polecenia?.rows?.[i]?.Opis)
+        .filter(Boolean)
+        .map(t => applyTags(t, replacements));
+
+    const parts = [...zgloszeniaParts, ...poleceniaParts].filter(Boolean);
+    textarea.value = parts.join(" ");
 }
 
 // =====================================
@@ -428,23 +385,25 @@ function copyEntry() {
         showToast("Najpierw wygeneruj wpis");
         return;
     }
-
     navigator.clipboard.writeText(textarea.value).then(() => {
         showToast("✅ Skopiowano do schowka");
-    }).catch(() => {
-        showToast("Nie udało się skopiować");
-    });
+    }).catch(() => showToast("Nie udało się skopiować"));
 }
 
 function clearEntry() {
     const textarea = document.getElementById("generatedEntry");
     if (textarea) textarea.value = "";
 
+    selectedPatrols = [];
     selectedZgloszeniaIndexes = [];
     selectedPoleceniaIndexes = [];
-    selectedPatrols = [];
     selectedZgloszeniaLine = null;
     selectedPoleceniaLine = null;
+
+    const zSearch = document.getElementById("zglSearch");
+    const pSearch = document.getElementById("polSearch");
+    if (zSearch) zSearch.value = "";
+    if (pSearch) pSearch.value = "";
 
     renderPatroleCards();
     renderZgloszeniaLines();
@@ -456,6 +415,7 @@ function clearEntry() {
     if (pItems) pItems.innerHTML = "";
 
     updateLiveEntry();
+    showToast("Odznaczono wszystko");
 }
 
 function showToast(message) {
@@ -466,21 +426,13 @@ function showToast(message) {
     toast.id = "toastMsg";
     toast.innerText = message;
     toast.style.cssText = `
-        position: fixed;
-        bottom: 30px;
-        right: 30px;
-        background: #16a34a;
-        color: white;
-        padding: 14px 22px;
-        border-radius: 10px;
-        font-size: 15px;
-        font-weight: 600;
-        z-index: 9999;
+        position: fixed; bottom: 30px; right: 30px;
+        background: #16a34a; color: white;
+        padding: 14px 22px; border-radius: 10px;
+        font-size: 15px; font-weight: 600; z-index: 9999;
         box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        opacity: 0;
-        transition: opacity 0.3s ease;
+        opacity: 0; transition: opacity 0.3s ease;
     `;
-
     document.body.appendChild(toast);
     setTimeout(() => toast.style.opacity = "1", 10);
     setTimeout(() => {
@@ -501,4 +453,5 @@ window.toggleZgloszenie = toggleZgloszenie;
 window.selectPoleceniaLine = selectPoleceniaLine;
 window.togglePolecenie = togglePolecenie;
 window.updateLiveEntry = updateLiveEntry;
+window.filterGeneratorTiles = filterGeneratorTiles;
 window.showToast = showToast;
