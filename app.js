@@ -51,8 +51,10 @@ const pages = {
     <div id="generatorContainer">
 
         <div class="generator-section" style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
-            <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">Komendant zmiany IOK Wrocław</div>
-            <input type="text" id="kzInput" placeholder="Wpisz KZ" style="flex:1; min-width:200px;">
+            <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">Komendant zmiany (KZ)</div>
+            <input type="text" id="kzInput" placeholder="Wpisz KZ" style="flex:1; min-width:180px;">
+            <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">MKK</div>
+            <input type="text" id="mkkInput" placeholder="Wpisz MKK" style="flex:1; min-width:180px;">
         </div>
 
         <div class="generator-section">
@@ -60,44 +62,39 @@ const pages = {
             <div id="patrolCards" class="card-grid"></div>
         </div>
 
-        <div class="generator-section" style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
-            <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">Szablon</div>
-            <select id="templateSelect" style="flex:1; min-width:200px;">
-                <option value="">Wybierz szablon</option>
-            </select>
-        </div>
-
         <div class="generator-section">
-            <div class="generator-title">Zgłoszenia</div>
+            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:10px;">
+                <div class="generator-title" style="margin-bottom:0;">Zgłoszenia</div>
+                <input type="text" id="zglSearch" placeholder="Szukaj..." style="width:180px;"
+                       oninput="filterGeneratorTiles()">
+            </div>
             <div id="zgloszeniaLinie" class="card-grid"></div>
             <br>
             <div id="zgloszeniaItems" class="card-grid"></div>
         </div>
 
         <div class="generator-section">
-            <div class="generator-title">Polecenia</div>
+            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:10px;">
+                <div class="generator-title" style="margin-bottom:0;">Polecenia</div>
+                <input type="text" id="polSearch" placeholder="Szukaj..." style="width:180px;"
+                       oninput="filterGeneratorTiles()">
+            </div>
             <div id="poleceniaLinie" class="card-grid"></div>
             <br>
             <div id="poleceniaItems" class="card-grid"></div>
         </div>
 
-        <div class="generator-section" style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
-            <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">MKK</div>
-            <input type="text" id="mkkInput" placeholder="Wpisz MKK" style="flex:1; min-width:200px;">
-        </div>
-
         <div class="generator-section">
             <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <div class="generator-title" style="margin-bottom:0;">Generowanie wpisu</div>
                 <button class="btn-success" onclick="generateEntry()">Generuj wpis</button>
                 <button class="btn-primary" onclick="copyEntry()">Kopiuj</button>
-                <button class="btn-danger" onclick="clearEntry()">Wyczyść</button>
+                <button class="btn-danger" onclick="clearEntry()">Wyczyść / odznacz wszystko</button>
             </div>
         </div>
 
         <div class="generator-section">
             <div class="generator-title">Wygenerowany wpis</div>
-            <textarea id="generatedEntry" style="width:100%; min-height:350px;"></textarea>
+            <textarea id="generatedEntry" style="width:100%; min-height:280px;"></textarea>
         </div>
     </div>`,
     linie: `<div id="linieContainer"></div>`
