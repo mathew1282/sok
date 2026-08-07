@@ -3,35 +3,26 @@
 // =====================================
 
 let selectedPatrols = [];
-let selectedZgloszenia = [];
-let selectedPolecenia = [];
+let selectedZgloszeniaIndexes = []; // indeksy z appState.zgloszenia.rows
+let selectedPoleceniaIndexes = [];  // indeksy z appState.polecenia.rows
 let selectedZgloszeniaLine = null;
 let selectedPoleceniaLine = null;
 
 // =====================================
-// POMOCNICZE FUNKCJE
+// POMOCNICZE
 // =====================================
 
 function forceOneLine(items) {
     if (!items) return "";
-    let arr = Array.isArray(items) ? items : String(items).split("\n");
+    const arr = Array.isArray(items) ? items : String(items).split("\n");
     return arr
         .map(item => String(item || "").trim())
-        .filter(item => item.length > 1)
+        .filter(item => item.length > 0)
         .join(", ");
 }
 
-function getAllPatrolMembersOneLine() {
-    const members = new Set();
-    appState.patrole.forEach(patrol => {
-        if (patrol?.sklad && Array.isArray(patrol.sklad)) {
-            patrol.sklad.forEach(person => {
-                const name = String(person || "").trim();
-                if (name.length > 1) members.add(name);
-            });
-        }
-    });
-    return Array.from(members);
+function uniqueNonEmpty(arr) {
+    return [...new Set((arr || []).map(x => String(x || "").trim()).filter(x => x.length > 0))];
 }
 
 function sortLinesNatural(lines) {
@@ -42,11 +33,9 @@ function sortLinesNatural(lines) {
         const aIsNum = /^\d/.test(aStr);
         const bIsNum = /^\d/.test(bStr);
 
-        // Liczby najpierw
         if (aIsNum && !bIsNum) return -1;
         if (!aIsNum && bIsNum) return 1;
 
-        // Oba numeryczne → sortuj numerycznie
         if (aIsNum && bIsNum) {
             const aNum = parseInt(aStr, 10);
             const bNum = parseInt(bStr, 10);
@@ -55,9 +44,15 @@ function sortLinesNatural(lines) {
             }
         }
 
-        // Alfabetycznie (polski)
         return aStr.localeCompare(bStr, "pl", { numeric: true, sensitivity: "base" });
     });
+}
+
+function escapeAttr(str) {
+    return String(str || "")
+        .replace(/\\/g, "\\\\")
+        .replace(/'/g, "\\'")
+        .replace(/"/g, "&quot;");
 }
 
 // =====================================
@@ -66,6 +61,11 @@ function sortLinesNatural(lines) {
 
 function initGenerator() {
     selectedPatrols = [];
+    selectedZgloszeniaIndexes = [];
+    selectedPoleceniaIndexes = [];
+    selectedZgloszeniaLine = null;
+    selectedPoleceniaLine = null;
+
     renderPatroleCards();
     renderTemplateList();
     renderZgloszeniaLines();
@@ -112,14 +112,14 @@ function setDefaultTemplate() {
     const select = document.getElementById("templateSelect");
     if (!select) return;
 
-    if (appState.defaultTemplateIndex !== undefined && 
+    if (appState.defaultTemplateIndex !== undefined &&
         appState.defaultTemplateIndex < appState.szablony.length) {
         select.value = appState.defaultTemplateIndex;
     }
 }
 
 // =====================================
-// PATROLE (dowolna liczba)
+// PATROLE
 // =====================================
 
 function renderPatroleCards() {
@@ -127,11 +127,11 @@ function renderPatroleCards() {
     if (!container) return;
 
     let html = "";
-    appState.patrole.forEach((patrol, index) => {
+    (appState.patrole || []).forEach((patrol, index) => {
         const isSelected = selectedPatrols.includes(index) ? "active" : "";
         html += `
         <div class="select-card ${isSelected}" onclick="togglePatrol(${index})">
-            <div class="select-card-title">${patrol.nazwa}</div>
+            <div class="select-card-title">${patrol.nazwa || ("Patrol " + (index + 1))}</div>
         </div>`;
     });
     container.innerHTML = html || "<p>Brak utworzonych patroli</p>";
@@ -139,12 +139,8 @@ function renderPatroleCards() {
 
 function togglePatrol(index) {
     const pos = selectedPatrols.indexOf(index);
-
-    if (pos > -1) {
-        selectedPatrols.splice(pos, 1);
-    } else {
-        selectedPatrols.push(index);
-    }
+    if (pos > -1) selectedPatrols.splice(pos, 1);
+    else selectedPatrols.push(index);
 
     renderPatroleCards();
     updateLiveEntry();
@@ -159,35 +155,35 @@ function renderTemplateList() {
     if (!select) return;
 
     let html = `<option value="">Wybierz szablon</option>`;
-    appState.szablony.forEach((template, index) => {
-        html += `<option value="${index}">${template.nazwa}</option>`;
+    (appState.szablony || []).forEach((template, index) => {
+        html += `<option value="${index}">${template.nazwa || ("Szablon " + (index + 1))}</option>`;
     });
     select.innerHTML = html;
 }
 
 // =====================================
-// ZGŁOSZENIA
+// ZGŁOSZENIA (po indeksach!)
 // =====================================
 
 function renderZgloszeniaLines() {
     const container = document.getElementById("zgloszeniaLinie");
     if (!container) return;
 
-    let lines = [...new Set(appState.zgloszenia.rows.map(row => row.Linia).filter(Boolean))];
+    let lines = [...new Set((appState.zgloszenia?.rows || []).map(row => row.Linia).filter(Boolean))];
     lines = sortLinesNatural(lines);
 
     let html = "";
     lines.forEach(line => {
-        const hasSelected = appState.zgloszenia.rows
-            .filter(row => row.Linia === line)
-            .some(row => selectedZgloszenia.includes(row.Opis));
+        const hasSelected = (appState.zgloszenia.rows || []).some((row, idx) =>
+            row.Linia === line && selectedZgloszeniaIndexes.includes(idx)
+        );
 
         const isActive = selectedZgloszeniaLine === line;
         let className = "line-pill";
         if (isActive) className += " active";
         if (hasSelected) className += " has-selected";
 
-        html += `<div class="${className}" onclick="selectZgloszeniaLine('${line}')">${line}</div>`;
+        html += `<div class="${className}" onclick="selectZgloszeniaLine('${escapeAttr(line)}')">${line}</div>`;
     });
 
     container.innerHTML = html || "<p>Brak zgłoszeń</p>";
@@ -195,9 +191,9 @@ function renderZgloszeniaLines() {
 
 function selectZgloszeniaLine(line) {
     if (selectedZgloszeniaLine === line) {
-        // Drugi klik – odznacz
         selectedZgloszeniaLine = null;
-        document.getElementById("zgloszeniaItems").innerHTML = "";
+        const items = document.getElementById("zgloszeniaItems");
+        if (items) items.innerHTML = "";
     } else {
         selectedZgloszeniaLine = line;
         renderZgloszeniaItems();
@@ -208,47 +204,58 @@ function selectZgloszeniaLine(line) {
 function renderZgloszeniaItems() {
     const container = document.getElementById("zgloszeniaItems");
     if (!container) return;
-    const rows = appState.zgloszenia.rows.filter(row => row.Linia === selectedZgloszeniaLine);
+
+    const rows = (appState.zgloszenia?.rows || [])
+        .map((row, index) => ({ ...row, _index: index }))
+        .filter(row => row.Linia === selectedZgloszeniaLine);
+
     let html = "";
     rows.forEach(row => {
-        const isSelected = selectedZgloszenia.includes(row.Opis);
-        html += `<div class="item-card ${isSelected ? 'selected' : ''}" onclick="toggleZgloszenie('${row.Opis.replace(/'/g, "\\'")}')">${row.Opis}</div>`;
+        const isSelected = selectedZgloszeniaIndexes.includes(row._index);
+        const label = (row.Opis || "(bez opisu)").substring(0, 120);
+        html += `
+        <div class="item-card ${isSelected ? "selected" : ""}"
+             onclick="toggleZgloszenie(${row._index})">
+            ${label.replace(/</g, "&lt;").replace(/>/g, "&gt;")}
+        </div>`;
     });
+
     container.innerHTML = html || "<p>Brak zgłoszeń na tej linii</p>";
 }
 
-function toggleZgloszenie(opis) {
-    const index = selectedZgloszenia.indexOf(opis);
-    if (index > -1) selectedZgloszenia.splice(index, 1);
-    else selectedZgloszenia.push(opis);
+function toggleZgloszenie(index) {
+    const pos = selectedZgloszeniaIndexes.indexOf(index);
+    if (pos > -1) selectedZgloszeniaIndexes.splice(pos, 1);
+    else selectedZgloszeniaIndexes.push(index);
+
     renderZgloszeniaItems();
     renderZgloszeniaLines();
     updateLiveEntry();
 }
 
 // =====================================
-// POLECENIA
+// POLECENIA (po indeksach!)
 // =====================================
 
 function renderPoleceniaLines() {
     const container = document.getElementById("poleceniaLinie");
     if (!container) return;
 
-    let lines = [...new Set(appState.polecenia.rows.map(row => row.Linia).filter(Boolean))];
+    let lines = [...new Set((appState.polecenia?.rows || []).map(row => row.Linia).filter(Boolean))];
     lines = sortLinesNatural(lines);
 
     let html = "";
     lines.forEach(line => {
-        const hasSelected = appState.polecenia.rows
-            .filter(row => row.Linia === line)
-            .some(row => selectedPolecenia.includes(row.Opis));
+        const hasSelected = (appState.polecenia.rows || []).some((row, idx) =>
+            row.Linia === line && selectedPoleceniaIndexes.includes(idx)
+        );
 
         const isActive = selectedPoleceniaLine === line;
         let className = "line-pill";
         if (isActive) className += " active";
         if (hasSelected) className += " has-selected";
 
-        html += `<div class="${className}" onclick="selectPoleceniaLine('${line}')">${line}</div>`;
+        html += `<div class="${className}" onclick="selectPoleceniaLine('${escapeAttr(line)}')">${line}</div>`;
     });
 
     container.innerHTML = html || "<p>Brak poleceń</p>";
@@ -256,9 +263,9 @@ function renderPoleceniaLines() {
 
 function selectPoleceniaLine(line) {
     if (selectedPoleceniaLine === line) {
-        // Drugi klik – odznacz
         selectedPoleceniaLine = null;
-        document.getElementById("poleceniaItems").innerHTML = "";
+        const items = document.getElementById("poleceniaItems");
+        if (items) items.innerHTML = "";
     } else {
         selectedPoleceniaLine = line;
         renderPoleceniaItems();
@@ -269,33 +276,44 @@ function selectPoleceniaLine(line) {
 function renderPoleceniaItems() {
     const container = document.getElementById("poleceniaItems");
     if (!container) return;
-    const rows = appState.polecenia.rows.filter(row => row.Linia === selectedPoleceniaLine);
+
+    const rows = (appState.polecenia?.rows || [])
+        .map((row, index) => ({ ...row, _index: index }))
+        .filter(row => row.Linia === selectedPoleceniaLine);
+
     let html = "";
     rows.forEach(row => {
-        const isSelected = selectedPolecenia.includes(row.Opis);
-        html += `<div class="item-card ${isSelected ? 'selected' : ''}" onclick="togglePolecenie('${row.Opis.replace(/'/g, "\\'")}')">${row.Opis}</div>`;
+        const isSelected = selectedPoleceniaIndexes.includes(row._index);
+        const label = (row.Opis || "(bez opisu)").substring(0, 120);
+        html += `
+        <div class="item-card ${isSelected ? "selected" : ""}"
+             onclick="togglePolecenie(${row._index})">
+            ${label.replace(/</g, "&lt;").replace(/>/g, "&gt;")}
+        </div>`;
     });
+
     container.innerHTML = html || "<p>Brak poleceń na tej linii</p>";
 }
 
-function togglePolecenie(opis) {
-    const index = selectedPolecenia.indexOf(opis);
-    if (index > -1) selectedPolecenia.splice(index, 1);
-    else selectedPolecenia.push(opis);
+function togglePolecenie(index) {
+    const pos = selectedPoleceniaIndexes.indexOf(index);
+    if (pos > -1) selectedPoleceniaIndexes.splice(pos, 1);
+    else selectedPoleceniaIndexes.push(index);
+
     renderPoleceniaItems();
     renderPoleceniaLines();
     updateLiveEntry();
 }
 
 // =====================================
-// GENEROWANIE NA ŻYWO
+// GENEROWANIE
 // =====================================
 
 function updateLiveEntry() {
     const textarea = document.getElementById("generatedEntry");
     if (!textarea) return;
 
-    if (selectedPatrols.length === 0) {
+    if (!selectedPatrols.length) {
         textarea.value = "";
         return;
     }
@@ -306,7 +324,7 @@ function updateLiveEntry() {
         return;
     }
 
-    const template = appState.szablony[templateSelect.value];
+    const template = appState.szablony?.[templateSelect.value];
     if (!template) {
         textarea.value = "";
         return;
@@ -323,65 +341,50 @@ function updateLiveEntry() {
     const allPolicjanci = [];
 
     selectedPatrols.forEach(index => {
-        const patrol = appState.patrole[index];
+        const patrol = appState.patrole?.[index];
         if (!patrol) return;
 
-        if (patrol.nazwa) patrolNames.push(String(patrol.nazwa).trim());
+        if (patrol.nazwa) patrolNames.push(patrol.nazwa);
 
-        // Skład – zawsze tablica
         if (Array.isArray(patrol.sklad)) {
             patrol.sklad.forEach(p => {
-                const name = String(p || "").trim();
-                if (name.length > 1) allSklad.push(name);
+                if (p) allSklad.push(p);
             });
         }
 
-        if (patrol.dowodca) {
-            const d = String(patrol.dowodca).trim();
-            if (d.length > 1) allDowodcy.push(d);
-        }
-        if (patrol.kierowca) {
-            const k = String(patrol.kierowca).trim();
-            if (k.length > 1) allKierowcy.push(k);
-        }
-        if (patrol.wot1) {
-            const w = String(patrol.wot1).trim();
-            if (w.length > 1) allWot.push(w);
-        }
-        if (patrol.wot2) {
-            const w = String(patrol.wot2).trim();
-            if (w.length > 1) allWot.push(w);
-        }
-        if (patrol.policjant1) {
-            const p = String(patrol.policjant1).trim();
-            if (p.length > 1) allPolicjanci.push(p);
-        }
-        if (patrol.policjant2) {
-            const p = String(patrol.policjant2).trim();
-            if (p.length > 1) allPolicjanci.push(p);
-        }
+        if (patrol.dowodca) allDowodcy.push(patrol.dowodca);
+        if (patrol.kierowca) allKierowcy.push(patrol.kierowca);
+        if (patrol.wot1) allWot.push(patrol.wot1);
+        if (patrol.wot2) allWot.push(patrol.wot2);
+        if (patrol.policjant1) allPolicjanci.push(patrol.policjant1);
+        if (patrol.policjant2) allPolicjanci.push(patrol.policjant2);
     });
 
-    // Unikalne wartości (bez powtórek)
-    const unique = arr => [...new Set(arr.filter(x => x && x.length > 1))];
+    // Opisy wybranych zgłoszeń / poleceń
+    const selectedZgloszeniaTexts = selectedZgloszeniaIndexes
+        .map(i => appState.zgloszenia?.rows?.[i]?.Opis)
+        .filter(Boolean);
 
-    const patrolLine     = forceOneLine(unique(patrolNames));
-    const skladLine      = forceOneLine(unique(allSklad));
-    const dowodcaLine    = forceOneLine(unique(allDowodcy));
-    const kierowcaLine   = forceOneLine(unique(allKierowcy));
-    const wszyscyLine    = forceOneLine(unique([...allSklad, ...allDowodcy, ...allKierowcy]));
-    const zgloszeniaLine = forceOneLine(selectedZgloszenia);
-    const poleceniaLine  = forceOneLine(selectedPolecenia);
-    const wotList        = forceOneLine(unique(allWot));
-    const policjantList  = forceOneLine(unique(allPolicjanci));
+    const selectedPoleceniaTexts = selectedPoleceniaIndexes
+        .map(i => appState.polecenia?.rows?.[i]?.Opis)
+        .filter(Boolean);
+
+    const patrolLine     = forceOneLine(uniqueNonEmpty(patrolNames));
+    const skladLine      = forceOneLine(uniqueNonEmpty(allSklad));
+    const dowodcaLine    = forceOneLine(uniqueNonEmpty(allDowodcy));
+    const kierowcaLine   = forceOneLine(uniqueNonEmpty(allKierowcy));
+    const wszyscyLine    = forceOneLine(uniqueNonEmpty([...allSklad, ...allDowodcy, ...allKierowcy]));
+    const zgloszeniaLine = forceOneLine(selectedZgloszeniaTexts);
+    const poleceniaLine  = forceOneLine(selectedPoleceniaTexts);
+    const wotList        = forceOneLine(uniqueNonEmpty(allWot));
+    const policjantList  = forceOneLine(uniqueNonEmpty(allPolicjanci));
 
     const now = new Date();
     const data = now.toLocaleDateString("pl-PL");
-    const godzina = now.toLocaleTimeString("pl-PL", { hour: '2-digit', minute: '2-digit' });
+    const godzina = now.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
 
     let text = template.tresc || "";
 
-    // Zamiana znaczników (case-insensitive)
     const replacements = {
         "@patrol":     patrolLine,
         "@dowodca":    dowodcaLine,
@@ -398,12 +401,13 @@ function updateLiveEntry() {
         "@policjant":  policjantList
     };
 
-    // Dwa przebiegi – żeby znaczniki wpisane w Opisie też się rozwijały
-    for (let i = 0; i < 2; i++) {
-        for (const [tag, value] of Object.entries(replacements)) {
-            const regex = new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "gi");
+    // 2 przebiegi: najpierw szablon, potem znaczniki wewnątrz opisów
+    for (let pass = 0; pass < 2; pass++) {
+        Object.entries(replacements).forEach(([tag, value]) => {
+            const safe = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const regex = new RegExp(safe, "gi");
             text = text.replace(regex, value || "");
-        }
+        });
     }
 
     text = text.replace(/\n+/g, " ").trim();
@@ -433,21 +437,27 @@ function copyEntry() {
 }
 
 function clearEntry() {
-    document.getElementById("generatedEntry").value = "";
-    selectedZgloszenia = [];
-    selectedPolecenia = [];
+    const textarea = document.getElementById("generatedEntry");
+    if (textarea) textarea.value = "";
+
+    selectedZgloszeniaIndexes = [];
+    selectedPoleceniaIndexes = [];
     selectedPatrols = [];
+    selectedZgloszeniaLine = null;
+    selectedPoleceniaLine = null;
+
     renderPatroleCards();
-    renderZgloszeniaItems();
-    renderPoleceniaItems();
     renderZgloszeniaLines();
     renderPoleceniaLines();
+
+    const zItems = document.getElementById("zgloszeniaItems");
+    const pItems = document.getElementById("poleceniaItems");
+    if (zItems) zItems.innerHTML = "";
+    if (pItems) pItems.innerHTML = "";
+
     updateLiveEntry();
 }
 
-// =====================================
-// MAŁE POWIADOMIENIE (toast)
-// =====================================
 function showToast(message) {
     const old = document.getElementById("toastMsg");
     if (old) old.remove();
@@ -480,7 +490,7 @@ function showToast(message) {
 }
 
 // =====================================
-// EXPOSE FUNKCJI
+// EXPOSE
 // =====================================
 window.generateEntry = generateEntry;
 window.copyEntry = copyEntry;
