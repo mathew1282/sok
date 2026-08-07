@@ -6,6 +6,7 @@ let zgloszeniaFilterLinia = "";
 let zgloszeniaFilterOpis = "";
 let zgloszeniaSortField = null;   // "Linia" lub "Opis"
 let zgloszeniaSortAsc = true;
+let currentOpisTextarea = null;   // aktualnie fokusowane pole Opis
 
 function initZgloszenia() {
     renderZgloszenia();
@@ -44,6 +45,29 @@ function renderZgloszenia() {
         <br>
         <button class="btn-success" onclick="addZgloszenie()">Dodaj zgłoszenie</button>
         <br><br>
+
+        <!-- Znaczniki do wstawiania w Opis -->
+        <div style="margin-bottom:15px;">
+            <h3 style="margin-bottom:8px; font-size:15px;">Znaczniki (kliknij, aby wstawić do pola Opis)</h3>
+            <div class="tag-buttons" style="display:flex; flex-wrap:wrap; gap:6px;">
+                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@patrol')">@patrol</button>
+                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@dowodca')">@dowodca</button>
+                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@kierowca')">@kierowca</button>
+                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@sklad')">@sklad</button>
+                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@wszyscy')">@wszyscy</button>
+                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@zgloszenia')">@zgloszenia</button>
+                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@polecenia')">@polecenia</button>
+                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@KZ')">@KZ</button>
+                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@MKK')">@MKK</button>
+                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@data')">@data</button>
+                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@godzina')">@godzina</button>
+                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@wot')">@wot</button>
+                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@policjant')">@policjant</button>
+            </div>
+            <p style="font-size:12px; color:#94a3b8; margin-top:6px;">
+                Najpierw kliknij w pole Opis, potem wybierz znacznik.
+            </p>
+        </div>
 
         <!-- Filtry -->
         <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:15px; align-items:center;">
@@ -86,8 +110,9 @@ function renderZgloszenia() {
                        onchange="updateZgloszenie(${index}, 'Linia', this.value)">
             </td>
             <td>
-                <input type="text" value="${row.Opis || ''}" 
-                       onchange="updateZgloszenie(${index}, 'Opis', this.value)">
+                <textarea rows="2" style="width:100%; min-width:250px; resize:vertical;"
+                          onfocus="currentOpisTextarea=this"
+                          onchange="updateZgloszenie(${index}, 'Opis', this.value)">${row.Opis || ''}</textarea>
             </td>
             <td>
                 <button class="btn-danger" onclick="removeZgloszenie(${index})">Usuń</button>
@@ -101,6 +126,28 @@ function renderZgloszenia() {
 
     html += `</tbody></table></div>`;
     container.innerHTML = html;
+}
+
+function insertZgloszenieTag(tag) {
+    if (!currentOpisTextarea) {
+        alert("Najpierw kliknij w pole Opis, do którego chcesz wstawić znacznik.");
+        return;
+    }
+
+    const textarea = currentOpisTextarea;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+
+    textarea.value = text.substring(0, start) + tag + text.substring(end);
+    textarea.focus();
+    textarea.selectionStart = start + tag.length;
+    textarea.selectionEnd = start + tag.length;
+
+    // od razu zapisujemy zmianę
+    const rowIndex = Array.from(document.querySelectorAll("textarea")).indexOf(textarea);
+    // bezpieczniej: wywołujemy onchange
+    textarea.dispatchEvent(new Event("change"));
 }
 
 function sortZgloszenia(field) {
@@ -150,3 +197,4 @@ window.removeZgloszenie = removeZgloszenie;
 window.updateZgloszenie = updateZgloszenie;
 window.sortZgloszenia = sortZgloszenia;
 window.clearZgloszeniaFilter = clearZgloszeniaFilter;
+window.insertZgloszenieTag = insertZgloszenieTag;
