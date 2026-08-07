@@ -1,8 +1,9 @@
 // =====================================
-// ZGŁOSZENIA (jak szablony)
+// ZGŁOSZENIA (jak szablony + filtr linii)
 // =====================================
 
 let currentZgloszenieEdit = null;
+let zgloszeniaFilterLinia = "";
 
 function initZgloszenia() {
     // migracja starych danych: Opis -> OpisKrotki + Opis
@@ -18,11 +19,52 @@ function initZgloszenia() {
     renderZgloszenia();
 }
 
+function sortLinesNatural(lines) {
+    return [...lines].sort((a, b) => {
+        const aStr = String(a || "").trim();
+        const bStr = String(b || "").trim();
+
+        const aIsNum = /^\d/.test(aStr);
+        const bIsNum = /^\d/.test(bStr);
+
+        if (aIsNum && !bIsNum) return -1;
+        if (!aIsNum && bIsNum) return 1;
+
+        if (aIsNum && bIsNum) {
+            const aNum = parseInt(aStr, 10);
+            const bNum = parseInt(bStr, 10);
+            if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) {
+                return aNum - bNum;
+            }
+        }
+
+        return aStr.localeCompare(bStr, "pl", { numeric: true, sensitivity: "base" });
+    });
+}
+
+function escapeHtml(str) {
+    return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
 function renderZgloszenia() {
     const container = document.getElementById("zgloszeniaContainer");
     if (!container) return;
 
-    const rows = appState.zgloszenia?.rows || [];
+    const allRows = appState.zgloszenia?.rows || [];
+
+    // unikalne linie: liczby → alfabetycznie
+    let lines = [...new Set(allRows.map(r => r.Linia).filter(Boolean))];
+    lines = sortLinesNatural(lines);
+
+    // filtr po linii
+    let rows = allRows.map((row, index) => ({ ...row, _index: index }));
+    if (zgloszeniaFilterLinia) {
+        rows = rows.filter(r => r.Linia === zgloszeniaFilterLinia);
+    }
 
     let html = `
     <div class="card">
@@ -30,6 +72,26 @@ function renderZgloszenia() {
         <br>
         <button class="btn-success" onclick="openZgloszenieModal()">Dodaj zgłoszenie</button>
         <br><br>
+
+        <div style="margin-bottom:15px;">
+            <div style="font-size:14px; color:#94a3b8; margin-bottom:8px;">Filtr linii (kliknij):</div>
+            <div class="card-grid">
+                <div class="line-pill ${zgloszeniaFilterLinia === "" ? "active" : ""}"
+                     onclick="setZgloszeniaFilterLinia('')">Wszystkie</div>
+    `;
+
+    lines.forEach(line => {
+        const active = zgloszeniaFilterLinia === line ? "active" : "";
+        html += `
+            <div class="line-pill ${active}" onclick="setZgloszeniaFilterLinia('${String(line).replace(/'/g, "\\'")}')">
+                ${escapeHtml(line)}
+            </div>`;
+    });
+
+    html += `
+            </div>
+        </div>
+
         <table>
             <thead>
                 <tr>
@@ -42,7 +104,8 @@ function renderZgloszenia() {
             <tbody>
     `;
 
-    rows.forEach((row, index) => {
+    rows.forEach(row => {
+        const index = row._index;
         const krotki = (row.OpisKrotki || "").substring(0, 80);
         const opis = (row.Opis || "").substring(0, 120);
 
@@ -112,18 +175,15 @@ function renderZgloszenia() {
     container.innerHTML = html;
 }
 
-function escapeHtml(str) {
-    return String(str || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+function setZgloszeniaFilterLinia(line) {
+    zgloszeniaFilterLinia = line || "";
+    renderZgloszenia();
 }
 
 function openZgloszenieModal() {
     currentZgloszenieEdit = null;
     document.getElementById("zgloszenieModalTitle").innerText = "Dodaj zgłoszenie";
-    document.getElementById("zgloszenieLinia").value = "";
+    document.getElementById("zgloszenieLinia").value = zgloszeniaFilterLinia || "";
     document.getElementById("zgloszenieOpisKrotki").value = "";
     document.getElementById("zgloszenieOpis").value = "";
     document.getElementById("zgloszenieModal").style.display = "flex";
@@ -214,3 +274,4 @@ window.saveZgloszenie = saveZgloszenie;
 window.editZgloszenie = editZgloszenie;
 window.removeZgloszenie = removeZgloszenie;
 window.insertZgloszenieTag = insertZgloszenieTag;
+window.setZgloszeniaFilterLinia = setZgloszeniaFilterLinia;
