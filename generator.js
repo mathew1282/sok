@@ -1,5 +1,6 @@
 // =====================================
 // GENERATOR WPISÓW (bez szablonów)
+// + autofilt: linie + kafelki wewnętrzne
 // =====================================
 
 let selectedPatrols = [];
@@ -139,12 +140,25 @@ function renderZgloszeniaLines() {
     const container = document.getElementById("zgloszeniaLinie");
     if (!container) return;
 
-    let lines = [...new Set((appState.zgloszenia?.rows || []).map(r => r.Linia).filter(Boolean))];
+    const search = (document.getElementById("zglSearch")?.value || "").toLowerCase().trim();
+    const allRows = appState.zgloszenia?.rows || [];
+
+    // linie tylko z dopasowaniem do wyszukiwania (autofilt poziomu 1)
+    let lines = [...new Set(
+        allRows
+            .filter(row => {
+                if (!search) return true;
+                const t = `${row.Linia || ""} ${row.OpisKrotki || ""} ${row.Opis || ""}`.toLowerCase();
+                return t.includes(search);
+            })
+            .map(r => r.Linia)
+            .filter(Boolean)
+    )];
     lines = sortLinesNatural(lines);
 
     let html = "";
     lines.forEach(line => {
-        const hasSelected = (appState.zgloszenia.rows || []).some((row, idx) =>
+        const hasSelected = allRows.some((row, idx) =>
             row.Linia === line && selectedZgloszeniaIndexes.includes(idx)
         );
         let className = "line-pill";
@@ -155,6 +169,15 @@ function renderZgloszeniaLines() {
     });
 
     container.innerHTML = html || "<p>Brak zgłoszeń</p>";
+
+    // jeśli aktywna linia wypadła z filtra
+    if (selectedZgloszeniaLine && !lines.includes(selectedZgloszeniaLine)) {
+        selectedZgloszeniaLine = null;
+        const items = document.getElementById("zgloszeniaItems");
+        if (items) items.innerHTML = "";
+    } else if (selectedZgloszeniaLine) {
+        renderZgloszeniaItems();
+    }
 }
 
 function selectZgloszeniaLine(line) {
@@ -175,12 +198,13 @@ function renderZgloszeniaItems() {
 
     const search = (document.getElementById("zglSearch")?.value || "").toLowerCase().trim();
 
+    // autofilt poziomu 2 (kafelki wewnętrzne)
     const rows = (appState.zgloszenia?.rows || [])
         .map((row, index) => ({ ...row, _index: index }))
         .filter(row => row.Linia === selectedZgloszeniaLine)
         .filter(row => {
             if (!search) return true;
-            const t = `${row.OpisKrotki || ""} ${row.Opis || ""}`.toLowerCase();
+            const t = `${row.Linia || ""} ${row.OpisKrotki || ""} ${row.Opis || ""}`.toLowerCase();
             return t.includes(search);
         });
 
@@ -215,12 +239,25 @@ function renderPoleceniaLines() {
     const container = document.getElementById("poleceniaLinie");
     if (!container) return;
 
-    let lines = [...new Set((appState.polecenia?.rows || []).map(r => r.Linia).filter(Boolean))];
+    const search = (document.getElementById("polSearch")?.value || "").toLowerCase().trim();
+    const allRows = appState.polecenia?.rows || [];
+
+    // autofilt poziomu 1
+    let lines = [...new Set(
+        allRows
+            .filter(row => {
+                if (!search) return true;
+                const t = `${row.Linia || ""} ${row.OpisKrotki || ""} ${row.Opis || ""}`.toLowerCase();
+                return t.includes(search);
+            })
+            .map(r => r.Linia)
+            .filter(Boolean)
+    )];
     lines = sortLinesNatural(lines);
 
     let html = "";
     lines.forEach(line => {
-        const hasSelected = (appState.polecenia.rows || []).some((row, idx) =>
+        const hasSelected = allRows.some((row, idx) =>
             row.Linia === line && selectedPoleceniaIndexes.includes(idx)
         );
         let className = "line-pill";
@@ -231,6 +268,14 @@ function renderPoleceniaLines() {
     });
 
     container.innerHTML = html || "<p>Brak poleceń</p>";
+
+    if (selectedPoleceniaLine && !lines.includes(selectedPoleceniaLine)) {
+        selectedPoleceniaLine = null;
+        const items = document.getElementById("poleceniaItems");
+        if (items) items.innerHTML = "";
+    } else if (selectedPoleceniaLine) {
+        renderPoleceniaItems();
+    }
 }
 
 function selectPoleceniaLine(line) {
@@ -251,12 +296,13 @@ function renderPoleceniaItems() {
 
     const search = (document.getElementById("polSearch")?.value || "").toLowerCase().trim();
 
+    // autofilt poziomu 2
     const rows = (appState.polecenia?.rows || [])
         .map((row, index) => ({ ...row, _index: index }))
         .filter(row => row.Linia === selectedPoleceniaLine)
         .filter(row => {
             if (!search) return true;
-            const t = `${row.OpisKrotki || ""} ${row.Opis || ""}`.toLowerCase();
+            const t = `${row.Linia || ""} ${row.OpisKrotki || ""} ${row.Opis || ""}`.toLowerCase();
             return t.includes(search);
         });
 
@@ -283,13 +329,14 @@ function togglePolecenie(index) {
     updateLiveEntry();
 }
 
+// jedno pole szukaj filtruje linie + kafelki wewnętrzne
 function filterGeneratorTiles() {
-    if (selectedZgloszeniaLine) renderZgloszeniaItems();
-    if (selectedPoleceniaLine) renderPoleceniaItems();
+    renderZgloszeniaLines();
+    renderPoleceniaLines();
 }
 
 // =====================================
-// GENEROWANIE (bez szablonów)
+// GENEROWANIE
 // =====================================
 
 function buildReplacements() {
