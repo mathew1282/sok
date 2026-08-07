@@ -44,13 +44,12 @@ const defaultState = {
         osobowa: "",
         towarowa: ""
     },
-    // Działania horyzont
     wot1: "",
     wot2: "",
     policjant1: "",
     policjant2: ""
 };
- 
+
 let appState = { ...defaultState };
 
 // ======================
@@ -58,7 +57,7 @@ let appState = { ...defaultState };
 // ======================
 
 async function saveState() {
-    localStorage.setItem("sokData", JSON.stringify(appState)); // backup lokalny
+    localStorage.setItem("sokData", JSON.stringify(appState));
 
     try {
         const client = getSupabase();
@@ -89,33 +88,45 @@ async function loadState() {
 
         if (data?.data) {
             appState = { ...defaultState, ...data.data };
+            // zabezpieczenie tablic
+            if (!Array.isArray(appState.patrole)) appState.patrole = [];
+            if (!Array.isArray(appState.szablony)) appState.szablony = [];
+            if (!appState.zgloszenia) appState.zgloszenia = { columns: ["Linia", "Opis"], rows: [] };
+            if (!appState.polecenia) appState.polecenia = { columns: ["Linia", "Opis"], rows: [] };
+            if (!appState.dane) appState.dane = defaultState.dane;
             console.log("✅ Wczytano dane z Supabase");
         } else {
             const local = localStorage.getItem("sokData");
-            if (local) appState = { ...defaultState, ...JSON.parse(local) };
+            if (local) {
+                appState = { ...defaultState, ...JSON.parse(local) };
+            }
         }
     } catch (err) {
         console.warn("Nie udało się wczytać z serwera - używam localStorage");
         const local = localStorage.getItem("sokData");
-        if (local) appState = { ...defaultState, ...JSON.parse(local) };
+        if (local) {
+            try {
+                appState = { ...defaultState, ...JSON.parse(local) };
+            } catch (e) {
+                console.error("Błąd localStorage", e);
+            }
+        }
     }
+
+    // zawsze po wczytaniu
+    window.dispatchEvent(new Event("sokStateLoaded"));
 }
 
-// ======================
-// UPLOAD PDF (przygotowany)
-// ======================
 async function uploadPDF(file, customName = null) {
     if (!file) return null;
     console.log("Upload PDF gotowy do użycia");
-    return null; // na razie placeholder
+    return null;
 }
 
-// ======================
-// INICJALIZACJA
-// ======================
 window.saveState = saveState;
 window.loadState = loadState;
 window.uploadPDF = uploadPDF;
+window.appState = appState;
 
 document.addEventListener("DOMContentLoaded", async () => {
     await loadState();
