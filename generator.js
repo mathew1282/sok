@@ -326,42 +326,85 @@ function updateLiveEntry() {
         const patrol = appState.patrole[index];
         if (!patrol) return;
 
-        patrolNames.push(patrol.nazwa || "");
-        if (patrol.sklad) allSklad.push(...patrol.sklad);
-        if (patrol.dowodca) allDowodcy.push(patrol.dowodca);
-        if (patrol.kierowca) allKierowcy.push(patrol.kierowca);
-        if (patrol.wot1) allWot.push(patrol.wot1);
-        if (patrol.wot2) allWot.push(patrol.wot2);
-        if (patrol.policjant1) allPolicjanci.push(patrol.policjant1);
-        if (patrol.policjant2) allPolicjanci.push(patrol.policjant2);
+        if (patrol.nazwa) patrolNames.push(String(patrol.nazwa).trim());
+
+        // Skład – zawsze tablica
+        if (Array.isArray(patrol.sklad)) {
+            patrol.sklad.forEach(p => {
+                const name = String(p || "").trim();
+                if (name.length > 1) allSklad.push(name);
+            });
+        }
+
+        if (patrol.dowodca) {
+            const d = String(patrol.dowodca).trim();
+            if (d.length > 1) allDowodcy.push(d);
+        }
+        if (patrol.kierowca) {
+            const k = String(patrol.kierowca).trim();
+            if (k.length > 1) allKierowcy.push(k);
+        }
+        if (patrol.wot1) {
+            const w = String(patrol.wot1).trim();
+            if (w.length > 1) allWot.push(w);
+        }
+        if (patrol.wot2) {
+            const w = String(patrol.wot2).trim();
+            if (w.length > 1) allWot.push(w);
+        }
+        if (patrol.policjant1) {
+            const p = String(patrol.policjant1).trim();
+            if (p.length > 1) allPolicjanci.push(p);
+        }
+        if (patrol.policjant2) {
+            const p = String(patrol.policjant2).trim();
+            if (p.length > 1) allPolicjanci.push(p);
+        }
     });
 
-    let text = template.tresc || "";
+    // Unikalne wartości (bez powtórek)
+    const unique = arr => [...new Set(arr.filter(x => x && x.length > 1))];
 
-    const skladLine = forceOneLine(allSklad);
-    const wszyscyLine = forceOneLine(getAllPatrolMembersOneLine());
+    const patrolLine     = forceOneLine(unique(patrolNames));
+    const skladLine      = forceOneLine(unique(allSklad));
+    const dowodcaLine    = forceOneLine(unique(allDowodcy));
+    const kierowcaLine   = forceOneLine(unique(allKierowcy));
+    const wszyscyLine    = forceOneLine(unique([...allSklad, ...allDowodcy, ...allKierowcy]));
     const zgloszeniaLine = forceOneLine(selectedZgloszenia);
-    const poleceniaLine = forceOneLine(selectedPolecenia);
-    const wotList = forceOneLine(allWot);
-    const policjantList = forceOneLine(allPolicjanci);
+    const poleceniaLine  = forceOneLine(selectedPolecenia);
+    const wotList        = forceOneLine(unique(allWot));
+    const policjantList  = forceOneLine(unique(allPolicjanci));
 
     const now = new Date();
     const data = now.toLocaleDateString("pl-PL");
     const godzina = now.toLocaleTimeString("pl-PL", { hour: '2-digit', minute: '2-digit' });
 
-    text = text.replaceAll("@patrol", forceOneLine(patrolNames));
-    text = text.replaceAll("@dowodca", forceOneLine(allDowodcy));
-    text = text.replaceAll("@kierowca", forceOneLine(allKierowcy));
-    text = text.replaceAll("@sklad", skladLine);
-    text = text.replaceAll("@wszyscy", wszyscyLine);
-    text = text.replaceAll("@zgloszenia", zgloszeniaLine);
-    text = text.replaceAll("@polecenia", poleceniaLine);
-    text = text.replaceAll("@data", data);
-    text = text.replaceAll("@godzina", godzina);
-    text = text.replaceAll("@KZ", kz);
-    text = text.replaceAll("@MKK", mkk);
-    text = text.replaceAll("@wot", wotList);
-    text = text.replaceAll("@policjant", policjantList);
+    let text = template.tresc || "";
+
+    // Zamiana znaczników (case-insensitive)
+    const replacements = {
+        "@patrol":     patrolLine,
+        "@dowodca":    dowodcaLine,
+        "@kierowca":   kierowcaLine,
+        "@sklad":      skladLine,
+        "@wszyscy":    wszyscyLine,
+        "@zgloszenia": zgloszeniaLine,
+        "@polecenia":  poleceniaLine,
+        "@data":       data,
+        "@godzina":    godzina,
+        "@KZ":         kz,
+        "@MKK":        mkk,
+        "@wot":        wotList,
+        "@policjant":  policjantList
+    };
+
+    // Dwa przebiegi – żeby znaczniki wpisane w Opisie też się rozwijały
+    for (let i = 0; i < 2; i++) {
+        for (const [tag, value] of Object.entries(replacements)) {
+            const regex = new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "gi");
+            text = text.replace(regex, value || "");
+        }
+    }
 
     text = text.replace(/\n+/g, " ").trim();
     textarea.value = text;
