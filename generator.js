@@ -1,6 +1,7 @@
 // =====================================
 // GENERATOR WPISÓW (bez szablonów)
-// + autofilt: linie + kafelki wewnętrzne
+// + autofilt linii
+// + sort alfabetyczny 2. poziomu
 // =====================================
 
 let selectedPatrols = [];
@@ -61,6 +62,28 @@ function escapeHtml(str) {
         .replace(/>/g, "&gt;");
 }
 
+function getZglSearch() {
+    return (document.getElementById("zglSearch")?.value || "").toLowerCase().trim();
+}
+
+function getPolSearch() {
+    return (document.getElementById("polSearch")?.value || "").toLowerCase().trim();
+}
+
+function rowMatchesSearch(row, search) {
+    if (!search) return true;
+    const t = `${row.Linia || ""} ${row.OpisKrotki || ""} ${row.Opis || ""}`.toLowerCase();
+    return t.includes(search);
+}
+
+function sortByOpisKrotki(rows) {
+    return rows.sort((a, b) => {
+        const aLabel = (a.OpisKrotki || a.Opis || "").toLowerCase();
+        const bLabel = (b.OpisKrotki || b.Opis || "").toLowerCase();
+        return aLabel.localeCompare(bLabel, "pl", { sensitivity: "base", numeric: true });
+    });
+}
+
 // =====================================
 // INICJALIZACJA
 // =====================================
@@ -72,7 +95,6 @@ function initGenerator() {
     selectedZgloszeniaLine = null;
     selectedPoleceniaLine = null;
 
-    // upewnij się, że struktury istnieją
     if (!appState.zgloszenia) appState.zgloszenia = { columns: ["Linia", "OpisKrotki", "Opis"], rows: [] };
     if (!Array.isArray(appState.zgloszenia.rows)) appState.zgloszenia.rows = [];
     if (!appState.polecenia) appState.polecenia = { columns: ["Linia", "OpisKrotki", "Opis"], rows: [] };
@@ -147,22 +169,17 @@ function renderZgloszeniaLines() {
     const container = document.getElementById("zgloszeniaLinie");
     if (!container) return;
 
-    const search = (document.getElementById("zglSearch")?.value || "").toLowerCase().trim();
+    const search = getZglSearch();
     const allRows = appState.zgloszenia?.rows || [];
 
     let lines = [...new Set(
         allRows
-            .filter(row => {
-                if (!search) return true;
-                const t = `${row.Linia || ""} ${row.OpisKrotki || ""} ${row.Opis || ""}`.toLowerCase();
-                return t.includes(search);
-            })
+            .filter(row => rowMatchesSearch(row, search))
             .map(r => r.Linia)
             .filter(Boolean)
     )];
     lines = sortLinesNatural(lines);
 
-    // jeśli aktywna linia nie ma już wyników – odznacz
     if (selectedZgloszeniaLine && !lines.includes(selectedZgloszeniaLine)) {
         selectedZgloszeniaLine = null;
     }
@@ -184,11 +201,7 @@ function renderZgloszeniaLines() {
 }
 
 function selectZgloszeniaLine(line) {
-    if (selectedZgloszeniaLine === line) {
-        selectedZgloszeniaLine = null;
-    } else {
-        selectedZgloszeniaLine = line;
-    }
+    selectedZgloszeniaLine = (selectedZgloszeniaLine === line) ? null : line;
     renderZgloszeniaLines();
 }
 
@@ -196,7 +209,7 @@ function renderZgloszeniaItems() {
     const container = document.getElementById("zgloszeniaItems");
     if (!container) return;
 
-    const search = (document.getElementById("zglSearch")?.value || "").toLowerCase().trim();
+    const search = getZglSearch();
     const allRows = appState.zgloszenia?.rows || [];
 
     let rows = allRows.map((row, index) => ({ ...row, _index: index }));
@@ -206,17 +219,16 @@ function renderZgloszeniaItems() {
     }
 
     if (search) {
-        rows = rows.filter(row => {
-            const t = `${row.Linia || ""} ${row.OpisKrotki || ""} ${row.Opis || ""}`.toLowerCase();
-            return t.includes(search);
-        });
+        rows = rows.filter(row => rowMatchesSearch(row, search));
     }
 
-    // bez szukania i bez wybranej linii → pusto
-    if (!search && !selectedZgloszeniaLine) {
+    if (!selectedZgloszeniaLine && !search) {
         container.innerHTML = "";
         return;
     }
+
+    // alfabetycznie 2. poziom
+    sortByOpisKrotki(rows);
 
     let html = "";
     rows.forEach(row => {
@@ -248,16 +260,12 @@ function renderPoleceniaLines() {
     const container = document.getElementById("poleceniaLinie");
     if (!container) return;
 
-    const search = (document.getElementById("polSearch")?.value || "").toLowerCase().trim();
+    const search = getPolSearch();
     const allRows = appState.polecenia?.rows || [];
 
     let lines = [...new Set(
         allRows
-            .filter(row => {
-                if (!search) return true;
-                const t = `${row.Linia || ""} ${row.OpisKrotki || ""} ${row.Opis || ""}`.toLowerCase();
-                return t.includes(search);
-            })
+            .filter(row => rowMatchesSearch(row, search))
             .map(r => r.Linia)
             .filter(Boolean)
     )];
@@ -284,11 +292,7 @@ function renderPoleceniaLines() {
 }
 
 function selectPoleceniaLine(line) {
-    if (selectedPoleceniaLine === line) {
-        selectedPoleceniaLine = null;
-    } else {
-        selectedPoleceniaLine = line;
-    }
+    selectedPoleceniaLine = (selectedPoleceniaLine === line) ? null : line;
     renderPoleceniaLines();
 }
 
@@ -296,7 +300,7 @@ function renderPoleceniaItems() {
     const container = document.getElementById("poleceniaItems");
     if (!container) return;
 
-    const search = (document.getElementById("polSearch")?.value || "").toLowerCase().trim();
+    const search = getPolSearch();
     const allRows = appState.polecenia?.rows || [];
 
     let rows = allRows.map((row, index) => ({ ...row, _index: index }));
@@ -306,16 +310,16 @@ function renderPoleceniaItems() {
     }
 
     if (search) {
-        rows = rows.filter(row => {
-            const t = `${row.Linia || ""} ${row.OpisKrotki || ""} ${row.Opis || ""}`.toLowerCase();
-            return t.includes(search);
-        });
+        rows = rows.filter(row => rowMatchesSearch(row, search));
     }
 
-    if (!search && !selectedPoleceniaLine) {
+    if (!selectedPoleceniaLine && !search) {
         container.innerHTML = "";
         return;
     }
+
+    // alfabetycznie 2. poziom
+    sortByOpisKrotki(rows);
 
     let html = "";
     rows.forEach(row => {
