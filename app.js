@@ -1,8 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
 
-    // ======================
-    // EKSPORT / IMPORT JSON
-    // ======================
     const saveDataBtn = document.getElementById("saveDataBtn");
     const loadDataBtn = document.getElementById("loadDataBtn");
     const jsonLoader = document.getElementById("jsonLoader");
@@ -10,9 +7,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (saveDataBtn) saveDataBtn.addEventListener("click", exportToJSON);
     if (loadDataBtn) loadDataBtn.addEventListener("click", () => jsonLoader.click());
     if (jsonLoader) jsonLoader.addEventListener("change", importFromJSON);
-
-    // Start
-    loadPage("generator");
 
     // Menu
     document.querySelectorAll(".menu-btn").forEach(btn => {
@@ -24,7 +18,24 @@ document.addEventListener("DOMContentLoaded", () => {
             btn.classList.add("active");
         });
     });
+
+    // Start dopiero po wczytaniu danych
+    if (window.__sokStateReady) {
+        startApp();
+    } else {
+        window.addEventListener("sokStateLoaded", startApp, { once: true });
+        // awaryjnie po 2s i tak odpal
+        setTimeout(() => {
+            if (!window.__sokStarted) startApp();
+        }, 2000);
+    }
 });
+
+function startApp() {
+    if (window.__sokStarted) return;
+    window.__sokStarted = true;
+    loadPage("generator");
+}
 
 // ======================================
 // Wbudowane strony
@@ -39,19 +50,16 @@ const pages = {
     generator: `
     <div id="generatorContainer">
 
-        <!-- KZ w jednej linii -->
         <div class="generator-section" style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
             <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">Komendant zmiany IOK Wrocław</div>
             <input type="text" id="kzInput" placeholder="Wpisz KZ" style="flex:1; min-width:200px;">
         </div>
 
-        <!-- Patrole w jednej linii -->
-        <div class="generator-section" style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
-            <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">Patrole</div>
-            <div id="patrolCards" class="card-grid" style="flex:1;"></div>
+        <div class="generator-section">
+            <div class="generator-title">Patrole</div>
+            <div id="patrolCards" class="card-grid"></div>
         </div>
 
-        <!-- Szablon w jednej linii -->
         <div class="generator-section" style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
             <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">Szablon</div>
             <select id="templateSelect" style="flex:1; min-width:200px;">
@@ -59,7 +67,6 @@ const pages = {
             </select>
         </div>
 
-        <!-- Zgłoszenia -->
         <div class="generator-section">
             <div class="generator-title">Zgłoszenia</div>
             <div id="zgloszeniaLinie" class="card-grid"></div>
@@ -67,7 +74,6 @@ const pages = {
             <div id="zgloszeniaItems" class="card-grid"></div>
         </div>
 
-        <!-- Polecenia -->
         <div class="generator-section">
             <div class="generator-title">Polecenia</div>
             <div id="poleceniaLinie" class="card-grid"></div>
@@ -75,13 +81,11 @@ const pages = {
             <div id="poleceniaItems" class="card-grid"></div>
         </div>
 
-        <!-- MKK w jednej linii -->
         <div class="generator-section" style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
             <div class="generator-title" style="margin-bottom:0; white-space:nowrap;">MKK</div>
             <input type="text" id="mkkInput" placeholder="Wpisz MKK" style="flex:1; min-width:200px;">
         </div>
 
-        <!-- Przyciski -->
         <div class="generator-section">
             <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                 <div class="generator-title" style="margin-bottom:0;">Generowanie wpisu</div>
@@ -91,7 +95,6 @@ const pages = {
             </div>
         </div>
 
-        <!-- Wygenerowany wpis -->
         <div class="generator-section">
             <div class="generator-title">Wygenerowany wpis</div>
             <textarea id="generatedEntry" style="width:100%; min-height:350px;"></textarea>
@@ -102,17 +105,18 @@ const pages = {
 
 function loadPage(page) {
     const content = document.getElementById("content");
+    if (!content) return;
+
     content.innerHTML = pages[page] || `<h2>Strona nie znaleziona</h2>`;
 
-    switch(page){
-        case "dane":       initDane();       break;
-        case "zgloszenia": initZgloszenia(); break;
-        case "polecenia":  initPolecenia();  break;
-        case "patrole":    initPatrole();    break;
-        case "szablony":   initSzablony();   break;
-        case "generator":  initGenerator();  break;
-        case "linie": initLinie(); break;
-        
+    switch (page) {
+        case "dane":       if (typeof initDane === "function") initDane(); break;
+        case "zgloszenia": if (typeof initZgloszenia === "function") initZgloszenia(); break;
+        case "polecenia":  if (typeof initPolecenia === "function") initPolecenia(); break;
+        case "patrole":    if (typeof initPatrole === "function") initPatrole(); break;
+        case "szablony":   if (typeof initSzablony === "function") initSzablony(); break;
+        case "generator":  if (typeof initGenerator === "function") initGenerator(); break;
+        case "linie":      if (typeof initLinie === "function") initLinie(); break;
     }
 }
 
@@ -142,10 +146,13 @@ function importFromJSON(event) {
             const importedData = JSON.parse(e.target.result);
             if (confirm("Nadpisać obecne dane?")) {
                 appState = { ...defaultState, ...importedData };
+                if (!Array.isArray(appState.patrole)) appState.patrole = [];
+                if (!Array.isArray(appState.szablony)) appState.szablony = [];
                 saveState();
                 alert("Dane wczytane!");
                 const activeBtn = document.querySelector(".menu-btn.active");
                 if (activeBtn) loadPage(activeBtn.dataset.page);
+                else loadPage("generator");
             }
         } catch (error) {
             alert("Błąd pliku JSON: " + error.message);
