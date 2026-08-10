@@ -162,6 +162,7 @@ function renderZgloszenia() {
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@godzina')">@godzina</button>
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@wot')">@wot</button>
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@policjant')">@policjant</button>
+                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@wybrani')">@wybrani</button>
             </div>
 
             <div class="modal-actions">
