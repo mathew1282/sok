@@ -42,7 +42,9 @@ const defaultState = {
     linie: {
         szlak: "",
         osobowa: "",
-        towarowa: ""
+        towarowa: "",
+        dyzurny: "",
+        komendant: ""
     },
     wot1: "",
     wot2: "",
