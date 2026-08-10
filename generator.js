@@ -409,7 +409,7 @@ function buildReplacements() {
 
     const wybraniValue = selectedWybrani.length > 0
         ? forceOneLine(uniqueNonEmpty(selectedWybrani))
-        : ""; // puste – w podglądzie i tak wstawimy czerwone przypomnienie
+        : ""; // puste – w podglądzie i tak wstawimy przypomnienie
 
     return {
         "@patrol":     forceOneLine(uniqueNonEmpty(patrolNames)),
@@ -440,18 +440,17 @@ function applyTags(text, replacements) {
 
 function updateLiveEntry() {
     const textarea = document.getElementById("generatedEntry");
-    const preview = document.getElementById("generatedEntryPreview");
-    if (!textarea && !preview) return;
+    const banner = document.getElementById("wybraniHintBanner");
+    if (!textarea) return;
 
     const replacements = buildReplacements();
     const needsWybraniHint = hasWybraniTag() && selectedWybrani.length === 0;
     const hintPlain = "⚠ KLIKNIJ „GENERUJ WPIS”, ABY WYBRAĆ OSOBY";
-    const hintHtml = `<span class="wybrani-hint">⚠ KLIKNIJ „GENERUJ WPIS”, ABY WYBRAĆ OSOBY</span>`;
 
-    // Jeśli @wybrani jest w tekście, a nikt jeszcze nie wybrany – wstaw znacznik-placeholder
+    // Jeśli @wybrani jest w tekście, a nikt jeszcze nie wybrany – wstaw tekst przypomnienia
     const replacementsForApply = { ...replacements };
     if (needsWybraniHint) {
-        replacementsForApply["@wybrani"] = "___WYBRANI_HINT___";
+        replacementsForApply["@wybrani"] = hintPlain;
     }
 
     const zgloszeniaParts = selectedZgloszeniaIndexes
@@ -464,15 +463,12 @@ function updateLiveEntry() {
         .filter(Boolean)
         .map(t => applyTags(t, replacementsForApply));
 
-    const raw = [...zgloszeniaParts, ...poleceniaParts].filter(Boolean).join(" ");
+    textarea.value = [...zgloszeniaParts, ...poleceniaParts].filter(Boolean).join(" ");
 
-    // wersja zwykła (do schowka) – bez HTML
-    const plain = raw.replace(/___WYBRANI_HINT___/g, hintPlain);
-    // wersja do podglądu – czerwone, grube
-    const html = escapeHtml(raw).replace(/___WYBRANI_HINT___/g, hintHtml);
-
-    if (textarea) textarea.value = plain;
-    if (preview) preview.innerHTML = html || "";
+    // czerwony baner nad okienkiem
+    if (banner) {
+        banner.style.display = needsWybraniHint ? "block" : "none";
+    }
 }
 
 // =====================================
@@ -604,6 +600,9 @@ function copyEntry() {
 function clearEntry() {
     const textarea = document.getElementById("generatedEntry");
     if (textarea) textarea.value = "";
+
+    const banner = document.getElementById("wybraniHintBanner");
+    if (banner) banner.style.display = "none";
 
     selectedPatrols = [];
     selectedZgloszeniaIndexes = [];
