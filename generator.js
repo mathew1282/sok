@@ -9,6 +9,7 @@ let selectedZgloszeniaIndexes = [];
 let selectedPoleceniaIndexes = [];
 let selectedZgloszeniaLine = null;
 let selectedPoleceniaLine = null;
+let selectedWybrani = []; // osoby wybrane przez znacznik @wybrani
 
 // =====================================
 // POMOCNICZE
@@ -94,6 +95,7 @@ function initGenerator() {
     selectedPoleceniaIndexes = [];
     selectedZgloszeniaLine = null;
     selectedPoleceniaLine = null;
+    selectedWybrani = [];
 
     if (!appState.zgloszenia) appState.zgloszenia = { columns: ["Linia", "OpisKrotki", "Opis"], rows: [] };
     if (!Array.isArray(appState.zgloszenia.rows)) appState.zgloszenia.rows = [];
@@ -111,6 +113,7 @@ function initGenerator() {
     if (mkkInput) mkkInput.value = appState.mkk || "";
 
     setupPersistentInputs();
+    ensureWybraniModal();
     updateLiveEntry();
 }
 
@@ -157,6 +160,8 @@ function togglePatrol(index) {
     const pos = selectedPatrols.indexOf(index);
     if (pos > -1) selectedPatrols.splice(pos, 1);
     else selectedPatrols.push(index);
+    // po zmianie patroli czyścimy wybór @wybrani (lista osób mogła się zmienić)
+    selectedWybrani = [];
     renderPatroleCards();
     updateLiveEntry();
 }
@@ -352,6 +357,25 @@ function filterGeneratorTiles() {
 // GENEROWANIE
 // =====================================
 
+function getSkladFromSelectedPatrols() {
+    const allSklad = [];
+    selectedPatrols.forEach(index => {
+        const patrol = appState.patrole?.[index];
+        if (!patrol || !Array.isArray(patrol.sklad)) return;
+        patrol.sklad.forEach(p => { if (p) allSklad.push(p); });
+    });
+    return uniqueNonEmpty(allSklad);
+}
+
+function hasWybraniTag() {
+    const zgloszeniaParts = selectedZgloszeniaIndexes
+        .map(i => appState.zgloszenia?.rows?.[i]?.Opis || "");
+    const poleceniaParts = selectedPoleceniaIndexes
+        .map(i => appState.polecenia?.rows?.[i]?.Opis || "");
+    const allTexts = [...zgloszeniaParts, ...poleceniaParts].join(" ");
+    return /@wybrani/i.test(allTexts);
+}
+
 function buildReplacements() {
     const kz = document.getElementById("kzInput")?.value || appState.kz || "";
     const mkk = document.getElementById("mkkInput")?.value || appState.mkk || "";
@@ -383,12 +407,17 @@ function buildReplacements() {
     const data = now.toLocaleDateString("pl-PL");
     const godzina = now.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
 
+    const wybraniValue = selectedWybrani.length > 0
+        ? forceOneLine(uniqueNonEmpty(selectedWybrani))
+        : ""; // puste – w podglądzie i tak wstawimy czerwone przypomnienie
+
     return {
         "@patrol":     forceOneLine(uniqueNonEmpty(patrolNames)),
         "@dowodca":    forceOneLine(uniqueNonEmpty(allDowodcy)),
         "@kierowca":   forceOneLine(uniqueNonEmpty(allKierowcy)),
         "@sklad":      forceOneLine(uniqueNonEmpty(allSklad)),
         "@wszyscy":    forceOneLine(uniqueNonEmpty([...allSklad, ...allDowodcy, ...allKierowcy])),
+        "@wybrani":    wybraniValue,
         "@data":       data,
         "@godzina":    godzina,
         "@KZ":         kz,
@@ -411,22 +440,134 @@ function applyTags(text, replacements) {
 
 function updateLiveEntry() {
     const textarea = document.getElementById("generatedEntry");
-    if (!textarea) return;
+    const preview = document.getElementById("generatedEntryPreview");
+    if (!textarea && !preview) return;
 
     const replacements = buildReplacements();
+    const needsWybraniHint = hasWybraniTag() && selectedWybrani.length === 0;
+    const hintPlain = "⚠ KLIKNIJ „GENERUJ WPIS”, ABY WYBRAĆ OSOBY";
+    const hintHtml = `<span class="wybrani-hint">⚠ KLIKNIJ „GENERUJ WPIS”, ABY WYBRAĆ OSOBY</span>`;
+
+    // Jeśli @wybrani jest w tekście, a nikt jeszcze nie wybrany – wstaw znacznik-placeholder
+    const replacementsForApply = { ...replacements };
+    if (needsWybraniHint) {
+        replacementsForApply["@wybrani"] = "___WYBRANI_HINT___";
+    }
 
     const zgloszeniaParts = selectedZgloszeniaIndexes
         .map(i => appState.zgloszenia?.rows?.[i]?.Opis)
         .filter(Boolean)
-        .map(t => applyTags(t, replacements));
+        .map(t => applyTags(t, replacementsForApply));
 
     const poleceniaParts = selectedPoleceniaIndexes
         .map(i => appState.polecenia?.rows?.[i]?.Opis)
         .filter(Boolean)
-        .map(t => applyTags(t, replacements));
+        .map(t => applyTags(t, replacementsForApply));
 
-    const parts = [...zgloszeniaParts, ...poleceniaParts].filter(Boolean);
-    textarea.value = parts.join(" ");
+    const raw = [...zgloszeniaParts, ...poleceniaParts].filter(Boolean).join(" ");
+
+    // wersja zwykła (do schowka) – bez HTML
+    const plain = raw.replace(/___WYBRANI_HINT___/g, hintPlain);
+    // wersja do podglądu – czerwone, grube
+    const html = escapeHtml(raw).replace(/___WYBRANI_HINT___/g, hintHtml);
+
+    if (textarea) textarea.value = plain;
+    if (preview) preview.innerHTML = html || "";
+}
+
+// =====================================
+// MODAL @wybrani
+// =====================================
+
+function ensureWybraniModal() {
+    if (document.getElementById("wybraniModal")) return;
+
+    const overlay = document.createElement("div");
+    overlay.id = "wybraniModal";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "none";
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:640px;">
+            <h2>Wybierz osoby ze składu patrolu</h2>
+            <p style="margin-bottom:15px; color:#94a3b8; font-size:14px;">
+                Zaznacz kliknięciem osoby, które mają pojawić się w miejscu znacznika <strong>@wybrani</strong>.
+                Możesz wybrać jedną, kilka lub wszystkich.
+            </p>
+            <div id="wybraniList" class="card-grid" style="max-height:50vh; overflow:auto;"></div>
+            <div class="modal-actions">
+                <button class="btn-success" onclick="confirmWybrani()">Zatwierdź i generuj</button>
+                <button class="btn-primary" onclick="selectAllWybrani()">Zaznacz wszystkich</button>
+                <button class="btn-danger" onclick="closeWybraniModal()">Anuluj</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function openWybraniModal() {
+    ensureWybraniModal();
+    const people = getSkladFromSelectedPatrols();
+
+    if (people.length === 0) {
+        showToast("Brak osób w składzie zaznaczonych patroli");
+        return false;
+    }
+
+    // zachowaj poprzedni wybór, jeśli nadal jest w liście
+    selectedWybrani = selectedWybrani.filter(p => people.includes(p));
+
+    const list = document.getElementById("wybraniList");
+    let html = "";
+    people.forEach((name, i) => {
+        const isSelected = selectedWybrani.includes(name) ? "selected" : "";
+        html += `
+        <div class="item-card ${isSelected}" onclick="toggleWybranaOsoba(${i})" data-name="${escapeAttr(name)}">
+            ${escapeHtml(name)}
+        </div>`;
+    });
+    list.innerHTML = html;
+
+    document.getElementById("wybraniModal").style.display = "flex";
+    return true;
+}
+
+function toggleWybranaOsoba(index) {
+    const people = getSkladFromSelectedPatrols();
+    const name = people[index];
+    if (!name) return;
+
+    const pos = selectedWybrani.indexOf(name);
+    if (pos > -1) selectedWybrani.splice(pos, 1);
+    else selectedWybrani.push(name);
+
+    // odśwież wygląd
+    const cards = document.querySelectorAll("#wybraniList .item-card");
+    cards.forEach((card, i) => {
+        const n = people[i];
+        if (selectedWybrani.includes(n)) card.classList.add("selected");
+        else card.classList.remove("selected");
+    });
+}
+
+function selectAllWybrani() {
+    selectedWybrani = [...getSkladFromSelectedPatrols()];
+    const cards = document.querySelectorAll("#wybraniList .item-card");
+    cards.forEach(card => card.classList.add("selected"));
+}
+
+function closeWybraniModal() {
+    const modal = document.getElementById("wybraniModal");
+    if (modal) modal.style.display = "none";
+}
+
+function confirmWybrani() {
+    if (selectedWybrani.length === 0) {
+        showToast("Wybierz przynajmniej jedną osobę");
+        return;
+    }
+    closeWybraniModal();
+    updateLiveEntry();
+    showToast("✅ Wpis wygenerowany z wybranymi osobami");
 }
 
 // =====================================
@@ -434,6 +575,18 @@ function updateLiveEntry() {
 // =====================================
 
 function generateEntry() {
+    if (hasWybraniTag()) {
+        const opened = openWybraniModal();
+        if (!opened) {
+            // brak osób – generuj bez @wybrani (pusty)
+            selectedWybrani = [];
+            updateLiveEntry();
+        }
+        // jeśli modal otwarty – generowanie nastąpi po confirmWybrani()
+        return;
+    }
+    // brak znacznika – generuj normalnie
+    selectedWybrani = [];
     updateLiveEntry();
 }
 
@@ -457,6 +610,7 @@ function clearEntry() {
     selectedPoleceniaIndexes = [];
     selectedZgloszeniaLine = null;
     selectedPoleceniaLine = null;
+    selectedWybrani = [];
 
     const zSearch = document.getElementById("zglSearch");
     const pSearch = document.getElementById("polSearch");
@@ -508,3 +662,7 @@ window.updateLiveEntry = updateLiveEntry;
 window.filterGeneratorTiles = filterGeneratorTiles;
 window.showToast = showToast;
 window.initGenerator = initGenerator;
+window.toggleWybranaOsoba = toggleWybranaOsoba;
+window.selectAllWybrani = selectAllWybrani;
+window.confirmWybrani = confirmWybrani;
+window.closeWybraniModal = closeWybraniModal;
