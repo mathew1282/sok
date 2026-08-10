@@ -94,7 +94,8 @@ const pages = {
 
         <div class="generator-section">
             <div class="generator-title">Wygenerowany wpis</div>
-            <textarea id="generatedEntry" style="width:100%; min-height:280px;"></textarea>
+            <div id="generatedEntryPreview" class="entry-preview"></div>
+            <textarea id="generatedEntry" style="display:none;"></textarea>
         </div>
     </div>`,
     linie: `<div id="linieContainer"></div>`
