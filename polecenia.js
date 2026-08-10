@@ -162,6 +162,7 @@ function renderPolecenia() {
                 <button type="button" class="btn-primary" onclick="insertPolecenieTag('@godzina')">@godzina</button>
                 <button type="button" class="btn-primary" onclick="insertPolecenieTag('@wot')">@wot</button>
                 <button type="button" class="btn-primary" onclick="insertPolecenieTag('@policjant')">@policjant</button>
+                <button type="button" class="btn-primary" onclick="insertPolecenieTag('@wybrani')">@wybrani</button>
             </div>
 
             <div class="modal-actions">
