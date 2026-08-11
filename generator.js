@@ -397,7 +397,6 @@ function setUwagi(val) {
     uwagiWybrane = val;
     renderUwagiCards();
 }
-
 // =====================================
 // MODAL UWAGI
 // =====================================
