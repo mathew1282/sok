@@ -8,23 +8,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (loadDataBtn) loadDataBtn.addEventListener("click", () => jsonLoader.click());
     if (jsonLoader) jsonLoader.addEventListener("change", importFromJSON);
 
-    // Menu
     document.querySelectorAll(".menu-btn").forEach(btn => {
         btn.addEventListener("click", () => {
             const page = btn.dataset.page;
             loadPage(page);
-
             document.querySelectorAll(".menu-btn").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
         });
     });
 
-    // Start dopiero po wczytaniu danych
     if (window.__sokStateReady) {
         startApp();
     } else {
         window.addEventListener("sokStateLoaded", startApp, { once: true });
-        // awaryjnie po 2s i tak odpal
         setTimeout(() => {
             if (!window.__sokStarted) startApp();
         }, 2000);
@@ -46,7 +42,7 @@ const pages = {
     zgloszenia: `<div id="zgloszeniaContainer"></div>`,
     polecenia: `<div id="poleceniaContainer"></div>`,
     patrole: `<div id="patroleContainer"></div>`,
-    szablony: `<div id="szablonyContainer"></div>`,
+    statystyki: `<div id="statystykiContainer"></div>`,
     generator: `
     <div id="generatorContainer">
 
@@ -84,7 +80,11 @@ const pages = {
             <div id="poleceniaItems" class="card-grid"></div>
         </div>
 
-                <!-- UWAGI -->
+        <div class="generator-section">
+            <div class="generator-title">Logowanie sprawdzeń</div>
+            <button class="btn-success" onclick="openLogSprawdzenModal()">Zaloguj sprawdzenie z zaznaczonych poleceń</button>
+        </div>
+
         <div class="generator-section">
             <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
                 <div class="generator-title" style="margin-bottom:0;">Uwagi</div>
@@ -124,7 +124,7 @@ function loadPage(page) {
         case "zgloszenia": if (typeof initZgloszenia === "function") initZgloszenia(); break;
         case "polecenia":  if (typeof initPolecenia === "function") initPolecenia(); break;
         case "patrole":    if (typeof initPatrole === "function") initPatrole(); break;
-        case "szablony":   if (typeof initSzablony === "function") initSzablony(); break;
+        case "statystyki": if (typeof initStatystyki === "function") initStatystyki(); break;
         case "generator":  if (typeof initGenerator === "function") initGenerator(); break;
         case "linie":      if (typeof initLinie === "function") initLinie(); break;
         case "ksiazka":    if (typeof initKsiazka === "function") initKsiazka(); break;
@@ -158,7 +158,9 @@ function importFromJSON(event) {
             if (confirm("Nadpisać obecne dane?")) {
                 appState = { ...defaultState, ...importedData };
                 if (!Array.isArray(appState.patrole)) appState.patrole = [];
-                if (!Array.isArray(appState.szablony)) appState.szablony = [];
+                if (!appState.statystyki) appState.statystyki = { interwencje: [], sprawdzenia: [] };
+                if (!Array.isArray(appState.statystyki.interwencje)) appState.statystyki.interwencje = [];
+                if (!Array.isArray(appState.statystyki.sprawdzenia)) appState.statystyki.sprawdzenia = [];
                 saveState();
                 alert("Dane wczytane!");
                 const activeBtn = document.querySelector(".menu-btn.active");
