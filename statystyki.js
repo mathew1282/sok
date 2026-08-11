@@ -73,13 +73,6 @@ function renderStatystyki() {
     const towarowe = sprawdzenia.filter(s => s.rodzaj === "Stacja towarowa");
     const osobowe = sprawdzenia.filter(s => s.rodzaj === "Stacja osobowa");
 
-    const towaroweTxt = towarowe.length
-        ? towarowe.map(s => s.nazwa || "?").join(", ")
-        : "brak";
-    const osoboweTxt = osobowe.length
-        ? osobowe.map(s => s.nazwa || "?").join(", ")
-        : "brak";
-
     let html = `
     <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px;">
@@ -90,7 +83,7 @@ function renderStatystyki() {
             Widok z dzisiejszego dnia. Bez ręcznego kasowania dane zbierają się dalej w tle.
         </p>
 
-        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-bottom:14px; font-size:16px;">
+        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-bottom:20px; font-size:16px;">
             <span><strong>Interwencje:</strong></span>
             <span><strong>MKK:</strong> ${counts.MKK}</span>
             <span><strong>Pouczony:</strong> ${counts.Pouczony}</span>
@@ -98,13 +91,73 @@ function renderStatystyki() {
             <span><strong>Inne:</strong> ${counts.Inne}</span>
         </div>
 
-        <div style="margin-bottom:10px; font-size:16px;">
-            <strong>Stacje towarowe (${towarowe.length}):</strong> ${escapeHtml(towaroweTxt)}
-        </div>
+        <h3>Stacje towarowe (${towarowe.length})</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Godz. rozpoczęcia</th>
+                    <th>Godz. zakończenia</th>
+                    <th>Nazwa stacji</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
 
-        <div style="margin-bottom:20px; font-size:16px;">
-            <strong>Stacje osobowe (${osobowe.length}):</strong> ${escapeHtml(osoboweTxt)}
-        </div>
+    if (towarowe.length === 0) {
+        html += `<tr><td colspan="5" style="text-align:center;color:#94a3b8;">Brak</td></tr>`;
+    } else {
+        towarowe.forEach((s) => {
+            const globalIdx = appState.statystyki.sprawdzenia.indexOf(s);
+            html += `<tr>
+                <td>${escapeHtml(s.data)}</td>
+                <td>${escapeHtml(s.godzOd)}</td>
+                <td>${escapeHtml(s.godzDo)}</td>
+                <td>${escapeHtml(s.nazwa)}</td>
+                <td><button class="btn-danger" onclick="removeSprawdzenie(${globalIdx})">Usuń</button></td>
+            </tr>`;
+        });
+    }
+
+    html += `
+            </tbody>
+        </table>
+        <br>
+
+        <h3>Stacje osobowe (${osobowe.length})</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Godz. rozpoczęcia</th>
+                    <th>Godz. zakończenia</th>
+                    <th>Nazwa stacji</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    if (osobowe.length === 0) {
+        html += `<tr><td colspan="5" style="text-align:center;color:#94a3b8;">Brak</td></tr>`;
+    } else {
+        osobowe.forEach((s) => {
+            const globalIdx = appState.statystyki.sprawdzenia.indexOf(s);
+            html += `<tr>
+                <td>${escapeHtml(s.data)}</td>
+                <td>${escapeHtml(s.godzOd)}</td>
+                <td>${escapeHtml(s.godzDo)}</td>
+                <td>${escapeHtml(s.nazwa)}</td>
+                <td><button class="btn-danger" onclick="removeSprawdzenie(${globalIdx})">Usuń</button></td>
+            </tr>`;
+        });
+    }
+
+    html += `
+            </tbody>
+        </table>
+        <br>
 
         <h3>Sprawdzenia szlaków (${szlaki.length})</h3>
         <table>
@@ -167,7 +220,7 @@ function copyText(text) {
     }).catch(() => alert("Nie udało się skopiować"));
 }
 
-/** Tylko wiersze tabeli, bez nagłówków – każdy wiersz w nowej linii */
+/** Tylko wiersze tabeli szlaków, bez nagłówków */
 function copySzlaki() {
     ensureStatystykiState();
     const szlaki = filterToday(appState.statystyki.sprawdzenia).filter(s => s.rodzaj === "Szlak");
