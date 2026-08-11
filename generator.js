@@ -658,9 +658,24 @@ function confirmWybraniUwagi() {
     const tekst = window._uwagiTekstDoWstawienia || "";
     const gotowyTekst = applyTags(tekst, buildReplacements());
 
+    // Zamknij modal wyboru osób
     closeWybraniModal();
+
+    // Zamknij modal UWAGI
+    closeUwagiModal();
+
+    // Wstaw gotowy tekst do wpisu
     wstawTekstUwagiDoWpis(gotowyTekst);
 
+    // Wyczyść pomocnicze dane
+    window._uwagiTekstDoWstawienia = "";
+    selectedWybrani = [];
+
+    // Usuń podgląd
+    const preview = document.getElementById("uwagiLivePreview");
+    if (preview) preview.remove();
+
+    // Przywróć przyciski modala @wybrani
     const actions = document.querySelector("#wybraniModal .modal-actions");
     if (actions) {
         actions.innerHTML = `
@@ -669,11 +684,7 @@ function confirmWybraniUwagi() {
             <button class="btn-danger" onclick="closeWybraniModal()">Anuluj</button>
         `;
     }
-
-    const preview = document.getElementById("uwagiLivePreview");
-    if (preview) preview.remove();
 }
-
 // =====================================
 // GENEROWANIE
 // =====================================
