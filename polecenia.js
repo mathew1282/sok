@@ -1,20 +1,23 @@
 // =====================================
-// POLECENIA (jak zgłoszenia)
+// POLECENIA (6 kolumn + 3 poziomy w generatorze)
 // =====================================
 
 let currentPolecenieEdit = null;
 let poleceniaFilterLinia = "";
 
 function initPolecenia() {
-    // migracja starych danych
     if (appState.polecenia?.rows) {
         appState.polecenia.rows.forEach(row => {
-            if (row.OpisKrotki === undefined) {
-                row.OpisKrotki = row.Opis || "";
-            }
+            if (row.OpisKrotki === undefined) row.OpisKrotki = row.Opis || "";
             if (row.Opis === undefined) row.Opis = "";
             if (row.Linia === undefined) row.Linia = "";
+            if (row.OpisPom === undefined) row.OpisPom = "";
+            if (row.NazwaSzlaku === undefined) row.NazwaSzlaku = "";
+            if (row.Km === undefined) row.Km = "";
         });
+    }
+    if (appState.polecenia) {
+        appState.polecenia.columns = ["Linia", "OpisKrotki", "OpisPom", "Opis", "NazwaSzlaku", "Km"];
     }
     renderPolecenia();
 }
@@ -23,21 +26,15 @@ function sortLinesNatural(lines) {
     return [...lines].sort((a, b) => {
         const aStr = String(a || "").trim();
         const bStr = String(b || "").trim();
-
         const aIsNum = /^\d/.test(aStr);
         const bIsNum = /^\d/.test(bStr);
-
         if (aIsNum && !bIsNum) return -1;
         if (!aIsNum && bIsNum) return 1;
-
         if (aIsNum && bIsNum) {
             const aNum = parseInt(aStr, 10);
             const bNum = parseInt(bStr, 10);
-            if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) {
-                return aNum - bNum;
-            }
+            if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) return aNum - bNum;
         }
-
         return aStr.localeCompare(bStr, "pl", { numeric: true, sensitivity: "base" });
     });
 }
@@ -55,12 +52,9 @@ function renderPolecenia() {
     if (!container) return;
 
     const allRows = appState.polecenia?.rows || [];
-
-    // unikalne linie posortowane: liczby, potem alfabetycznie
     let lines = [...new Set(allRows.map(r => r.Linia).filter(Boolean))];
     lines = sortLinesNatural(lines);
 
-    // filtrowanie po wybranej linii
     let rows = allRows.map((row, index) => ({ ...row, _index: index }));
     if (poleceniaFilterLinia) {
         rows = rows.filter(r => r.Linia === poleceniaFilterLinia);
@@ -97,7 +91,10 @@ function renderPolecenia() {
                 <tr>
                     <th>Nr linii</th>
                     <th>Opis krótki</th>
+                    <th>Opis pom</th>
                     <th>Opis</th>
+                    <th>Nazwa szlaku</th>
+                    <th>Km</th>
                     <th>Akcje</th>
                 </tr>
             </thead>
@@ -106,14 +103,18 @@ function renderPolecenia() {
 
     rows.forEach(row => {
         const index = row._index;
-        const krotki = (row.OpisKrotki || "").substring(0, 80);
-        const opis = (row.Opis || "").substring(0, 120);
+        const krotki = (row.OpisKrotki || "").substring(0, 60);
+        const pom = (row.OpisPom || "").substring(0, 60);
+        const opis = (row.Opis || "").substring(0, 80);
 
         html += `
         <tr>
             <td>${escapeHtml(row.Linia || "")}</td>
             <td>${escapeHtml(krotki)}</td>
-            <td style="white-space: pre-wrap; max-width: 420px;">${escapeHtml(opis)}${(row.Opis || "").length > 120 ? "…" : ""}</td>
+            <td>${escapeHtml(pom)}</td>
+            <td style="white-space: pre-wrap; max-width: 280px;">${escapeHtml(opis)}${(row.Opis || "").length > 80 ? "…" : ""}</td>
+            <td>${escapeHtml(row.NazwaSzlaku || "")}</td>
+            <td>${escapeHtml(row.Km || "")}</td>
             <td style="white-space:nowrap;">
                 <button class="btn-primary" onclick="editPolecenie(${index})">Edytuj</button>
                 <button class="btn-danger" onclick="removePolecenie(${index})">Usuń</button>
@@ -122,7 +123,7 @@ function renderPolecenia() {
     });
 
     if (rows.length === 0) {
-        html += `<tr><td colspan="4" style="text-align:center; color:#94a3b8;">Brak poleceń</td></tr>`;
+        html += `<tr><td colspan="7" style="text-align:center; color:#94a3b8;">Brak poleceń</td></tr>`;
     }
 
     html += `
@@ -139,12 +140,24 @@ function renderPolecenia() {
             <input type="text" id="polecenieLinia" placeholder="np. 275, 1, Legnica">
 
             <br><br>
-            <label>Opis krótki (widoczny na kafelku w Generatorze)</label>
-            <input type="text" id="polecenieOpisKrotki" placeholder="Krótka nazwa polecenia">
+            <label>Opis krótki (2. poziom w Generatorze)</label>
+            <input type="text" id="polecenieOpisKrotki" placeholder="Krótka nazwa">
+
+            <br><br>
+            <label>Opis pom (3. poziom w Generatorze)</label>
+            <input type="text" id="polecenieOpisPom" placeholder="Opis pomocniczy">
 
             <br><br>
             <label>Opis (tekst generowany do wpisu)</label>
-            <textarea id="polecenieOpis" rows="10" style="width:100%; font-family: monospace;" placeholder="Pełny opis z możliwością znaczników..."></textarea>
+            <textarea id="polecenieOpis" rows="8" style="width:100%; font-family: monospace;" placeholder="Pełny opis z znacznikami..."></textarea>
+
+            <br><br>
+            <label>Nazwa szlaku</label>
+            <input type="text" id="polecenieNazwaSzlaku" placeholder="Nazwa szlaku">
+
+            <br><br>
+            <label>Km</label>
+            <input type="text" id="polecenieKm" placeholder="np. 12,450">
 
             <br><br>
             <h3>Dostępne znaczniki</h3>
@@ -186,7 +199,10 @@ function openPolecenieModal() {
     document.getElementById("polecenieModalTitle").innerText = "Dodaj polecenie";
     document.getElementById("polecenieLinia").value = poleceniaFilterLinia || "";
     document.getElementById("polecenieOpisKrotki").value = "";
+    document.getElementById("polecenieOpisPom").value = "";
     document.getElementById("polecenieOpis").value = "";
+    document.getElementById("polecenieNazwaSzlaku").value = "";
+    document.getElementById("polecenieKm").value = "";
     document.getElementById("polecenieModal").style.display = "flex";
 }
 
@@ -198,29 +214,27 @@ function closePolecenieModal() {
 async function savePolecenie() {
     const linia = document.getElementById("polecenieLinia").value.trim();
     const opisKrotki = document.getElementById("polecenieOpisKrotki").value.trim();
+    const opisPom = document.getElementById("polecenieOpisPom").value.trim();
     const opis = document.getElementById("polecenieOpis").value.trim();
+    const nazwaSzlaku = document.getElementById("polecenieNazwaSzlaku").value.trim();
+    const km = document.getElementById("polecenieKm").value.trim();
 
-    if (!linia) {
-        alert("Podaj nr linii");
-        return;
-    }
-    if (!opisKrotki) {
-        alert("Podaj opis krótki (będzie widoczny na kafelku)");
-        return;
-    }
+    if (!linia) { alert("Podaj nr linii"); return; }
+    if (!opisKrotki) { alert("Podaj opis krótki"); return; }
 
     const item = {
         Linia: linia,
         OpisKrotki: opisKrotki,
-        Opis: opis
+        OpisPom: opisPom,
+        Opis: opis,
+        NazwaSzlaku: nazwaSzlaku,
+        Km: km
     };
 
     if (!appState.polecenia) {
-        appState.polecenia = { columns: ["Linia", "OpisKrotki", "Opis"], rows: [] };
+        appState.polecenia = { columns: ["Linia", "OpisKrotki", "OpisPom", "Opis", "NazwaSzlaku", "Km"], rows: [] };
     }
-    if (!Array.isArray(appState.polecenia.rows)) {
-        appState.polecenia.rows = [];
-    }
+    if (!Array.isArray(appState.polecenia.rows)) appState.polecenia.rows = [];
 
     if (currentPolecenieEdit === null) {
         appState.polecenia.rows.push(item);
@@ -240,8 +254,11 @@ async function editPolecenie(index) {
 
     document.getElementById("polecenieModalTitle").innerText = "Edytuj polecenie";
     document.getElementById("polecenieLinia").value = row.Linia || "";
-    document.getElementById("polecenieOpisKrotki").value = row.OpisKrotki || row.Opis || "";
+    document.getElementById("polecenieOpisKrotki").value = row.OpisKrotki || "";
+    document.getElementById("polecenieOpisPom").value = row.OpisPom || "";
     document.getElementById("polecenieOpis").value = row.Opis || "";
+    document.getElementById("polecenieNazwaSzlaku").value = row.NazwaSzlaku || "";
+    document.getElementById("polecenieKm").value = row.Km || "";
     document.getElementById("polecenieModal").style.display = "flex";
 }
 
@@ -255,20 +272,15 @@ async function removePolecenie(index) {
 function insertPolecenieTag(tag) {
     const textarea = document.getElementById("polecenieOpis");
     if (!textarea) return;
-
     const start = textarea.selectionStart ?? textarea.value.length;
     const end = textarea.selectionEnd ?? textarea.value.length;
     const text = textarea.value;
-
     textarea.value = text.substring(0, start) + tag + text.substring(end);
     textarea.focus();
     textarea.selectionStart = start + tag.length;
     textarea.selectionEnd = start + tag.length;
 }
 
-// =====================================
-// EXPOSE
-// =====================================
 window.openPolecenieModal = openPolecenieModal;
 window.closePolecenieModal = closePolecenieModal;
 window.savePolecenie = savePolecenie;
