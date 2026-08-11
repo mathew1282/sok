@@ -77,14 +77,13 @@ function renderStatystyki() {
 
     let html = `
     <div class="card">
-        <h2>Statystyki – ${escapeHtml(todayPL())}</h2>
-        <p style="color:#94a3b8; font-size:14px; margin-bottom:12px;">
-            Widok z dzisiejszego dnia. Przycisk „Kasuj” usuwa wszystkie statystyki.
-        </p>
-
-        <div style="margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px;">
+            <h2 style="margin:0;">Statystyki – ${escapeHtml(todayPL())}</h2>
             <button class="btn-danger" onclick="clearAllStatystyki()">Kasuj wszystkie statystyki</button>
         </div>
+        <p style="color:#94a3b8; font-size:14px; margin-bottom:16px;">
+            Widok z dzisiejszego dnia. Bez ręcznego kasowania dane zbierają się dalej w tle.
+        </p>
 
         <h3>Interwencje (z Uwag)</h3>
         <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin:12px 0 16px; font-size:16px;">
@@ -176,15 +175,6 @@ function copyInterwencje() {
         if (counts[t] !== undefined) counts[t]++;
         else counts.Inne++;
     });
-    // jedna linia pod Excela
-    const line = [
-        `Data\t${todayPL()}`,
-        `MKK\t${counts.MKK}`,
-        `Pouczony\t${counts.Pouczony}`,
-        `Legitymowany\t${counts.Legitymowany}`,
-        `Inne\t${counts.Inne}`
-    ].join("\t");
-    // albo wiersz nagłówków + wiersz wartości
     const header = "Data\tMKK\tPouczony\tLegitymowany\tInne";
     const values = `${todayPL()}\t${counts.MKK}\t${counts.Pouczony}\t${counts.Legitymowany}\t${counts.Inne}`;
     copyText([header, values].join("\n"));
@@ -193,7 +183,6 @@ function copyInterwencje() {
 function copySzlaki() {
     ensureStatystykiState();
     const szlaki = filterToday(appState.statystyki.sprawdzenia).filter(s => s.rodzaj === "Szlak");
-    // kolejność: data, godz. rozpoczęcia, godz. zakończenia, nazwa szlaku, km początek, km koniec, nr linii
     const header = "Data\tGodz. rozpoczęcia\tGodz. zakończenia\tNazwa szlaku\tKm początek\tKm koniec\tNr linii";
     const rows = szlaki.map(s =>
         [s.data, s.godzOd, s.godzDo, s.nazwa, s.kmOd, s.kmDo, s.linia].join("\t")
