@@ -1,7 +1,7 @@
 // =====================================
 // GENERATOR WPISÓW
 // + autofilt linii
-// + sort alfabetyczny 2. poziomu
+// + 3 poziomy kafelków (linia → opis krótki → opis pom)
 // + UWAGI (TAK / NIE)
 // + @wybrani w uwagach
 // =====================================
@@ -11,6 +11,8 @@ let selectedZgloszeniaIndexes = [];
 let selectedPoleceniaIndexes = [];
 let selectedZgloszeniaLine = null;
 let selectedPoleceniaLine = null;
+let selectedZgloszeniaOpisKrotki = null;
+let selectedPoleceniaOpisKrotki = null;
 let selectedWybrani = [];
 let uwagiWybrane = "NIE";
 
@@ -42,19 +44,15 @@ function sortLinesNatural(lines) {
     return [...lines].sort((a, b) => {
         const aStr = String(a || "").trim();
         const bStr = String(b || "").trim();
-
         const aIsNum = /^\d/.test(aStr);
         const bIsNum = /^\d/.test(bStr);
-
         if (aIsNum && !bIsNum) return -1;
         if (!aIsNum && bIsNum) return 1;
-
         if (aIsNum && bIsNum) {
             const aNum = parseInt(aStr, 10);
             const bNum = parseInt(bStr, 10);
             if (!isNaN(aNum) && !isNaN(bNum) && aNum !== bNum) return aNum - bNum;
         }
-
         return aStr.localeCompare(bStr, "pl", { numeric: true, sensitivity: "base" });
     });
 }
@@ -83,7 +81,7 @@ function getPolSearch() {
 
 function rowMatchesSearch(row, search) {
     if (!search) return true;
-    const t = `${row.Linia || ""} ${row.OpisKrotki || ""} ${row.Opis || ""}`.toLowerCase();
+    const t = `${row.Linia || ""} ${row.OpisKrotki || ""} ${row.OpisPom || ""} ${row.Opis || ""} ${row.NazwaSzlaku || ""} ${row.Km || ""}`.toLowerCase();
     return t.includes(search);
 }
 
@@ -105,16 +103,32 @@ function initGenerator() {
     selectedPoleceniaIndexes = [];
     selectedZgloszeniaLine = null;
     selectedPoleceniaLine = null;
+    selectedZgloszeniaOpisKrotki = null;
+    selectedPoleceniaOpisKrotki = null;
     selectedWybrani = [];
     uwagiWybrane = "NIE";
 
     ensureUwagiState();
 
-    if (!appState.zgloszenia) appState.zgloszenia = { columns: ["Linia", "OpisKrotki", "Opis"], rows: [] };
+    if (!appState.zgloszenia) appState.zgloszenia = { columns: ["Linia", "OpisKrotki", "OpisPom", "Opis", "NazwaSzlaku", "Km"], rows: [] };
     if (!Array.isArray(appState.zgloszenia.rows)) appState.zgloszenia.rows = [];
-    if (!appState.polecenia) appState.polecenia = { columns: ["Linia", "OpisKrotki", "Opis"], rows: [] };
+    if (!appState.polecenia) appState.polecenia = { columns: ["Linia", "OpisKrotki", "OpisPom", "Opis", "NazwaSzlaku", "Km"], rows: [] };
     if (!Array.isArray(appState.polecenia.rows)) appState.polecenia.rows = [];
     if (!Array.isArray(appState.patrole)) appState.patrole = [];
+
+    // migracja
+    (appState.zgloszenia.rows || []).forEach(row => {
+        if (row.OpisPom === undefined) row.OpisPom = "";
+        if (row.NazwaSzlaku === undefined) row.NazwaSzlaku = "";
+        if (row.Km === undefined) row.Km = "";
+        if (row.OpisKrotki === undefined) row.OpisKrotki = row.Opis || "";
+    });
+    (appState.polecenia.rows || []).forEach(row => {
+        if (row.OpisPom === undefined) row.OpisPom = "";
+        if (row.NazwaSzlaku === undefined) row.NazwaSzlaku = "";
+        if (row.Km === undefined) row.Km = "";
+        if (row.OpisKrotki === undefined) row.OpisKrotki = row.Opis || "";
+    });
 
     renderPatroleCards();
     renderZgloszeniaLines();
@@ -134,7 +148,6 @@ function initGenerator() {
 function setupPersistentInputs() {
     const kzInput = document.getElementById("kzInput");
     const mkkInput = document.getElementById("mkkInput");
-
     if (kzInput) {
         kzInput.oninput = () => {
             appState.kz = kzInput.value;
@@ -158,7 +171,6 @@ function setupPersistentInputs() {
 function renderPatroleCards() {
     const container = document.getElementById("patrolCards");
     if (!container) return;
-
     let html = "";
     (appState.patrole || []).forEach((patrol, index) => {
         const isSelected = selectedPatrols.includes(index) ? "active" : "";
@@ -180,7 +192,7 @@ function togglePatrol(index) {
 }
 
 // =====================================
-// ZGŁOSZENIA
+// ZGŁOSZENIA – 3 POZIOMY
 // =====================================
 
 function renderZgloszeniaLines() {
@@ -191,15 +203,13 @@ function renderZgloszeniaLines() {
     const allRows = appState.zgloszenia?.rows || [];
 
     let lines = [...new Set(
-        allRows
-            .filter(row => rowMatchesSearch(row, search))
-            .map(r => r.Linia)
-            .filter(Boolean)
+        allRows.filter(row => rowMatchesSearch(row, search)).map(r => r.Linia).filter(Boolean)
     )];
     lines = sortLinesNatural(lines);
 
     if (selectedZgloszeniaLine && !lines.includes(selectedZgloszeniaLine)) {
         selectedZgloszeniaLine = null;
+        selectedZgloszeniaOpisKrotki = null;
     }
 
     let html = "";
@@ -210,53 +220,103 @@ function renderZgloszeniaLines() {
         let className = "line-pill";
         if (selectedZgloszeniaLine === line) className += " active";
         if (hasSelected) className += " has-selected";
-
         html += `<div class="${className}" onclick="selectZgloszeniaLine('${escapeAttr(line)}')">${escapeHtml(line)}</div>`;
     });
 
     container.innerHTML = html || "<p>Brak zgłoszeń</p>";
-    renderZgloszeniaItems();
+    renderZgloszeniaLevel2();
 }
 
 function selectZgloszeniaLine(line) {
-    selectedZgloszeniaLine = (selectedZgloszeniaLine === line) ? null : line;
+    if (selectedZgloszeniaLine === line) {
+        selectedZgloszeniaLine = null;
+        selectedZgloszeniaOpisKrotki = null;
+    } else {
+        selectedZgloszeniaLine = line;
+        selectedZgloszeniaOpisKrotki = null;
+    }
     renderZgloszeniaLines();
 }
 
-function renderZgloszeniaItems() {
+function ensureZgloszeniaLevel3() {
+    let level3 = document.getElementById("zgloszeniaLevel3");
+    if (!level3) {
+        const items = document.getElementById("zgloszeniaItems");
+        if (!items || !items.parentNode) return null;
+        level3 = document.createElement("div");
+        level3.id = "zgloszeniaLevel3";
+        level3.className = "card-grid";
+        level3.style.marginTop = "12px";
+        items.parentNode.insertBefore(level3, items.nextSibling);
+    }
+    return level3;
+}
+
+function renderZgloszeniaLevel2() {
     const container = document.getElementById("zgloszeniaItems");
     if (!container) return;
+    const level3 = ensureZgloszeniaLevel3();
 
     const search = getZglSearch();
     const allRows = appState.zgloszenia?.rows || [];
 
-    let rows = allRows.map((row, index) => ({ ...row, _index: index }));
-
-    if (selectedZgloszeniaLine) {
-        rows = rows.filter(row => row.Linia === selectedZgloszeniaLine);
-    }
-
-    if (search) {
-        rows = rows.filter(row => rowMatchesSearch(row, search));
-    }
-
     if (!selectedZgloszeniaLine && !search) {
+        container.innerHTML = "";
+        if (level3) level3.innerHTML = "";
+        return;
+    }
+
+    let rows = allRows.map((row, index) => ({ ...row, _index: index }));
+    if (selectedZgloszeniaLine) rows = rows.filter(r => r.Linia === selectedZgloszeniaLine);
+    if (search) rows = rows.filter(r => rowMatchesSearch(r, search));
+
+    let krotkie = [...new Set(rows.map(r => r.OpisKrotki || "(bez opisu)"))];
+    krotkie.sort((a, b) => a.localeCompare(b, "pl", { sensitivity: "base", numeric: true }));
+
+    let html = "";
+    krotkie.forEach(k => {
+        const hasSelected = rows.some(r => (r.OpisKrotki || "(bez opisu)") === k && selectedZgloszeniaIndexes.includes(r._index));
+        let className = "item-card";
+        if (selectedZgloszeniaOpisKrotki === k) className += " selected";
+        if (hasSelected) className += " has-selected";
+        html += `<div class="${className}" onclick="selectZgloszeniaOpisKrotki('${escapeAttr(k)}')">${escapeHtml(k)}</div>`;
+    });
+
+    container.innerHTML = html || "<p>Brak wyników</p>";
+    renderZgloszeniaLevel3();
+}
+
+function selectZgloszeniaOpisKrotki(k) {
+    selectedZgloszeniaOpisKrotki = (selectedZgloszeniaOpisKrotki === k) ? null : k;
+    renderZgloszeniaLevel2();
+}
+
+function renderZgloszeniaLevel3() {
+    const container = document.getElementById("zgloszeniaLevel3");
+    if (!container) return;
+
+    if (!selectedZgloszeniaOpisKrotki) {
         container.innerHTML = "";
         return;
     }
 
-    sortByOpisKrotki(rows);
+    const search = getZglSearch();
+    const allRows = appState.zgloszenia?.rows || [];
+    let rows = allRows.map((row, index) => ({ ...row, _index: index }));
+
+    if (selectedZgloszeniaLine) rows = rows.filter(r => r.Linia === selectedZgloszeniaLine);
+    rows = rows.filter(r => (r.OpisKrotki || "(bez opisu)") === selectedZgloszeniaOpisKrotki);
+    if (search) rows = rows.filter(r => rowMatchesSearch(r, search));
 
     let html = "";
     rows.forEach(row => {
         const isSelected = selectedZgloszeniaIndexes.includes(row._index);
-        const label = (row.OpisKrotki || row.Opis || "(bez opisu)").substring(0, 120);
+        const label = (row.OpisPom || "(brak opisu pom)").substring(0, 120);
         html += `
         <div class="item-card ${isSelected ? "selected" : ""}" onclick="toggleZgloszenie(${row._index})">
             ${escapeHtml(label)}
         </div>`;
     });
-
     container.innerHTML = html || "<p>Brak wyników</p>";
 }
 
@@ -264,13 +324,12 @@ function toggleZgloszenie(index) {
     const pos = selectedZgloszeniaIndexes.indexOf(index);
     if (pos > -1) selectedZgloszeniaIndexes.splice(pos, 1);
     else selectedZgloszeniaIndexes.push(index);
-
     renderZgloszeniaLines();
     updateLiveEntry();
 }
 
 // =====================================
-// POLECENIA
+// POLECENIA – 3 POZIOMY
 // =====================================
 
 function renderPoleceniaLines() {
@@ -281,15 +340,13 @@ function renderPoleceniaLines() {
     const allRows = appState.polecenia?.rows || [];
 
     let lines = [...new Set(
-        allRows
-            .filter(row => rowMatchesSearch(row, search))
-            .map(r => r.Linia)
-            .filter(Boolean)
+        allRows.filter(row => rowMatchesSearch(row, search)).map(r => r.Linia).filter(Boolean)
     )];
     lines = sortLinesNatural(lines);
 
     if (selectedPoleceniaLine && !lines.includes(selectedPoleceniaLine)) {
         selectedPoleceniaLine = null;
+        selectedPoleceniaOpisKrotki = null;
     }
 
     let html = "";
@@ -300,53 +357,103 @@ function renderPoleceniaLines() {
         let className = "line-pill";
         if (selectedPoleceniaLine === line) className += " active";
         if (hasSelected) className += " has-selected";
-
         html += `<div class="${className}" onclick="selectPoleceniaLine('${escapeAttr(line)}')">${escapeHtml(line)}</div>`;
     });
 
     container.innerHTML = html || "<p>Brak poleceń</p>";
-    renderPoleceniaItems();
+    renderPoleceniaLevel2();
 }
 
 function selectPoleceniaLine(line) {
-    selectedPoleceniaLine = (selectedPoleceniaLine === line) ? null : line;
+    if (selectedPoleceniaLine === line) {
+        selectedPoleceniaLine = null;
+        selectedPoleceniaOpisKrotki = null;
+    } else {
+        selectedPoleceniaLine = line;
+        selectedPoleceniaOpisKrotki = null;
+    }
     renderPoleceniaLines();
 }
 
-function renderPoleceniaItems() {
+function ensurePoleceniaLevel3() {
+    let level3 = document.getElementById("poleceniaLevel3");
+    if (!level3) {
+        const items = document.getElementById("poleceniaItems");
+        if (!items || !items.parentNode) return null;
+        level3 = document.createElement("div");
+        level3.id = "poleceniaLevel3";
+        level3.className = "card-grid";
+        level3.style.marginTop = "12px";
+        items.parentNode.insertBefore(level3, items.nextSibling);
+    }
+    return level3;
+}
+
+function renderPoleceniaLevel2() {
     const container = document.getElementById("poleceniaItems");
     if (!container) return;
+    const level3 = ensurePoleceniaLevel3();
 
     const search = getPolSearch();
     const allRows = appState.polecenia?.rows || [];
 
-    let rows = allRows.map((row, index) => ({ ...row, _index: index }));
-
-    if (selectedPoleceniaLine) {
-        rows = rows.filter(row => row.Linia === selectedPoleceniaLine);
-    }
-
-    if (search) {
-        rows = rows.filter(row => rowMatchesSearch(row, search));
-    }
-
     if (!selectedPoleceniaLine && !search) {
+        container.innerHTML = "";
+        if (level3) level3.innerHTML = "";
+        return;
+    }
+
+    let rows = allRows.map((row, index) => ({ ...row, _index: index }));
+    if (selectedPoleceniaLine) rows = rows.filter(r => r.Linia === selectedPoleceniaLine);
+    if (search) rows = rows.filter(r => rowMatchesSearch(r, search));
+
+    let krotkie = [...new Set(rows.map(r => r.OpisKrotki || "(bez opisu)"))];
+    krotkie.sort((a, b) => a.localeCompare(b, "pl", { sensitivity: "base", numeric: true }));
+
+    let html = "";
+    krotkie.forEach(k => {
+        const hasSelected = rows.some(r => (r.OpisKrotki || "(bez opisu)") === k && selectedPoleceniaIndexes.includes(r._index));
+        let className = "item-card";
+        if (selectedPoleceniaOpisKrotki === k) className += " selected";
+        if (hasSelected) className += " has-selected";
+        html += `<div class="${className}" onclick="selectPoleceniaOpisKrotki('${escapeAttr(k)}')">${escapeHtml(k)}</div>`;
+    });
+
+    container.innerHTML = html || "<p>Brak wyników</p>";
+    renderPoleceniaLevel3();
+}
+
+function selectPoleceniaOpisKrotki(k) {
+    selectedPoleceniaOpisKrotki = (selectedPoleceniaOpisKrotki === k) ? null : k;
+    renderPoleceniaLevel2();
+}
+
+function renderPoleceniaLevel3() {
+    const container = document.getElementById("poleceniaLevel3");
+    if (!container) return;
+
+    if (!selectedPoleceniaOpisKrotki) {
         container.innerHTML = "";
         return;
     }
 
-    sortByOpisKrotki(rows);
+    const search = getPolSearch();
+    const allRows = appState.polecenia?.rows || [];
+    let rows = allRows.map((row, index) => ({ ...row, _index: index }));
+
+    if (selectedPoleceniaLine) rows = rows.filter(r => r.Linia === selectedPoleceniaLine);
+    rows = rows.filter(r => (r.OpisKrotki || "(bez opisu)") === selectedPoleceniaOpisKrotki);
+    if (search) rows = rows.filter(r => rowMatchesSearch(r, search));
 
     let html = "";
     rows.forEach(row => {
         const isSelected = selectedPoleceniaIndexes.includes(row._index);
-        const label = (row.OpisKrotki || row.Opis || "(bez opisu)").substring(0, 120);
+        const label = (row.OpisPom || "(brak opisu pom)").substring(0, 120);
         html += `
         <div class="item-card ${isSelected ? "selected" : ""}" onclick="togglePolecenie(${row._index})">
             ${escapeHtml(label)}
         </div>`;
     });
-
     container.innerHTML = html || "<p>Brak wyników</p>";
 }
 
@@ -354,7 +461,6 @@ function togglePolecenie(index) {
     const pos = selectedPoleceniaIndexes.indexOf(index);
     if (pos > -1) selectedPoleceniaIndexes.splice(pos, 1);
     else selectedPoleceniaIndexes.push(index);
-
     renderPoleceniaLines();
     updateLiveEntry();
 }
@@ -383,7 +489,6 @@ function renderUwagiCards() {
     const nie = document.getElementById("uwagiNie");
     const tak = document.getElementById("uwagiTak");
     if (!nie || !tak) return;
-
     if (uwagiWybrane === "NIE") {
         nie.classList.add("active");
         tak.classList.remove("active");
@@ -396,6 +501,9 @@ function renderUwagiCards() {
 function setUwagi(val) {
     uwagiWybrane = val;
     renderUwagiCards();
+    if (val === "TAK") {
+        openUwagiModal();
+    }
 }
 
 // =====================================
@@ -404,7 +512,6 @@ function setUwagi(val) {
 
 function ensureUwagiModal() {
     if (document.getElementById("uwagiModal")) return;
-
     const overlay = document.createElement("div");
     overlay.id = "uwagiModal";
     overlay.className = "modal-overlay";
@@ -412,7 +519,6 @@ function ensureUwagiModal() {
     overlay.innerHTML = `
         <div class="modal" style="max-width:720px;">
             <h2>Uwagi</h2>
-
             <div style="margin-bottom:18px;">
                 <div style="font-size:14px; color:#94a3b8; margin-bottom:10px;">Wybierz typ uwagi:</div>
                 <div class="card-grid" id="uwagiTypy">
@@ -422,14 +528,11 @@ function ensureUwagiModal() {
                     <div class="item-card" onclick="wybierzTypUwagi('Inne')">Inne</div>
                 </div>
             </div>
-
             <div style="margin-bottom:12px;">
                 <button class="btn-primary" onclick="openUwagiSzablonyModal()">Szablony</button>
             </div>
-
             <label style="display:block; margin-bottom:6px;">Treść uwagi (możesz edytować):</label>
             <textarea id="uwagiTekst" rows="8" style="width:100%; font-family:inherit; margin-bottom:15px;"></textarea>
-
             <div class="modal-actions">
                 <button class="btn-success" onclick="wstawUwagi()">Wstaw</button>
                 <button class="btn-danger" onclick="closeUwagiModal()">Wyjdź</button>
@@ -456,11 +559,8 @@ function wybierzTypUwagi(typ) {
     const tekst = appState.uwagiSzablony[typ] || "";
     const textarea = document.getElementById("uwagiTekst");
     if (!textarea) return;
-
-    // Podmień wszystkie znaczniki OPRÓCZ @wybrani
     const replacements = buildReplacements();
     delete replacements["@wybrani"];
-
     textarea.value = applyTags(tekst, replacements);
 }
 
@@ -470,7 +570,6 @@ function wybierzTypUwagi(typ) {
 
 function ensureUwagiSzablonyModal() {
     if (document.getElementById("uwagiSzablonyModal")) return;
-
     const overlay = document.createElement("div");
     overlay.id = "uwagiSzablonyModal";
     overlay.className = "modal-overlay";
@@ -482,19 +581,14 @@ function ensureUwagiSzablonyModal() {
                 Edytuj szablony. Możesz używać wszystkich znaczników:<br>
                 @patrol, @sklad, @dowodca, @kierowca, @wszyscy, @KZ, @MKK, @data, @godzina, @wybrani, @wot, @policjant
             </p>
-
             <label>MKK</label>
             <textarea id="szablonMKK" rows="3" style="width:100%; margin-bottom:12px;"></textarea>
-
             <label>Pouczony</label>
             <textarea id="szablonPouczony" rows="3" style="width:100%; margin-bottom:12px;"></textarea>
-
             <label>Legitymowany</label>
             <textarea id="szablonLegitymowany" rows="3" style="width:100%; margin-bottom:12px;"></textarea>
-
             <label>Inne</label>
             <textarea id="szablonInne" rows="3" style="width:100%; margin-bottom:12px;"></textarea>
-
             <div class="modal-actions">
                 <button class="btn-success" onclick="saveUwagiSzablony()">Zapisz szablony</button>
                 <button class="btn-danger" onclick="closeUwagiSzablonyModal()">Anuluj</button>
@@ -507,12 +601,10 @@ function ensureUwagiSzablonyModal() {
 function openUwagiSzablonyModal() {
     ensureUwagiState();
     ensureUwagiSzablonyModal();
-
     document.getElementById("szablonMKK").value = appState.uwagiSzablony["MKK"] || "";
     document.getElementById("szablonPouczony").value = appState.uwagiSzablony["Pouczony"] || "";
     document.getElementById("szablonLegitymowany").value = appState.uwagiSzablony["Legitymowany"] || "";
     document.getElementById("szablonInne").value = appState.uwagiSzablony["Inne"] || "";
-
     document.getElementById("uwagiSzablonyModal").style.display = "flex";
 }
 
@@ -527,10 +619,9 @@ async function saveUwagiSzablony() {
     appState.uwagiSzablony["Pouczony"] = document.getElementById("szablonPouczony").value;
     appState.uwagiSzablony["Legitymowany"] = document.getElementById("szablonLegitymowany").value;
     appState.uwagiSzablony["Inne"] = document.getElementById("szablonInne").value;
-
     await saveState();
     closeUwagiSzablonyModal();
-    showToast("✅ Szablony uwag zapisane");
+    showToast("✅ Szablony zapisane");
 }
 
 // =====================================
@@ -551,6 +642,11 @@ function wstawUwagi() {
             return;
         }
         window._uwagiTekstDoWstawienia = tekst;
+
+        // Zamyka główne okienko Uwagi
+        closeUwagiModal();
+
+        // Otwiera tylko pomocnicze
         openWybraniModalForUwagi();
         return;
     }
@@ -611,7 +707,10 @@ function openWybraniModalForUwagi() {
         preview = document.createElement("div");
         preview.id = "uwagiLivePreview";
         preview.style.cssText = "margin-top:15px; padding:12px; background:#0f172a; border-radius:10px; font-size:14px; color:#e2e8f0; border:1px solid #334155;";
-        list.parentNode.insertBefore(preview, actions);
+        const listEl = document.getElementById("wybraniList");
+        if (listEl && listEl.parentNode) {
+            listEl.parentNode.insertBefore(preview, actions);
+        }
     }
 
     document.getElementById("wybraniModal").style.display = "flex";
@@ -621,16 +720,13 @@ function toggleWybranaOsobaUwagi(index) {
     const people = getSkladFromSelectedPatrols();
     const name = people[index];
     if (!name) return;
-
     const pos = selectedWybrani.indexOf(name);
     if (pos > -1) selectedWybrani.splice(pos, 1);
     else selectedWybrani.push(name);
-
     document.querySelectorAll("#wybraniList .item-card").forEach((card, i) => {
         if (selectedWybrani.includes(people[i])) card.classList.add("selected");
         else card.classList.remove("selected");
     });
-
     updateUwagiLivePreview();
 }
 
@@ -643,7 +739,6 @@ function selectAllWybraniUwagi() {
 function updateUwagiLivePreview() {
     const preview = document.getElementById("uwagiLivePreview");
     if (!preview) return;
-
     const tekst = window._uwagiTekstDoWstawienia || "";
     const wynik = applyTags(tekst, buildReplacements());
     preview.innerHTML = `<strong>Podgląd:</strong><br>${escapeHtml(wynik || "(brak tekstu)")}`;
@@ -658,24 +753,16 @@ function confirmWybraniUwagi() {
     const tekst = window._uwagiTekstDoWstawienia || "";
     const gotowyTekst = applyTags(tekst, buildReplacements());
 
-    // Zamknij modal wyboru osób
     closeWybraniModal();
-
-    // Zamknij modal UWAGI
     closeUwagiModal();
-
-    // Wstaw gotowy tekst do wpisu
     wstawTekstUwagiDoWpis(gotowyTekst);
 
-    // Wyczyść pomocnicze dane
     window._uwagiTekstDoWstawienia = "";
     selectedWybrani = [];
 
-    // Usuń podgląd
     const preview = document.getElementById("uwagiLivePreview");
     if (preview) preview.remove();
 
-    // Przywróć przyciski modala @wybrani
     const actions = document.querySelector("#wybraniModal .modal-actions");
     if (actions) {
         actions.innerHTML = `
@@ -685,6 +772,7 @@ function confirmWybraniUwagi() {
         `;
     }
 }
+
 // =====================================
 // GENEROWANIE
 // =====================================
@@ -722,7 +810,6 @@ function buildReplacements() {
     selectedPatrols.forEach(index => {
         const patrol = appState.patrole?.[index];
         if (!patrol) return;
-
         if (patrol.nazwa) patrolNames.push(patrol.nazwa);
         if (Array.isArray(patrol.sklad)) {
             patrol.sklad.forEach(p => { if (p) allSklad.push(p); });
@@ -807,7 +894,6 @@ function updateLiveEntry() {
 
 function ensureWybraniModal() {
     if (document.getElementById("wybraniModal")) return;
-
     const overlay = document.createElement("div");
     overlay.id = "wybraniModal";
     overlay.className = "modal-overlay";
@@ -833,14 +919,11 @@ function ensureWybraniModal() {
 function openWybraniModal() {
     ensureWybraniModal();
     const people = getSkladFromSelectedPatrols();
-
     if (people.length === 0) {
         showToast("Brak osób w składzie zaznaczonych patroli");
         return false;
     }
-
     selectedWybrani = selectedWybrani.filter(p => people.includes(p));
-
     const list = document.getElementById("wybraniList");
     let html = "";
     people.forEach((name, i) => {
@@ -851,7 +934,6 @@ function openWybraniModal() {
         </div>`;
     });
     list.innerHTML = html;
-
     document.getElementById("wybraniModal").style.display = "flex";
     return true;
 }
@@ -860,11 +942,9 @@ function toggleWybranaOsoba(index) {
     const people = getSkladFromSelectedPatrols();
     const name = people[index];
     if (!name) return;
-
     const pos = selectedWybrani.indexOf(name);
     if (pos > -1) selectedWybrani.splice(pos, 1);
     else selectedWybrani.push(name);
-
     const cards = document.querySelectorAll("#wybraniList .item-card");
     cards.forEach((card, i) => {
         const n = people[i];
@@ -891,12 +971,7 @@ function confirmWybrani() {
     }
     closeWybraniModal();
     updateLiveEntry();
-
-    if (uwagiWybrane === "TAK") {
-        openUwagiModal();
-    } else {
-        showToast("✅ Wpis wygenerowany z wybranymi osobami");
-    }
+    showToast("✅ Wpis wygenerowany z wybranymi osobami");
 }
 
 // =====================================
@@ -909,17 +984,11 @@ function generateEntry() {
         if (!opened) {
             selectedWybrani = [];
             updateLiveEntry();
-            if (uwagiWybrane === "TAK") openUwagiModal();
         }
         return;
     }
-
     selectedWybrani = [];
     updateLiveEntry();
-
-    if (uwagiWybrane === "TAK") {
-        openUwagiModal();
-    }
 }
 
 function copyEntry() {
@@ -945,6 +1014,8 @@ function clearEntry() {
     selectedPoleceniaIndexes = [];
     selectedZgloszeniaLine = null;
     selectedPoleceniaLine = null;
+    selectedZgloszeniaOpisKrotki = null;
+    selectedPoleceniaOpisKrotki = null;
     selectedWybrani = [];
     uwagiWybrane = "NIE";
 
@@ -964,7 +1035,6 @@ function clearEntry() {
 function showToast(message) {
     const old = document.getElementById("toastMsg");
     if (old) old.remove();
-
     const toast = document.createElement("div");
     toast.id = "toastMsg";
     toast.innerText = message;
@@ -992,8 +1062,10 @@ window.copyEntry = copyEntry;
 window.clearEntry = clearEntry;
 window.togglePatrol = togglePatrol;
 window.selectZgloszeniaLine = selectZgloszeniaLine;
+window.selectZgloszeniaOpisKrotki = selectZgloszeniaOpisKrotki;
 window.toggleZgloszenie = toggleZgloszenie;
 window.selectPoleceniaLine = selectPoleceniaLine;
+window.selectPoleceniaOpisKrotki = selectPoleceniaOpisKrotki;
 window.togglePolecenie = togglePolecenie;
 window.updateLiveEntry = updateLiveEntry;
 window.filterGeneratorTiles = filterGeneratorTiles;
