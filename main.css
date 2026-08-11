@@ -558,3 +558,47 @@ tr:hover{
     border-color: #f87171;
     color: white;
 }
+/* ==========================
+   UWAGI - kafelki TAK / NIE
+========================== */
+
+.uwagi-card {
+    min-width: 120px;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 16px;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    transition: all .2s ease;
+    border: 2px solid transparent;
+}
+
+.uwagi-card.nie {
+    background: #ca8a04;
+    border-color: #eab308;
+    color: #1e293b;
+}
+
+.uwagi-card.nie.active {
+    background: #eab308;
+    box-shadow: 0 0 14px rgba(234, 179, 8, 0.5);
+}
+
+.uwagi-card.tak {
+    background: #1e293b;
+    border-color: #64748b;
+    color: #94a3b8;
+}
+
+.uwagi-card.tak.active {
+    background: #dc2626;
+    border-color: #ef4444;
+    color: white;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.5);
+}
+
+.uwagi-card:hover {
+    transform: translateY(-2px);
+}
