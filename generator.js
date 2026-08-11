@@ -455,10 +455,13 @@ function wybierzTypUwagi(typ) {
     ensureUwagiState();
     const tekst = appState.uwagiSzablony[typ] || "";
     const textarea = document.getElementById("uwagiTekst");
-    if (textarea) {
-        const replacements = buildReplacements();
-        textarea.value = applyTags(tekst, replacements);
-    }
+    if (!textarea) return;
+
+    // Podmień wszystkie znaczniki OPRÓCZ @wybrani
+    const replacements = buildReplacements();
+    delete replacements["@wybrani"];
+
+    textarea.value = applyTags(tekst, replacements);
 }
 
 // =====================================
@@ -535,7 +538,7 @@ async function saveUwagiSzablony() {
 // =====================================
 
 function wstawUwagi() {
-    const tekst = (document.getElementById("uwagiTekst")?.value || "").trim();
+    let tekst = (document.getElementById("uwagiTekst")?.value || "").trim();
     if (!tekst) {
         showToast("Wpisz treść uwagi");
         return;
@@ -552,6 +555,7 @@ function wstawUwagi() {
         return;
     }
 
+    tekst = applyTags(tekst, buildReplacements());
     wstawTekstUwagiDoWpis(tekst);
 }
 
@@ -989,7 +993,6 @@ window.selectAllWybrani = selectAllWybrani;
 window.confirmWybrani = confirmWybrani;
 window.closeWybraniModal = closeWybraniModal;
 
-// Uwagi
 window.setUwagi = setUwagi;
 window.wybierzTypUwagi = wybierzTypUwagi;
 window.openUwagiSzablonyModal = openUwagiSzablonyModal;
