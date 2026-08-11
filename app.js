@@ -84,12 +84,12 @@ const pages = {
             <div id="poleceniaItems" class="card-grid"></div>
         </div>
 
-        <!-- UWAGI -->
+                <!-- UWAGI -->
         <div class="generator-section">
-            <div class="generator-title">Uwagi</div>
-            <div class="card-grid" style="gap:14px;">
-                <div id="uwagiNie" class="uwagi-card nie active" onclick="setUwagi('NIE')">NIE</div>
-                <div id="uwagiTak" class="uwagi-card tak" onclick="setUwagi('TAK')">TAK</div>
+            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+                <div class="generator-title" style="margin-bottom:0;">Uwagi</div>
+                <div id="uwagiNie" class="line-pill active" onclick="setUwagi('NIE')">NIE</div>
+                <div id="uwagiTak" class="line-pill" onclick="setUwagi('TAK')">TAK</div>
             </div>
         </div>
 
