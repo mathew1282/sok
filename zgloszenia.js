@@ -1,24 +1,22 @@
 // =====================================
-// ZGŁOSZENIA (6 kolumn + 3 poziomy w generatorze)
+// ZGŁOSZENIA (4 kolumny + 3 poziomy w generatorze)
+// Nr linii | Opis krótki | Opis pom | Opis
 // =====================================
 
 let currentZgloszenieEdit = null;
 let zgloszeniaFilterLinia = "";
 
 function initZgloszenia() {
-    // migracja starych danych
     if (appState.zgloszenia?.rows) {
         appState.zgloszenia.rows.forEach(row => {
             if (row.OpisKrotki === undefined) row.OpisKrotki = row.Opis || "";
             if (row.Opis === undefined) row.Opis = "";
             if (row.Linia === undefined) row.Linia = "";
             if (row.OpisPom === undefined) row.OpisPom = "";
-            if (row.NazwaSzlaku === undefined) row.NazwaSzlaku = "";
-            if (row.Km === undefined) row.Km = "";
         });
     }
     if (appState.zgloszenia) {
-        appState.zgloszenia.columns = ["Linia", "OpisKrotki", "OpisPom", "Opis", "NazwaSzlaku", "Km"];
+        appState.zgloszenia.columns = ["Linia", "OpisKrotki", "OpisPom", "Opis"];
     }
     renderZgloszenia();
 }
@@ -94,8 +92,6 @@ function renderZgloszenia() {
                     <th>Opis krótki</th>
                     <th>Opis pom</th>
                     <th>Opis</th>
-                    <th>Nazwa szlaku</th>
-                    <th>Km</th>
                     <th>Akcje</th>
                 </tr>
             </thead>
@@ -104,18 +100,16 @@ function renderZgloszenia() {
 
     rows.forEach(row => {
         const index = row._index;
-        const krotki = (row.OpisKrotki || "").substring(0, 60);
-        const pom = (row.OpisPom || "").substring(0, 60);
-        const opis = (row.Opis || "").substring(0, 80);
+        const krotki = (row.OpisKrotki || "").substring(0, 80);
+        const pom = (row.OpisPom || "").substring(0, 80);
+        const opis = (row.Opis || "").substring(0, 120);
 
         html += `
         <tr>
             <td>${escapeHtml(row.Linia || "")}</td>
             <td>${escapeHtml(krotki)}</td>
             <td>${escapeHtml(pom)}</td>
-            <td style="white-space: pre-wrap; max-width: 280px;">${escapeHtml(opis)}${(row.Opis || "").length > 80 ? "…" : ""}</td>
-            <td>${escapeHtml(row.NazwaSzlaku || "")}</td>
-            <td>${escapeHtml(row.Km || "")}</td>
+            <td style="white-space: pre-wrap; max-width: 360px;">${escapeHtml(opis)}${(row.Opis || "").length > 120 ? "…" : ""}</td>
             <td style="white-space:nowrap;">
                 <button class="btn-primary" onclick="editZgloszenie(${index})">Edytuj</button>
                 <button class="btn-danger" onclick="removeZgloszenie(${index})">Usuń</button>
@@ -124,7 +118,7 @@ function renderZgloszenia() {
     });
 
     if (rows.length === 0) {
-        html += `<tr><td colspan="7" style="text-align:center; color:#94a3b8;">Brak zgłoszeń</td></tr>`;
+        html += `<tr><td colspan="5" style="text-align:center; color:#94a3b8;">Brak zgłoszeń</td></tr>`;
     }
 
     html += `
@@ -132,7 +126,6 @@ function renderZgloszenia() {
         </table>
     </div>
 
-    <!-- MODAL -->
     <div id="zgloszenieModal" class="modal-overlay" style="display:none;">
         <div class="modal">
             <h2 id="zgloszenieModalTitle">Zgłoszenie</h2>
@@ -142,7 +135,7 @@ function renderZgloszenia() {
 
             <br><br>
             <label>Opis krótki (2. poziom w Generatorze)</label>
-            <input type="text" id="zgloszenieOpisKrotki" placeholder="Krótka nazwa">
+            <input type="text" id="zgloszenieOpisKrotki" placeholder="Krótka nazwa zgłoszenia">
 
             <br><br>
             <label>Opis pom (3. poziom w Generatorze)</label>
@@ -150,15 +143,7 @@ function renderZgloszenia() {
 
             <br><br>
             <label>Opis (tekst generowany do wpisu)</label>
-            <textarea id="zgloszenieOpis" rows="8" style="width:100%; font-family: monospace;" placeholder="Pełny opis z znacznikami..."></textarea>
-
-            <br><br>
-            <label>Nazwa szlaku</label>
-            <input type="text" id="zgloszenieNazwaSzlaku" placeholder="Nazwa szlaku">
-
-            <br><br>
-            <label>Km</label>
-            <input type="text" id="zgloszenieKm" placeholder="np. 12,450">
+            <textarea id="zgloszenieOpis" rows="10" style="width:100%; font-family: monospace;" placeholder="Pełny opis z możliwością znaczników..."></textarea>
 
             <br><br>
             <h3>Dostępne znaczniki</h3>
@@ -202,8 +187,6 @@ function openZgloszenieModal() {
     document.getElementById("zgloszenieOpisKrotki").value = "";
     document.getElementById("zgloszenieOpisPom").value = "";
     document.getElementById("zgloszenieOpis").value = "";
-    document.getElementById("zgloszenieNazwaSzlaku").value = "";
-    document.getElementById("zgloszenieKm").value = "";
     document.getElementById("zgloszenieModal").style.display = "flex";
 }
 
@@ -217,25 +200,29 @@ async function saveZgloszenie() {
     const opisKrotki = document.getElementById("zgloszenieOpisKrotki").value.trim();
     const opisPom = document.getElementById("zgloszenieOpisPom").value.trim();
     const opis = document.getElementById("zgloszenieOpis").value.trim();
-    const nazwaSzlaku = document.getElementById("zgloszenieNazwaSzlaku").value.trim();
-    const km = document.getElementById("zgloszenieKm").value.trim();
 
-    if (!linia) { alert("Podaj nr linii"); return; }
-    if (!opisKrotki) { alert("Podaj opis krótki"); return; }
+    if (!linia) {
+        alert("Podaj nr linii");
+        return;
+    }
+    if (!opisKrotki) {
+        alert("Podaj opis krótki (będzie widoczny na kafelku)");
+        return;
+    }
 
     const item = {
         Linia: linia,
         OpisKrotki: opisKrotki,
         OpisPom: opisPom,
-        Opis: opis,
-        NazwaSzlaku: nazwaSzlaku,
-        Km: km
+        Opis: opis
     };
 
     if (!appState.zgloszenia) {
-        appState.zgloszenia = { columns: ["Linia", "OpisKrotki", "OpisPom", "Opis", "NazwaSzlaku", "Km"], rows: [] };
+        appState.zgloszenia = { columns: ["Linia", "OpisKrotki", "OpisPom", "Opis"], rows: [] };
     }
-    if (!Array.isArray(appState.zgloszenia.rows)) appState.zgloszenia.rows = [];
+    if (!Array.isArray(appState.zgloszenia.rows)) {
+        appState.zgloszenia.rows = [];
+    }
 
     if (currentZgloszenieEdit === null) {
         appState.zgloszenia.rows.push(item);
@@ -255,11 +242,9 @@ async function editZgloszenie(index) {
 
     document.getElementById("zgloszenieModalTitle").innerText = "Edytuj zgłoszenie";
     document.getElementById("zgloszenieLinia").value = row.Linia || "";
-    document.getElementById("zgloszenieOpisKrotki").value = row.OpisKrotki || "";
+    document.getElementById("zgloszenieOpisKrotki").value = row.OpisKrotki || row.Opis || "";
     document.getElementById("zgloszenieOpisPom").value = row.OpisPom || "";
     document.getElementById("zgloszenieOpis").value = row.Opis || "";
-    document.getElementById("zgloszenieNazwaSzlaku").value = row.NazwaSzlaku || "";
-    document.getElementById("zgloszenieKm").value = row.Km || "";
     document.getElementById("zgloszenieModal").style.display = "flex";
 }
 
@@ -273,9 +258,11 @@ async function removeZgloszenie(index) {
 function insertZgloszenieTag(tag) {
     const textarea = document.getElementById("zgloszenieOpis");
     if (!textarea) return;
+
     const start = textarea.selectionStart ?? textarea.value.length;
     const end = textarea.selectionEnd ?? textarea.value.length;
     const text = textarea.value;
+
     textarea.value = text.substring(0, start) + tag + text.substring(end);
     textarea.focus();
     textarea.selectionStart = start + tag.length;
