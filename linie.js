@@ -1,12 +1,11 @@
 // =====================================
-// LINIE KOLEJOWE
-// - teren: jak dotychczas (Szlak / Osobowa / Towarowa)
-// - stacjonarny: 1 linia na osobę (Dyżurny zmiany / Komendant)
+// LINIE
+// - teren: Szlak / Osobowa / Towarowa
+// - stacjonarny: Dyżurny zmiany / Komendant
 // =====================================
 
-// stan UI (nie zapisywany na stałe – tylko w sesji)
-let liniePatrolModes = {};      // { [patrolIndex]: "teren" | "stacjonarny" }
-let liniePersonRoles = {};      // { [patrolIndex + "|" + personName]: "dyzurny" | "komendant" }
+let liniePatrolModes = {};
+let liniePersonRoles = {};
 
 function initLinie() {
     if (!appState.linie) {
@@ -18,10 +17,8 @@ function initLinie() {
             komendant: ""
         };
     }
-    // migracja starych danych
     if (appState.linie.dyzurny === undefined) appState.linie.dyzurny = "";
     if (appState.linie.komendant === undefined) appState.linie.komendant = "";
-
     renderLinie();
 }
 
@@ -37,132 +34,84 @@ function renderLinie() {
 
     const patrole = appState.patrole || [];
 
+    const fieldBox = (label, key, placeholder, accent) => `
+        <div style="flex:1; min-width:160px; background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px; border-top:3px solid ${accent};">
+            <div style="font-size:13px; color:#94a3b8; margin-bottom:8px; font-weight:600;">${label}</div>
+            <input type="text"
+                   value="${escapeHtml(appState.linie?.[key] || "")}"
+                   onchange="saveLine('${key}', this.value)"
+                   placeholder="${placeholder}"
+                   style="width:100%; padding:10px 12px; font-size:15px; color:#f8fafc; background:#0f172a; border:1px solid #334155; border-radius:8px;">
+        </div>
+    `;
+
     let html = `
     <div class="card">
-        <h2>🚉 Linie kolejowe</h2>
+        <h2 style="margin-bottom:20px;">Linie</h2>
 
-        <h3 style="margin-top:25px;">Numery linii kolejowych</h3>
-        <table style="width:100%; border-collapse:collapse; margin-bottom:30px;">
-            <thead>
-                <tr>
-                    <th style="width:40%; text-align:left; padding:12px; background:#1e2937; color:white;">Opis</th>
-                    <th style="text-align:left; padding:12px; background:#1e2937; color:white;">Numer linii</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr style="background:#1e40af; color:white;">
-                    <td style="padding:14px; font-weight:600;">Szlak</td>
-                    <td style="padding:14px;">
-                        <input type="text" value="${escapeHtml(appState.linie?.szlak || "")}"
-                               onchange="saveLine('szlak', this.value)"
-                               placeholder="np. 274"
-                               style="width:100%; padding:10px; font-size:16px; color:#0f172a; background:#fff;">
-                    </td>
-                </tr>
-                <tr style="background:#166534; color:white;">
-                    <td style="padding:14px; font-weight:600;">Osobowa</td>
-                    <td style="padding:14px;">
-                        <input type="text" value="${escapeHtml(appState.linie?.osobowa || "")}"
-                               onchange="saveLine('osobowa', this.value)"
-                               placeholder="np. 275"
-                               style="width:100%; padding:10px; font-size:16px; color:#0f172a; background:#fff;">
-                    </td>
-                </tr>
-                <tr style="background:#854d0e; color:white;">
-                    <td style="padding:14px; font-weight:600;">Towarowa</td>
-                    <td style="padding:14px;">
-                        <input type="text" value="${escapeHtml(appState.linie?.towarowa || "")}"
-                               onchange="saveLine('towarowa', this.value)"
-                               placeholder="np. 276"
-                               style="width:100%; padding:10px; font-size:16px; color:#0f172a; background:#fff;">
-                    </td>
-                </tr>
-                <tr style="background:#7c3aed; color:white;">
-                    <td style="padding:14px; font-weight:600;">Dyżurny zmiany</td>
-                    <td style="padding:14px;">
-                        <input type="text" value="${escapeHtml(appState.linie?.dyzurny || "")}"
-                               onchange="saveLine('dyzurny', this.value)"
-                               placeholder="np. numer linii dyżurnego"
-                               style="width:100%; padding:10px; font-size:16px; color:#0f172a; background:#fff;">
-                    </td>
-                </tr>
-                <tr style="background:#be185d; color:white;">
-                    <td style="padding:14px; font-weight:600;">Komendant</td>
-                    <td style="padding:14px;">
-                        <input type="text" value="${escapeHtml(appState.linie?.komendant || "")}"
-                               onchange="saveLine('komendant', this.value)"
-                               placeholder="np. numer linii komendanta"
-                               style="width:100%; padding:10px; font-size:16px; color:#0f172a; background:#fff;">
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+        <!-- Rząd 1: Szlak | Osobowa | Towarowa -->
+        <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+            ${fieldBox("Szlak", "szlak", "np. 274", "#3b82f6")}
+            ${fieldBox("Osobowa", "osobowa", "np. 275", "#22c55e")}
+            ${fieldBox("Towarowa", "towarowa", "np. 276", "#f59e0b")}
+        </div>
 
-        <h3>Patrole – wybór trybu</h3>
-        <p style="color:#94a3b8; margin-bottom:15px; font-size:14px;">
-            Dla każdego patrolu wybierz: <strong>Patrol w terenie</strong> (jak dotychczas – 3 linie)
-            albo <strong>Patrol stacjonarny</strong> (przy osobach: Dyżurny / Komendant – jedna linia).
-        </p>
+        <!-- Rząd 2: Dyżurny | Komendant -->
+        <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:28px;">
+            ${fieldBox("Dyżurny zmiany", "dyzurny", "nr linii dyżurnego", "#a78bfa")}
+            ${fieldBox("Komendant", "komendant", "nr linii komendanta", "#f472b6")}
+        </div>
+
+        <h3 style="margin-bottom:12px;">Patrole</h3>
     `;
 
     if (patrole.length === 0) {
-        html += `<p style="color:#f87171;">Brak patroli. Utwórz je w zakładce „Patrole”.</p>`;
+        html += `<p style="color:#94a3b8; margin-bottom:24px;">Brak patroli – dodaj je w zakładce Patrole.</p>`;
     } else {
-        html += `<div style="display:flex; flex-direction:column; gap:12px; margin-bottom:30px;">`;
+        html += `<div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:28px;">`;
 
         patrole.forEach((patrol, index) => {
             const mode = liniePatrolModes[index] || "";
             const people = getPatrolPeopleList(patrol);
+            const nazwa = patrol.nazwa || ("Patrol " + (index + 1));
 
             html += `
-            <div style="border:1px solid #334155; border-radius:10px; padding:16px; background:#0f172a;">
-                <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:10px;">
-                    <div style="font-weight:700; font-size:16px; min-width:160px;">${escapeHtml(patrol.nazwa || ("Patrol " + (index + 1)))}</div>
-                    <button type="button"
-                        class="btn-primary ${mode === "teren" ? "active" : ""}"
-                        style="${mode === "teren" ? "outline:2px solid #22c55e;" : ""}"
-                        onclick="setLiniePatrolMode(${index}, 'teren')">
-                        🚓 Patrol w terenie
-                    </button>
-                    <button type="button"
-                        class="btn-primary ${mode === "stacjonarny" ? "active" : ""}"
-                        style="${mode === "stacjonarny" ? "outline:2px solid #a78bfa;" : ""}"
-                        onclick="setLiniePatrolMode(${index}, 'stacjonarny')">
-                        🏢 Patrol stacjonarny
-                    </button>
-                    ${mode ? `<button type="button" class="btn-danger" onclick="setLiniePatrolMode(${index}, '')">Odznacz</button>` : ""}
-                </div>
-                <div style="color:#94a3b8; font-size:13px; margin-bottom:8px;">
-                    Skład: ${people.length ? people.map(p => escapeHtml(p)).join(", ") : "—"}
+            <div style="flex:1; min-width:260px; background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px;">
+                <div style="font-weight:700; margin-bottom:10px; color:#e2e8f0;">${escapeHtml(nazwa)}</div>
+                <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                    <button type="button" class="btn-primary"
+                        style="${mode === "teren" ? "background:#2563eb; outline:2px solid #60a5fa;" : "background:#334155;"}"
+                        onclick="setLiniePatrolMode(${index}, 'teren')">Teren</button>
+                    <button type="button" class="btn-primary"
+                        style="${mode === "stacjonarny" ? "background:#2563eb; outline:2px solid #60a5fa;" : "background:#334155;"}"
+                        onclick="setLiniePatrolMode(${index}, 'stacjonarny')">Stacjonarny</button>
+                    <button type="button" class="btn-danger"
+                        style="background:#334155;"
+                        onclick="setLiniePatrolMode(${index}, '')">Wyczyść</button>
                 </div>
             `;
 
-            // dla stacjonarnego – wybór roli przy każdej osobie
             if (mode === "stacjonarny") {
                 if (people.length === 0) {
-                    html += `<p style="color:#f87171;">Brak osób w składzie tego patrolu.</p>`;
+                    html += `<p style="color:#f87171; font-size:13px;">Brak osób w składzie.</p>`;
                 } else {
-                    html += `<div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">`;
                     people.forEach(personName => {
                         const key = personRoleKey(index, personName);
                         const role = liniePersonRoles[key] || "";
                         html += `
-                        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:8px 10px; background:#1e293b; border-radius:8px;">
-                            <span style="min-width:200px; font-weight:600;">${escapeHtml(personName)}</span>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:8px; background:#0f172a; border-radius:8px; margin-bottom:6px;">
+                            <span style="flex:1; min-width:120px; font-size:13px; font-weight:600;">${escapeHtml(personName)}</span>
                             <button type="button" class="btn-primary"
-                                style="${role === "dyzurny" ? "outline:2px solid #a78bfa; background:#7c3aed;" : ""}"
-                                onclick="setLiniePersonRole(${index}, '${escapeAttr(personName)}', 'dyzurny')">
-                                Dyżurny zmiany
-                            </button>
+                                style="${role === "komendant" ? "background:#db2777; outline:2px solid #f472b6;" : "background:#334155;"}"
+                                onclick="setLiniePersonRole(${index}, '${escapeAttr(personName)}', 'komendant')">Komendant</button>
                             <button type="button" class="btn-primary"
-                                style="${role === "komendant" ? "outline:2px solid #f472b6; background:#be185d;" : ""}"
-                                onclick="setLiniePersonRole(${index}, '${escapeAttr(personName)}', 'komendant')">
-                                Komendant
-                            </button>
+                                style="${role === "dyzurny" ? "background:#7c3aed; outline:2px solid #a78bfa;" : "background:#334155;"}"
+                                onclick="setLiniePersonRole(${index}, '${escapeAttr(personName)}', 'dyzurny')">Dyżurny</button>
                         </div>`;
                     });
-                    html += `</div>`;
                 }
+            } else if (mode === "teren") {
+                html += `<p style="color:#94a3b8; font-size:13px; margin:0;">Szlak + Osobowa + Towarowa dla całego składu</p>`;
             }
 
             html += `</div>`;
@@ -171,12 +120,11 @@ function renderLinie() {
         html += `</div>`;
     }
 
-    // ===== PODGLĄD TABEL =====
     html += `
-        <h3>Tabele do Excela</h3>
-        <button onclick="copyAllTables()" class="btn-primary" style="padding:12px 24px; font-size:16px; margin-bottom:20px;">
-            📋 Kopiuj WSZYSTKIE tabele do Excela
-        </button>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+            <h3 style="margin:0;">Tabele do Excela</h3>
+            <button onclick="copyAllTables()" class="btn-primary">📋 Kopiuj do Excela</button>
+        </div>
         <div id="linieTablesArea">
     `;
 
@@ -193,10 +141,6 @@ function renderLinie() {
 
     container.innerHTML = html;
 }
-
-// ==============================================
-// POMOCNICZE
-// ==============================================
 
 function escapeHtml(str) {
     return String(str || "")
@@ -229,7 +173,6 @@ function getPatrolPeopleList(patrol) {
 
 function getNrPLK(fullName) {
     if (!appState.dane || !appState.dane.rows) return "";
-
     for (let row of appState.dane.rows) {
         const rowName = `${row["Stopień"] || ""} ${row["Nazwisko"] || ""} ${row["Imię"] || ""}`.trim();
         const shortName = `${row["Nazwisko"] || ""} ${row["Imię"] || ""}`.trim();
@@ -248,20 +191,17 @@ function setLiniePatrolMode(index, mode) {
 
 function setLiniePersonRole(patrolIndex, personName, role) {
     const key = personRoleKey(patrolIndex, personName);
-    // toggle – drugie kliknięcie tej samej roli odznacza
     if (liniePersonRoles[key] === role) delete liniePersonRoles[key];
     else liniePersonRoles[key] = role;
     renderLinie();
 }
 
-// ==============================================
-// BUDOWANIE TABEL
-// ==============================================
-
+// Kolejność tabel: 1) Komendant  2) Dyżurny  3) Teren (wg patroli)
 function buildAllPersonTables(today) {
     const patrole = appState.patrole || [];
-    let html = "";
-    let any = false;
+    const komendantParts = [];
+    const dyzurnyParts = [];
+    const terenParts = [];
 
     patrole.forEach((patrol, index) => {
         const mode = liniePatrolModes[index];
@@ -277,60 +217,51 @@ function buildAllPersonTables(today) {
             };
 
             if (mode === "teren") {
-                html += createPersonTableTeren(person, today);
-                any = true;
+                terenParts.push(createPersonTableTeren(person, today));
             } else if (mode === "stacjonarny") {
                 const key = personRoleKey(index, personName);
                 const role = liniePersonRoles[key];
-                if (!role) return; // jeszcze nie wybrano roli
-                html += createPersonTableStacjonarny(person, today, role);
-                any = true;
+                if (!role) return;
+                if (role === "komendant") {
+                    komendantParts.push(createPersonTableStacjonarny(person, today, role));
+                } else if (role === "dyzurny") {
+                    dyzurnyParts.push(createPersonTableStacjonarny(person, today, role));
+                }
             }
         });
     });
 
-    return any ? html : "";
+    const all = [...komendantParts, ...dyzurnyParts, ...terenParts];
+    return all.length ? all.join("") : "";
 }
 
 function createPersonTableTeren(person, today) {
+    const rows = [
+        { bg: "#1e40af", line: appState.linie?.szlak || "" },
+        { bg: "#166534", line: appState.linie?.osobowa || "" },
+        { bg: "#854d0e", line: appState.linie?.towarowa || "" }
+    ];
+
+    let body = rows.map(r => `
+        <tr style="background:${r.bg}; color:white;">
+            <td style="padding:12px; border:1px solid #475569; font-weight:bold; text-align:center; width:15%;">${escapeHtml(person.nrPLK)}</td>
+            <td style="padding:12px; border:1px solid #475569;">${escapeHtml(r.line)}</td>
+            <td style="padding:12px; border:0 solid #475569;"></td>
+            <td style="padding:12px; border:0 solid #475569;"></td>
+            <td style="padding:12px; border:0 solid #475569;"></td>
+            <td style="padding:12px; border:0 solid #475569;"></td>
+            <td style="padding:12px; border:1px solid #475569; text-align:center; width:15%;">${today}</td>
+            <td style="padding:12px; border:1px solid #475569;" contenteditable="true"></td>
+        </tr>
+    `).join("");
+
     return `
-    <div style="margin-bottom:30px;">
-        <div style="background:#FFFF00; color:black; padding:14px 18px; font-size:18px; font-weight:bold; border-radius:6px 6px 0 0;">
-            ${escapeHtml(person.fullName)} <span style="font-size:13px; font-weight:600; color:#334155;">(teren)</span>
+    <div style="margin-bottom:20px;">
+        <div style="background:#334155; color:#f8fafc; padding:12px 16px; font-size:16px; font-weight:700; border-radius:8px 8px 0 0; border:1px solid #475569; border-bottom:none;">
+            ${escapeHtml(person.fullName)} <span style="font-size:12px; font-weight:500; color:#94a3b8;">(teren)</span>
         </div>
         <table class="excelSubTable" style="width:100%; border-collapse:collapse; border:2px solid #475569;">
-            <tbody>
-                <tr style="background:#1e40af; color:white;">
-                    <td style="padding:12px; border:1px solid #475569; font-weight:bold; text-align:center; width:15%;">${escapeHtml(person.nrPLK)}</td>
-                    <td style="padding:12px; border:1px solid #475569;">${escapeHtml(appState.linie?.szlak || "")}</td>
-                    <td style="padding:12px; border:0 solid #475569;"></td>
-                    <td style="padding:12px; border:0 solid #475569;"></td>
-                    <td style="padding:12px; border:0 solid #475569;"></td>
-                    <td style="padding:12px; border:0 solid #475569;"></td>
-                    <td style="padding:12px; border:1px solid #475569; text-align:center; width:15%;">${today}</td>
-                    <td style="padding:12px; border:1px solid #475569;" contenteditable="true"></td>
-                </tr>
-                <tr style="background:#166534; color:white;">
-                    <td style="padding:12px; border:1px solid #475569; font-weight:bold; text-align:center;">${escapeHtml(person.nrPLK)}</td>
-                    <td style="padding:12px; border:1px solid #475569;">${escapeHtml(appState.linie?.osobowa || "")}</td>
-                    <td style="padding:12px; border:0 solid #475569;"></td>
-                    <td style="padding:12px; border:0 solid #475569;"></td>
-                    <td style="padding:12px; border:0 solid #475569;"></td>
-                    <td style="padding:12px; border:0 solid #475569;"></td>
-                    <td style="padding:12px; border:1px solid #475569; text-align:center;">${today}</td>
-                    <td style="padding:12px; border:1px solid #475569;" contenteditable="true"></td>
-                </tr>
-                <tr style="background:#854d0e; color:white;">
-                    <td style="padding:12px; border:1px solid #475569; font-weight:bold; text-align:center;">${escapeHtml(person.nrPLK)}</td>
-                    <td style="padding:12px; border:1px solid #475569;">${escapeHtml(appState.linie?.towarowa || "")}</td>
-                    <td style="padding:12px; border:0 solid #475569;"></td>
-                    <td style="padding:12px; border:0 solid #475569;"></td>
-                    <td style="padding:12px; border:0 solid #475569;"></td>
-                    <td style="padding:12px; border:0 solid #475569;"></td>
-                    <td style="padding:12px; border:1px solid #475569; text-align:center;">${today}</td>
-                    <td style="padding:12px; border:1px solid #475569;" contenteditable="true"></td>
-                </tr>
-            </tbody>
+            <tbody>${body}</tbody>
         </table>
     </div>`;
 }
@@ -342,9 +273,9 @@ function createPersonTableStacjonarny(person, today, role) {
     const bg = isDyzurny ? "#7c3aed" : "#be185d";
 
     return `
-    <div style="margin-bottom:30px;">
-        <div style="background:#FFFF00; color:black; padding:14px 18px; font-size:18px; font-weight:bold; border-radius:6px 6px 0 0;">
-            ${escapeHtml(person.fullName)} <span style="font-size:13px; font-weight:600; color:#334155;">(stacjonarny – ${roleLabel})</span>
+    <div style="margin-bottom:20px;">
+        <div style="background:#334155; color:#f8fafc; padding:12px 16px; font-size:16px; font-weight:700; border-radius:8px 8px 0 0; border:1px solid #475569; border-bottom:none;">
+            ${escapeHtml(person.fullName)} <span style="font-size:12px; font-weight:500; color:#94a3b8;">(stacjonarny – ${roleLabel})</span>
         </div>
         <table class="excelSubTable" style="width:100%; border-collapse:collapse; border:2px solid #475569;">
             <tbody>
@@ -363,20 +294,12 @@ function createPersonTableStacjonarny(person, today, role) {
     </div>`;
 }
 
-// =====================================
-// ZAPIS NUMERÓW LINII
-// =====================================
-
 function saveLine(type, value) {
     if (!appState.linie) appState.linie = {};
     appState.linie[type] = value.trim();
     saveState();
     renderLinie();
 }
-
-// =====================================
-// KOPIOWANIE
-// =====================================
 
 function copyAllTables() {
     const tables = document.querySelectorAll(".excelSubTable");
@@ -386,29 +309,24 @@ function copyAllTables() {
     }
 
     let combinedText = "";
-
-    tables.forEach((table, index) => {
+    tables.forEach((table) => {
         const rows = table.querySelectorAll("tr");
         rows.forEach(row => {
             const cells = row.querySelectorAll("td");
             const rowData = Array.from(cells).map(cell => cell.innerText.trim());
             combinedText += rowData.join("\t") + "\n";
         });
-        if (index < tables.length - 1) {
-            combinedText += "\n";
-        }
+        // bez pustej linii między tabelami – wiersz pod wierszem
     });
 
     navigator.clipboard.writeText(combinedText.trim()).then(() => {
-        alert(`✅ Skopiowano ${tables.length} tabel do Excela!\n\nWklej (Ctrl + V)`);
+        if (typeof showToast === "function") showToast("✅ Skopiowano do Excela");
+        else alert("✅ Skopiowano – wklej (Ctrl+V)");
     }).catch(() => {
-        alert("Nie udało się skopiować automatycznie. Zaznacz tabele ręcznie i Ctrl+C.");
+        alert("Nie udało się skopiować automatycznie.");
     });
 }
 
-// =====================================
-// EXPOSE
-// =====================================
 window.saveLine = saveLine;
 window.copyAllTables = copyAllTables;
 window.setLiniePatrolMode = setLiniePatrolMode;
