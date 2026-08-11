@@ -75,7 +75,7 @@ function renderStatystyki() {
 
     let html = `
     <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; alignpx; flex-wrap:wrap; margin-bottom:8px;">
             <h2 style="margin:0;">Statystyki – ${escapeHtml(todayPL())}</h2>
             <button class="btn-danger" onclick="clearAllStatystyki()">Kasuj wszystkie statystyki</button>
         </div>
@@ -99,7 +99,7 @@ function renderStatystyki() {
                     <th>Godz. rozpoczęcia</th>
                     <th>Godz. zakończenia</th>
                     <th>Nazwa stacji</th>
-                    <th></th>
+                    <th>Akcje</th>
                 </tr>
             </thead>
             <tbody>
@@ -115,7 +115,10 @@ function renderStatystyki() {
                 <td>${escapeHtml(s.godzOd)}</td>
                 <td>${escapeHtml(s.godzDo)}</td>
                 <td>${escapeHtml(s.nazwa)}</td>
-                <td><button class="btn-danger" onclick="removeSprawdzenie(${globalIdx})">Usuń</button></td>
+                <td style="white-space:nowrap;">
+                    <button class="btn-primary" onclick="editSprawdzenie(${globalIdx})">Edytuj</button>
+                    <button class="btn-danger" onclick="removeSprawdzenie(${globalIdx})">Usuń</button>
+                </td>
             </tr>`;
         });
     }
@@ -133,7 +136,7 @@ function renderStatystyki() {
                     <th>Godz. rozpoczęcia</th>
                     <th>Godz. zakończenia</th>
                     <th>Nazwa stacji</th>
-                    <th></th>
+                    <th>Akcje</th>
                 </tr>
             </thead>
             <tbody>
@@ -149,7 +152,10 @@ function renderStatystyki() {
                 <td>${escapeHtml(s.godzOd)}</td>
                 <td>${escapeHtml(s.godzDo)}</td>
                 <td>${escapeHtml(s.nazwa)}</td>
-                <td><button class="btn-danger" onclick="removeSprawdzenie(${globalIdx})">Usuń</button></td>
+                <td style="white-space:nowrap;">
+                    <button class="btn-primary" onclick="editSprawdzenie(${globalIdx})">Edytuj</button>
+                    <button class="btn-danger" onclick="removeSprawdzenie(${globalIdx})">Usuń</button>
+                </td>
             </tr>`;
         });
     }
@@ -170,7 +176,7 @@ function renderStatystyki() {
                     <th>Km początek</th>
                     <th>Km koniec</th>
                     <th>Nr linii</th>
-                    <th></th>
+                    <th>Akcje</th>
                 </tr>
             </thead>
             <tbody>
@@ -189,7 +195,10 @@ function renderStatystyki() {
                 <td>${escapeHtml(s.kmOd)}</td>
                 <td>${escapeHtml(s.kmDo)}</td>
                 <td>${escapeHtml(s.linia)}</td>
-                <td><button class="btn-danger" onclick="removeSprawdzenie(${globalIdx})">Usuń</button></td>
+                <td style="white-space:nowrap;">
+                    <button class="btn-primary" onclick="editSprawdzenie(${globalIdx})">Edytuj</button>
+                    <button class="btn-danger" onclick="removeSprawdzenie(${globalIdx})">Usuń</button>
+                </td>
             </tr>`;
         });
     }
@@ -220,7 +229,6 @@ function copyText(text) {
     }).catch(() => alert("Nie udało się skopiować"));
 }
 
-/** Tylko wiersze tabeli szlaków, bez nagłówków */
 function copySzlaki() {
     ensureStatystykiState();
     const szlaki = filterToday(appState.statystyki.sprawdzenia).filter(s => s.rodzaj === "Szlak");
@@ -233,6 +241,98 @@ function copySzlaki() {
         [s.data, s.godzOd, s.godzDo, s.nazwa, s.kmOd, s.kmDo, s.linia].join("\t")
     );
     copyText(rows.join("\n"));
+}
+
+function editSprawdzenie(index) {
+    ensureStatystykiState();
+    const s = appState.statystyki.sprawdzenia[index];
+    if (!s) return;
+
+    let existing = document.getElementById("editSprawdzenieModal");
+    if (existing) existing.remove();
+
+    const isSzlak = s.rodzaj === "Szlak";
+
+    const overlay = document.createElement("div");
+    overlay.id = "editSprawdzenieModal";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "flex";
+
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:560px;">
+            <h2>Edytuj sprawdzenie</h2>
+            <p style="color:#94a3b8; font-size:14px; margin-bottom:12px;">${escapeHtml(s.rodzaj || "")}</p>
+
+            <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+                <div style="flex:1; min-width:120px;">
+                    <label>Data</label>
+                    <input type="text" id="editSprData" value="${escapeHtml(s.data || "")}" style="width:100%;">
+                </div>
+                <div style="flex:1; min-width:100px;">
+                    <label>Godz. rozpoczęcia</label>
+                    <input type="text" id="editSprGodzOd" value="${escapeHtml(s.godzOd || "")}" placeholder="gg:mm" style="width:100%;">
+                </div>
+                <div style="flex:1; min-width:100px;">
+                    <label>Godz. zakończenia</label>
+                    <input type="text" id="editSprGodzDo" value="${escapeHtml(s.godzDo || "")}" placeholder="gg:mm" style="width:100%;">
+                </div>
+            </div>
+
+            <label>${isSzlak ? "Nazwa szlaku" : "Nazwa stacji"}</label>
+            <input type="text" id="editSprNazwa" value="${escapeHtml(s.nazwa || "")}" style="width:100%; margin-bottom:12px;">
+
+            ${isSzlak ? `
+            <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+                <div style="flex:1; min-width:100px;">
+                    <label>Km początek</label>
+                    <input type="text" id="editSprKmOd" value="${escapeHtml(s.kmOd || "")}" style="width:100%;">
+                </div>
+                <div style="flex:1; min-width:100px;">
+                    <label>Km koniec</label>
+                    <input type="text" id="editSprKmDo" value="${escapeHtml(s.kmDo || "")}" style="width:100%;">
+                </div>
+                <div style="flex:1; min-width:100px;">
+                    <label>Nr linii</label>
+                    <input type="text" id="editSprLinia" value="${escapeHtml(s.linia || "")}" style="width:100%;">
+                </div>
+            </div>
+            ` : `
+            <input type="hidden" id="editSprKmOd" value="${escapeHtml(s.kmOd || "")}">
+            <input type="hidden" id="editSprKmDo" value="${escapeHtml(s.kmDo || "")}">
+            <input type="hidden" id="editSprLinia" value="${escapeHtml(s.linia || "")}">
+            `}
+
+            <div class="modal-actions">
+                <button class="btn-success" onclick="saveEditSprawdzenie(${index})">Zapisz</button>
+                <button class="btn-danger" onclick="closeEditSprawdzenieModal()">Anuluj</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function closeEditSprawdzenieModal() {
+    const m = document.getElementById("editSprawdzenieModal");
+    if (m) m.remove();
+}
+
+async function saveEditSprawdzenie(index) {
+    ensureStatystykiState();
+    const s = appState.statystyki.sprawdzenia[index];
+    if (!s) return;
+
+    s.data = (document.getElementById("editSprData")?.value || "").trim() || s.data;
+    s.godzOd = (document.getElementById("editSprGodzOd")?.value || "").trim();
+    s.godzDo = (document.getElementById("editSprGodzDo")?.value || "").trim();
+    s.nazwa = (document.getElementById("editSprNazwa")?.value || "").trim();
+    s.kmOd = (document.getElementById("editSprKmOd")?.value || "").trim();
+    s.kmDo = (document.getElementById("editSprKmDo")?.value || "").trim();
+    s.linia = (document.getElementById("editSprLinia")?.value || "").trim();
+
+    await saveState();
+    closeEditSprawdzenieModal();
+    renderStatystyki();
+    if (typeof showToast === "function") showToast("✅ Zapisano zmiany");
 }
 
 async function removeSprawdzenie(index) {
@@ -257,5 +357,8 @@ window.initStatystyki = initStatystyki;
 window.logInterwencja = logInterwencja;
 window.logSprawdzenie = logSprawdzenie;
 window.copySzlaki = copySzlaki;
+window.editSprawdzenie = editSprawdzenie;
+window.closeEditSprawdzenieModal = closeEditSprawdzenieModal;
+window.saveEditSprawdzenie = saveEditSprawdzenie;
 window.removeSprawdzenie = removeSprawdzenie;
 window.clearAllStatystyki = clearAllStatystyki;
