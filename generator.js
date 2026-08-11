@@ -3,6 +3,7 @@
 // + autofilt linii
 // + sort alfabetyczny 2. poziomu
 // + UWAGI (TAK / NIE)
+// + @wybrani w uwagach
 // =====================================
 
 let selectedPatrols = [];
@@ -11,9 +12,8 @@ let selectedPoleceniaIndexes = [];
 let selectedZgloszeniaLine = null;
 let selectedPoleceniaLine = null;
 let selectedWybrani = [];
-let uwagiWybrane = "NIE"; // domyślnie NIE
+let uwagiWybrane = "NIE";
 
-// Domyślne szablony uwag
 const defaultUwagiSzablony = {
     "MKK": "Przeprowadzono kontrolę dokumentów. MKK: @MKK.",
     "Pouczony": "Osoba została pouczona o obowiązujących przepisach.",
@@ -397,6 +397,7 @@ function setUwagi(val) {
     uwagiWybrane = val;
     renderUwagiCards();
 }
+
 // =====================================
 // MODAL UWAGI
 // =====================================
@@ -530,7 +531,7 @@ async function saveUwagiSzablony() {
 }
 
 // =====================================
-// WSTAWIANIE UWAGI
+// WSTAWIANIE UWAGI (+ obsługa @wybrani)
 // =====================================
 
 function wstawUwagi() {
@@ -540,22 +541,20 @@ function wstawUwagi() {
         return;
     }
 
-    // Jeśli jest @wybrani → najpierw wybierz osoby
     if (/@wybrani/i.test(tekst)) {
         const people = getSkladFromSelectedPatrols();
         if (people.length === 0) {
             showToast("Brak osób w składzie zaznaczonych patroli");
             return;
         }
-        // zapamiętaj tekst uwagi i otwórz modal wyboru osób
         window._uwagiTekstDoWstawienia = tekst;
         openWybraniModalForUwagi();
         return;
     }
 
-    // Brak @wybrani → wstaw od razu
     wstawTekstUwagiDoWpis(tekst);
 }
+
 function wstawTekstUwagiDoWpis(tekst) {
     const textarea = document.getElementById("generatedEntry");
     if (!textarea) return;
@@ -577,7 +576,6 @@ function wstawTekstUwagiDoWpis(tekst) {
 function openWybraniModalForUwagi() {
     ensureWybraniModal();
     const people = getSkladFromSelectedPatrols();
-
     if (people.length === 0) {
         showToast("Brak osób w składzie zaznaczonych patroli");
         return;
@@ -589,17 +587,12 @@ function openWybraniModalForUwagi() {
     let html = "";
     people.forEach((name, i) => {
         const isSelected = selectedWybrani.includes(name) ? "selected" : "";
-        html += `
-        <div class="item-card ${isSelected}" onclick="toggleWybranaOsobaUwagi(${i})" data-name="${escapeAttr(name)}">
-            ${escapeHtml(name)}
-        </div>`;
+        html += `<div class="item-card ${isSelected}" onclick="toggleWybranaOsobaUwagi(${i})">${escapeHtml(name)}</div>`;
     });
     list.innerHTML = html;
 
-    // Podgląd na żywo
     updateUwagiLivePreview();
 
-    // Zmień przyciski modalu na wersję dla uwag
     const actions = document.querySelector("#wybraniModal .modal-actions");
     if (actions) {
         actions.innerHTML = `
@@ -609,7 +602,6 @@ function openWybraniModalForUwagi() {
         `;
     }
 
-    // Dodaj podgląd pod listą osób
     let preview = document.getElementById("uwagiLivePreview");
     if (!preview) {
         preview = document.createElement("div");
@@ -630,9 +622,7 @@ function toggleWybranaOsobaUwagi(index) {
     if (pos > -1) selectedWybrani.splice(pos, 1);
     else selectedWybrani.push(name);
 
-    // Odśwież wygląd kafelków
-    const cards = document.querySelectorAll("#wybraniList .item-card");
-    cards.forEach((card, i) => {
+    document.querySelectorAll("#wybraniList .item-card").forEach((card, i) => {
         if (selectedWybrani.includes(people[i])) card.classList.add("selected");
         else card.classList.remove("selected");
     });
@@ -642,8 +632,7 @@ function toggleWybranaOsobaUwagi(index) {
 
 function selectAllWybraniUwagi() {
     selectedWybrani = [...getSkladFromSelectedPatrols()];
-    const cards = document.querySelectorAll("#wybraniList .item-card");
-    cards.forEach(card => card.classList.add("selected"));
+    document.querySelectorAll("#wybraniList .item-card").forEach(card => card.classList.add("selected"));
     updateUwagiLivePreview();
 }
 
@@ -652,9 +641,7 @@ function updateUwagiLivePreview() {
     if (!preview) return;
 
     const tekst = window._uwagiTekstDoWstawienia || "";
-    const replacements = buildReplacements();
-    const wynik = applyTags(tekst, replacements);
-
+    const wynik = applyTags(tekst, buildReplacements());
     preview.innerHTML = `<strong>Podgląd:</strong><br>${escapeHtml(wynik || "(brak tekstu)")}`;
 }
 
@@ -665,13 +652,11 @@ function confirmWybraniUwagi() {
     }
 
     const tekst = window._uwagiTekstDoWstawienia || "";
-    const replacements = buildReplacements();
-    const gotowyTekst = applyTags(tekst, replacements);
+    const gotowyTekst = applyTags(tekst, buildReplacements());
 
     closeWybraniModal();
     wstawTekstUwagiDoWpis(gotowyTekst);
 
-    // przywróć normalne przyciski modalu @wybrani
     const actions = document.querySelector("#wybraniModal .modal-actions");
     if (actions) {
         actions.innerHTML = `
@@ -681,10 +666,10 @@ function confirmWybraniUwagi() {
         `;
     }
 
-    // usuń podgląd
     const preview = document.getElementById("uwagiLivePreview");
     if (preview) preview.remove();
 }
+
 // =====================================
 // GENEROWANIE
 // =====================================
@@ -892,7 +877,6 @@ function confirmWybrani() {
     closeWybraniModal();
     updateLiveEntry();
 
-    // po wyborze osób – jeśli TAK, otwórz modal uwag
     if (uwagiWybrane === "TAK") {
         openUwagiModal();
     } else {
@@ -918,7 +902,6 @@ function generateEntry() {
     selectedWybrani = [];
     updateLiveEntry();
 
-    // jeśli TAK – otwórz modal uwag
     if (uwagiWybrane === "TAK") {
         openUwagiModal();
     }
