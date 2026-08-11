@@ -1,7 +1,8 @@
 // =====================================
-// GENERATOR WPISÓW (bez szablonów)
+// GENERATOR WPISÓW
 // + autofilt linii
 // + sort alfabetyczny 2. poziomu
+// + UWAGI (TAK / NIE)
 // =====================================
 
 let selectedPatrols = [];
@@ -9,7 +10,16 @@ let selectedZgloszeniaIndexes = [];
 let selectedPoleceniaIndexes = [];
 let selectedZgloszeniaLine = null;
 let selectedPoleceniaLine = null;
-let selectedWybrani = []; // osoby wybrane przez znacznik @wybrani
+let selectedWybrani = [];
+let uwagiWybrane = "NIE"; // domyślnie NIE
+
+// Domyślne szablony uwag
+const defaultUwagiSzablony = {
+    "MKK": "Przeprowadzono kontrolę dokumentów. MKK: @MKK.",
+    "Pouczony": "Osoba została pouczona o obowiązujących przepisach.",
+    "Legitymowany": "Dokonywano legitymowania osób. Sprawdzono tożsamość.",
+    "Inne": ""
+};
 
 // =====================================
 // POMOCNICZE
@@ -96,6 +106,9 @@ function initGenerator() {
     selectedZgloszeniaLine = null;
     selectedPoleceniaLine = null;
     selectedWybrani = [];
+    uwagiWybrane = "NIE";
+
+    ensureUwagiState();
 
     if (!appState.zgloszenia) appState.zgloszenia = { columns: ["Linia", "OpisKrotki", "Opis"], rows: [] };
     if (!Array.isArray(appState.zgloszenia.rows)) appState.zgloszenia.rows = [];
@@ -106,6 +119,7 @@ function initGenerator() {
     renderPatroleCards();
     renderZgloszeniaLines();
     renderPoleceniaLines();
+    renderUwagiCards();
 
     const kzInput = document.getElementById("kzInput");
     const mkkInput = document.getElementById("mkkInput");
@@ -160,7 +174,6 @@ function togglePatrol(index) {
     const pos = selectedPatrols.indexOf(index);
     if (pos > -1) selectedPatrols.splice(pos, 1);
     else selectedPatrols.push(index);
-    // po zmianie patroli czyścimy wybór @wybrani (lista osób mogła się zmienić)
     selectedWybrani = [];
     renderPatroleCards();
     updateLiveEntry();
@@ -232,7 +245,6 @@ function renderZgloszeniaItems() {
         return;
     }
 
-    // alfabetycznie 2. poziom
     sortByOpisKrotki(rows);
 
     let html = "";
@@ -323,7 +335,6 @@ function renderPoleceniaItems() {
         return;
     }
 
-    // alfabetycznie 2. poziom
     sortByOpisKrotki(rows);
 
     let html = "";
@@ -351,6 +362,203 @@ function togglePolecenie(index) {
 function filterGeneratorTiles() {
     renderZgloszeniaLines();
     renderPoleceniaLines();
+}
+
+// =====================================
+// UWAGI (TAK / NIE)
+// =====================================
+
+function ensureUwagiState() {
+    if (!appState.uwagiSzablony) {
+        appState.uwagiSzablony = { ...defaultUwagiSzablony };
+    }
+    Object.keys(defaultUwagiSzablony).forEach(k => {
+        if (appState.uwagiSzablony[k] === undefined) {
+            appState.uwagiSzablony[k] = defaultUwagiSzablony[k];
+        }
+    });
+}
+
+function renderUwagiCards() {
+    const nie = document.getElementById("uwagiNie");
+    const tak = document.getElementById("uwagiTak");
+    if (!nie || !tak) return;
+
+    if (uwagiWybrane === "NIE") {
+        nie.classList.add("active");
+        tak.classList.remove("active");
+    } else {
+        tak.classList.add("active");
+        nie.classList.remove("active");
+    }
+}
+
+function setUwagi(val) {
+    uwagiWybrane = val;
+    renderUwagiCards();
+}
+
+// =====================================
+// MODAL UWAGI
+// =====================================
+
+function ensureUwagiModal() {
+    if (document.getElementById("uwagiModal")) return;
+
+    const overlay = document.createElement("div");
+    overlay.id = "uwagiModal";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "none";
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:720px;">
+            <h2>Uwagi</h2>
+
+            <div style="margin-bottom:18px;">
+                <div style="font-size:14px; color:#94a3b8; margin-bottom:10px;">Wybierz typ uwagi:</div>
+                <div class="card-grid" id="uwagiTypy">
+                    <div class="item-card" onclick="wybierzTypUwagi('MKK')">MKK</div>
+                    <div class="item-card" onclick="wybierzTypUwagi('Pouczony')">Pouczony</div>
+                    <div class="item-card" onclick="wybierzTypUwagi('Legitymowany')">Legitymowany</div>
+                    <div class="item-card" onclick="wybierzTypUwagi('Inne')">Inne</div>
+                </div>
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <button class="btn-primary" onclick="openUwagiSzablonyModal()">Szablony</button>
+            </div>
+
+            <label style="display:block; margin-bottom:6px;">Treść uwagi (możesz edytować):</label>
+            <textarea id="uwagiTekst" rows="8" style="width:100%; font-family:inherit; margin-bottom:15px;"></textarea>
+
+            <div class="modal-actions">
+                <button class="btn-success" onclick="wstawUwagi()">Wstaw</button>
+                <button class="btn-danger" onclick="closeUwagiModal()">Wyjdź</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function openUwagiModal() {
+    ensureUwagiState();
+    ensureUwagiModal();
+    document.getElementById("uwagiTekst").value = "";
+    document.getElementById("uwagiModal").style.display = "flex";
+}
+
+function closeUwagiModal() {
+    const m = document.getElementById("uwagiModal");
+    if (m) m.style.display = "none";
+}
+
+function wybierzTypUwagi(typ) {
+    ensureUwagiState();
+    const tekst = appState.uwagiSzablony[typ] || "";
+    const textarea = document.getElementById("uwagiTekst");
+    if (textarea) {
+        const replacements = buildReplacements();
+        textarea.value = applyTags(tekst, replacements);
+    }
+}
+
+// =====================================
+// SZABLONY UWAG
+// =====================================
+
+function ensureUwagiSzablonyModal() {
+    if (document.getElementById("uwagiSzablonyModal")) return;
+
+    const overlay = document.createElement("div");
+    overlay.id = "uwagiSzablonyModal";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "none";
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:800px;">
+            <h2>Szablony uwag</h2>
+            <p style="color:#94a3b8; font-size:14px; margin-bottom:15px;">
+                Edytuj szablony. Możesz używać wszystkich znaczników:<br>
+                @patrol, @sklad, @dowodca, @kierowca, @wszyscy, @KZ, @MKK, @data, @godzina, @wybrani, @wot, @policjant
+            </p>
+
+            <label>MKK</label>
+            <textarea id="szablonMKK" rows="3" style="width:100%; margin-bottom:12px;"></textarea>
+
+            <label>Pouczony</label>
+            <textarea id="szablonPouczony" rows="3" style="width:100%; margin-bottom:12px;"></textarea>
+
+            <label>Legitymowany</label>
+            <textarea id="szablonLegitymowany" rows="3" style="width:100%; margin-bottom:12px;"></textarea>
+
+            <label>Inne</label>
+            <textarea id="szablonInne" rows="3" style="width:100%; margin-bottom:12px;"></textarea>
+
+            <div class="modal-actions">
+                <button class="btn-success" onclick="saveUwagiSzablony()">Zapisz szablony</button>
+                <button class="btn-danger" onclick="closeUwagiSzablonyModal()">Anuluj</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function openUwagiSzablonyModal() {
+    ensureUwagiState();
+    ensureUwagiSzablonyModal();
+
+    document.getElementById("szablonMKK").value = appState.uwagiSzablony["MKK"] || "";
+    document.getElementById("szablonPouczony").value = appState.uwagiSzablony["Pouczony"] || "";
+    document.getElementById("szablonLegitymowany").value = appState.uwagiSzablony["Legitymowany"] || "";
+    document.getElementById("szablonInne").value = appState.uwagiSzablony["Inne"] || "";
+
+    document.getElementById("uwagiSzablonyModal").style.display = "flex";
+}
+
+function closeUwagiSzablonyModal() {
+    const m = document.getElementById("uwagiSzablonyModal");
+    if (m) m.style.display = "none";
+}
+
+async function saveUwagiSzablony() {
+    ensureUwagiState();
+    appState.uwagiSzablony["MKK"] = document.getElementById("szablonMKK").value;
+    appState.uwagiSzablony["Pouczony"] = document.getElementById("szablonPouczony").value;
+    appState.uwagiSzablony["Legitymowany"] = document.getElementById("szablonLegitymowany").value;
+    appState.uwagiSzablony["Inne"] = document.getElementById("szablonInne").value;
+
+    await saveState();
+    closeUwagiSzablonyModal();
+    showToast("✅ Szablony uwag zapisane");
+}
+
+// =====================================
+// WSTAWIANIE UWAGI
+// =====================================
+
+function wstawUwagi() {
+    const tekst = (document.getElementById("uwagiTekst")?.value || "").trim();
+    if (!tekst) {
+        showToast("Wpisz treść uwagi");
+        return;
+    }
+
+    const textarea = document.getElementById("generatedEntry");
+    if (!textarea) return;
+
+    let current = textarea.value || "";
+
+    // Zastąp "brak wydarzeń" lub "bez wydarzeń"
+    const regex = /(brak wydarzeń|bez wydarzeń)/gi;
+
+    if (regex.test(current)) {
+        current = current.replace(regex, tekst);
+    } else {
+        // jeśli nie ma frazy – dopisz na końcu
+        current = current.trim() + (current.trim() ? " - " : "") + tekst;
+    }
+
+    textarea.value = current;
+    closeUwagiModal();
+    showToast("✅ Uwaga wstawiona");
 }
 
 // =====================================
@@ -409,7 +617,7 @@ function buildReplacements() {
 
     const wybraniValue = selectedWybrani.length > 0
         ? forceOneLine(uniqueNonEmpty(selectedWybrani))
-        : ""; // puste – w podglądzie i tak wstawimy przypomnienie
+        : "";
 
     return {
         "@patrol":     forceOneLine(uniqueNonEmpty(patrolNames)),
@@ -447,7 +655,6 @@ function updateLiveEntry() {
     const needsWybraniHint = hasWybraniTag() && selectedWybrani.length === 0;
     const hintPlain = "⚠ KLIKNIJ „GENERUJ WPIS”, ABY WYBRAĆ OSOBY";
 
-    // Jeśli @wybrani jest w tekście, a nikt jeszcze nie wybrany – wstaw tekst przypomnienia
     const replacementsForApply = { ...replacements };
     if (needsWybraniHint) {
         replacementsForApply["@wybrani"] = hintPlain;
@@ -465,7 +672,6 @@ function updateLiveEntry() {
 
     textarea.value = [...zgloszeniaParts, ...poleceniaParts].filter(Boolean).join(" ");
 
-    // czerwony baner nad okienkiem
     if (banner) {
         banner.style.display = needsWybraniHint ? "block" : "none";
     }
@@ -509,7 +715,6 @@ function openWybraniModal() {
         return false;
     }
 
-    // zachowaj poprzedni wybór, jeśli nadal jest w liście
     selectedWybrani = selectedWybrani.filter(p => people.includes(p));
 
     const list = document.getElementById("wybraniList");
@@ -536,7 +741,6 @@ function toggleWybranaOsoba(index) {
     if (pos > -1) selectedWybrani.splice(pos, 1);
     else selectedWybrani.push(name);
 
-    // odśwież wygląd
     const cards = document.querySelectorAll("#wybraniList .item-card");
     cards.forEach((card, i) => {
         const n = people[i];
@@ -563,7 +767,13 @@ function confirmWybrani() {
     }
     closeWybraniModal();
     updateLiveEntry();
-    showToast("✅ Wpis wygenerowany z wybranymi osobami");
+
+    // po wyborze osób – jeśli TAK, otwórz modal uwag
+    if (uwagiWybrane === "TAK") {
+        openUwagiModal();
+    } else {
+        showToast("✅ Wpis wygenerowany z wybranymi osobami");
+    }
 }
 
 // =====================================
@@ -574,16 +784,20 @@ function generateEntry() {
     if (hasWybraniTag()) {
         const opened = openWybraniModal();
         if (!opened) {
-            // brak osób – generuj bez @wybrani (pusty)
             selectedWybrani = [];
             updateLiveEntry();
+            if (uwagiWybrane === "TAK") openUwagiModal();
         }
-        // jeśli modal otwarty – generowanie nastąpi po confirmWybrani()
         return;
     }
-    // brak znacznika – generuj normalnie
+
     selectedWybrani = [];
     updateLiveEntry();
+
+    // jeśli TAK – otwórz modal uwag
+    if (uwagiWybrane === "TAK") {
+        openUwagiModal();
+    }
 }
 
 function copyEntry() {
@@ -610,6 +824,7 @@ function clearEntry() {
     selectedZgloszeniaLine = null;
     selectedPoleceniaLine = null;
     selectedWybrani = [];
+    uwagiWybrane = "NIE";
 
     const zSearch = document.getElementById("zglSearch");
     const pSearch = document.getElementById("polSearch");
@@ -619,6 +834,7 @@ function clearEntry() {
     renderPatroleCards();
     renderZgloszeniaLines();
     renderPoleceniaLines();
+    renderUwagiCards();
     updateLiveEntry();
     showToast("Odznaczono wszystko");
 }
@@ -665,3 +881,12 @@ window.toggleWybranaOsoba = toggleWybranaOsoba;
 window.selectAllWybrani = selectAllWybrani;
 window.confirmWybrani = confirmWybrani;
 window.closeWybraniModal = closeWybraniModal;
+
+// Uwagi
+window.setUwagi = setUwagi;
+window.wybierzTypUwagi = wybierzTypUwagi;
+window.openUwagiSzablonyModal = openUwagiSzablonyModal;
+window.closeUwagiSzablonyModal = closeUwagiSzablonyModal;
+window.saveUwagiSzablony = saveUwagiSzablony;
+window.wstawUwagi = wstawUwagi;
+window.closeUwagiModal = closeUwagiModal;
