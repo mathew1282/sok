@@ -78,20 +78,21 @@ function renderStatystyki() {
     let html = `
     <div class="card">
         <h2>Statystyki – ${escapeHtml(todayPL())}</h2>
-        <p style="color:#94a3b8; font-size:14px;">Dane z dzisiejszego dnia. Możesz skopiować tabele do Excela.</p>
-        <br>
+        <p style="color:#94a3b8; font-size:14px; margin-bottom:12px;">
+            Widok z dzisiejszego dnia. Przycisk „Kasuj” usuwa wszystkie statystyki.
+        </p>
+
+        <div style="margin-bottom:20px;">
+            <button class="btn-danger" onclick="clearAllStatystyki()">Kasuj wszystkie statystyki</button>
+        </div>
 
         <h3>Interwencje (z Uwag)</h3>
-        <table>
-            <thead><tr><th>Typ</th><th>Ilość</th></tr></thead>
-            <tbody>
-                <tr><td>MKK</td><td>${counts.MKK}</td></tr>
-                <tr><td>Pouczony</td><td>${counts.Pouczony}</td></tr>
-                <tr><td>Legitymowany</td><td>${counts.Legitymowany}</td></tr>
-                <tr><td>Inne</td><td>${counts.Inne}</td></tr>
-            </tbody>
-        </table>
-        <br>
+        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin:12px 0 16px; font-size:16px;">
+            <span><strong>MKK:</strong> ${counts.MKK}</span>
+            <span><strong>Pouczony:</strong> ${counts.Pouczony}</span>
+            <span><strong>Legitymowany:</strong> ${counts.Legitymowany}</span>
+            <span><strong>Inne:</strong> ${counts.Inne}</span>
+        </div>
         <button class="btn-primary" onclick="copyInterwencje()">Kopiuj interwencje do Excela</button>
         <br><br>
 
@@ -100,11 +101,11 @@ function renderStatystyki() {
             <thead>
                 <tr>
                     <th>Data</th>
-                    <th>Nazwa szlaku</th>
                     <th>Godz. rozpoczęcia</th>
                     <th>Godz. zakończenia</th>
-                    <th>Km początkowy</th>
-                    <th>Km końcowy</th>
+                    <th>Nazwa szlaku</th>
+                    <th>Km początek</th>
+                    <th>Km koniec</th>
                     <th>Nr linii</th>
                     <th></th>
                 </tr>
@@ -115,13 +116,13 @@ function renderStatystyki() {
     if (szlaki.length === 0) {
         html += `<tr><td colspan="8" style="text-align:center;color:#94a3b8;">Brak</td></tr>`;
     } else {
-        szlaki.forEach((s, i) => {
+        szlaki.forEach((s) => {
             const globalIdx = appState.statystyki.sprawdzenia.indexOf(s);
             html += `<tr>
                 <td>${escapeHtml(s.data)}</td>
-                <td>${escapeHtml(s.nazwa)}</td>
                 <td>${escapeHtml(s.godzOd)}</td>
                 <td>${escapeHtml(s.godzDo)}</td>
+                <td>${escapeHtml(s.nazwa)}</td>
                 <td>${escapeHtml(s.kmOd)}</td>
                 <td>${escapeHtml(s.kmDo)}</td>
                 <td>${escapeHtml(s.linia)}</td>
@@ -175,22 +176,27 @@ function copyInterwencje() {
         if (counts[t] !== undefined) counts[t]++;
         else counts.Inne++;
     });
-    const lines = [
+    // jedna linia pod Excela
+    const line = [
         `Data\t${todayPL()}`,
         `MKK\t${counts.MKK}`,
         `Pouczony\t${counts.Pouczony}`,
         `Legitymowany\t${counts.Legitymowany}`,
         `Inne\t${counts.Inne}`
-    ];
-    copyText(lines.join("\n"));
+    ].join("\t");
+    // albo wiersz nagłówków + wiersz wartości
+    const header = "Data\tMKK\tPouczony\tLegitymowany\tInne";
+    const values = `${todayPL()}\t${counts.MKK}\t${counts.Pouczony}\t${counts.Legitymowany}\t${counts.Inne}`;
+    copyText([header, values].join("\n"));
 }
 
 function copySzlaki() {
     ensureStatystykiState();
     const szlaki = filterToday(appState.statystyki.sprawdzenia).filter(s => s.rodzaj === "Szlak");
-    const header = "Data\tNazwa szlaku\tGodz. rozpoczęcia\tGodz. zakończenia\tKm początkowy\tKm końcowy\tNr linii";
+    // kolejność: data, godz. rozpoczęcia, godz. zakończenia, nazwa szlaku, km początek, km koniec, nr linii
+    const header = "Data\tGodz. rozpoczęcia\tGodz. zakończenia\tNazwa szlaku\tKm początek\tKm koniec\tNr linii";
     const rows = szlaki.map(s =>
-        [s.data, s.nazwa, s.godzOd, s.godzDo, s.kmOd, s.kmDo, s.linia].join("\t")
+        [s.data, s.godzOd, s.godzDo, s.nazwa, s.kmOd, s.kmDo, s.linia].join("\t")
     );
     copyText([header, ...rows].join("\n"));
 }
@@ -198,9 +204,9 @@ function copySzlaki() {
 function copyStacje(rodzaj) {
     ensureStatystykiState();
     const list = filterToday(appState.statystyki.sprawdzenia).filter(s => s.rodzaj === rodzaj);
-    const header = "Data\tNazwa\tGodz. rozpoczęcia\tGodz. zakończenia\tNr linii";
+    const header = "Data\tGodz. rozpoczęcia\tGodz. zakończenia\tNazwa\tNr linii";
     const rows = list.map(s =>
-        [s.data, s.nazwa, s.godzOd, s.godzDo, s.linia].join("\t")
+        [s.data, s.godzOd, s.godzDo, s.nazwa, s.linia].join("\t")
     );
     copyText([header, `Ilość\t${list.length}`, ...rows].join("\n"));
 }
@@ -213,6 +219,16 @@ async function removeSprawdzenie(index) {
     renderStatystyki();
 }
 
+async function clearAllStatystyki() {
+    if (!confirm("Usunąć WSZYSTKIE statystyki (interwencje i sprawdzenia)?")) return;
+    ensureStatystykiState();
+    appState.statystyki.interwencje = [];
+    appState.statystyki.sprawdzenia = [];
+    await saveState();
+    renderStatystyki();
+    if (typeof showToast === "function") showToast("✅ Statystyki wyczyszczone");
+}
+
 window.initStatystyki = initStatystyki;
 window.logInterwencja = logInterwencja;
 window.logSprawdzenie = logSprawdzenie;
@@ -220,3 +236,4 @@ window.copyInterwencje = copyInterwencje;
 window.copySzlaki = copySzlaki;
 window.copyStacje = copyStacje;
 window.removeSprawdzenie = removeSprawdzenie;
+window.clearAllStatystyki = clearAllStatystyki;
