@@ -5,8 +5,6 @@
 let currentPolecenieEdit = null;
 let poleceniaFilterLinia = "";
 
-const RODZAJE_POLECEN = ["Szlak", "Stacja towarowa", "Stacja osobowa", "Inne"];
-
 function initPolecenia() {
     if (appState.polecenia?.rows) {
         appState.polecenia.rows.forEach(row => {
@@ -140,46 +138,54 @@ function renderPolecenia() {
     </div>
 
     <div id="polecenieModal" class="modal-overlay" style="display:none;">
-        <div class="modal">
+        <div class="modal" style="max-width:920px;">
             <h2 id="polecenieModalTitle">Polecenie</h2>
 
-            <label>Nr linii</label>
-            <input type="text" id="polecenieLinia" placeholder="np. 275, 1, Legnica">
+            <!-- Rząd 1: Nr linii | Opis krótki | Opis pom -->
+            <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                <div style="flex:1; min-width:140px;">
+                    <label>Nr linii</label>
+                    <input type="text" id="polecenieLinia" placeholder="np. 275" style="width:100%;">
+                </div>
+                <div style="flex:1; min-width:160px;">
+                    <label>Opis krótki</label>
+                    <input type="text" id="polecenieOpisKrotki" placeholder="Krótka nazwa" style="width:100%;">
+                </div>
+                <div style="flex:1; min-width:160px;">
+                    <label>Opis pom</label>
+                    <input type="text" id="polecenieOpisPom" placeholder="Opis pomocniczy" style="width:100%;">
+                </div>
+            </div>
 
-            <br><br>
-            <label>Opis krótki (2. poziom w Generatorze)</label>
-            <input type="text" id="polecenieOpisKrotki" placeholder="Krótka nazwa">
-
-            <br><br>
-            <label>Opis pom (3. poziom w Generatorze)</label>
-            <input type="text" id="polecenieOpisPom" placeholder="Opis pomocniczy">
-
-            <br><br>
+            <!-- Opis – pełna szerokość -->
             <label>Opis (tekst generowany do wpisu)</label>
-            <textarea id="polecenieOpis" rows="8" style="width:100%; font-family: monospace;" placeholder="Pełny opis z znacznikami..."></textarea>
+            <textarea id="polecenieOpis" rows="8" style="width:100%; font-family: monospace; margin-bottom:14px;" placeholder="Pełny opis z znacznikami..."></textarea>
 
-            <br><br>
-            <label>Rodzaj</label>
-            <select id="polecenieRodzaj" style="width:100%; padding:8px; border-radius:8px;">
-                <option value="Inne">Inne (nie idzie do statystyk sprawdzeń)</option>
-                <option value="Szlak">Szlak</option>
-                <option value="Stacja towarowa">Stacja towarowa</option>
-                <option value="Stacja osobowa">Stacja osobowa</option>
-            </select>
+            <!-- Rząd 2: Rodzaj | Nazwa | Km od | Km do -->
+            <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                <div style="flex:1; min-width:150px;">
+                    <label>Rodzaj</label>
+                    <select id="polecenieRodzaj" style="width:100%; padding:8px; border-radius:8px;">
+                        <option value="Inne">Inne (nie do statystyk)</option>
+                        <option value="Szlak">Szlak</option>
+                        <option value="Stacja towarowa">Stacja towarowa</option>
+                        <option value="Stacja osobowa">Stacja osobowa</option>
+                    </select>
+                </div>
+                <div style="flex:1.4; min-width:160px;">
+                    <label>Nazwa (szlaku / stacji)</label>
+                    <input type="text" id="polecenieNazwa" placeholder="np. Legnica" style="width:100%;">
+                </div>
+                <div style="flex:0.8; min-width:110px;">
+                    <label>Km od</label>
+                    <input type="text" id="polecenieKmOd" placeholder="12,450" style="width:100%;">
+                </div>
+                <div style="flex:0.8; min-width:110px;">
+                    <label>Km do</label>
+                    <input type="text" id="polecenieKmDo" placeholder="18,200" style="width:100%;">
+                </div>
+            </div>
 
-            <br><br>
-            <label>Nazwa (szlaku lub stacji)</label>
-            <input type="text" id="polecenieNazwa" placeholder="np. Legnica–Wrocław lub Legnica">
-
-            <br><br>
-            <label>Km od</label>
-            <input type="text" id="polecenieKmOd" placeholder="np. 12,450">
-
-            <br><br>
-            <label>Km do</label>
-            <input type="text" id="polecenieKmDo" placeholder="np. 18,200">
-
-            <br><br>
             <h3>Dostępne znaczniki</h3>
             <div class="tag-buttons">
                 <button type="button" class="btn-primary" onclick="insertPolecenieTag('@patrol')">@patrol</button>
