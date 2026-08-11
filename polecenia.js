@@ -1,9 +1,11 @@
 // =====================================
-// POLECENIA (6 kolumn + 3 poziomy w generatorze)
+// POLECENIA (Rodzaj + Nazwa + Km od/do + 3 poziomy)
 // =====================================
 
 let currentPolecenieEdit = null;
 let poleceniaFilterLinia = "";
+
+const RODZAJE_POLECEN = ["Szlak", "Stacja towarowa", "Stacja osobowa", "Inne"];
 
 function initPolecenia() {
     if (appState.polecenia?.rows) {
@@ -12,12 +14,14 @@ function initPolecenia() {
             if (row.Opis === undefined) row.Opis = "";
             if (row.Linia === undefined) row.Linia = "";
             if (row.OpisPom === undefined) row.OpisPom = "";
-            if (row.NazwaSzlaku === undefined) row.NazwaSzlaku = "";
-            if (row.Km === undefined) row.Km = "";
+            if (row.Rodzaj === undefined) row.Rodzaj = "Inne";
+            if (row.Nazwa === undefined) row.Nazwa = row.NazwaSzlaku || "";
+            if (row.KmOd === undefined) row.KmOd = row.Km || "";
+            if (row.KmDo === undefined) row.KmDo = "";
         });
     }
     if (appState.polecenia) {
-        appState.polecenia.columns = ["Linia", "OpisKrotki", "OpisPom", "Opis", "NazwaSzlaku", "Km"];
+        appState.polecenia.columns = ["Linia", "OpisKrotki", "OpisPom", "Opis", "Rodzaj", "Nazwa", "KmOd", "KmDo"];
     }
     renderPolecenia();
 }
@@ -93,8 +97,10 @@ function renderPolecenia() {
                     <th>Opis krótki</th>
                     <th>Opis pom</th>
                     <th>Opis</th>
-                    <th>Nazwa szlaku</th>
-                    <th>Km</th>
+                    <th>Rodzaj</th>
+                    <th>Nazwa</th>
+                    <th>Km od</th>
+                    <th>Km do</th>
                     <th>Akcje</th>
                 </tr>
             </thead>
@@ -103,18 +109,20 @@ function renderPolecenia() {
 
     rows.forEach(row => {
         const index = row._index;
-        const krotki = (row.OpisKrotki || "").substring(0, 60);
-        const pom = (row.OpisPom || "").substring(0, 60);
-        const opis = (row.Opis || "").substring(0, 80);
+        const krotki = (row.OpisKrotki || "").substring(0, 50);
+        const pom = (row.OpisPom || "").substring(0, 50);
+        const opis = (row.Opis || "").substring(0, 60);
 
         html += `
         <tr>
             <td>${escapeHtml(row.Linia || "")}</td>
             <td>${escapeHtml(krotki)}</td>
             <td>${escapeHtml(pom)}</td>
-            <td style="white-space: pre-wrap; max-width: 280px;">${escapeHtml(opis)}${(row.Opis || "").length > 80 ? "…" : ""}</td>
-            <td>${escapeHtml(row.NazwaSzlaku || "")}</td>
-            <td>${escapeHtml(row.Km || "")}</td>
+            <td style="white-space: pre-wrap; max-width: 220px;">${escapeHtml(opis)}${(row.Opis || "").length > 60 ? "…" : ""}</td>
+            <td>${escapeHtml(row.Rodzaj || "Inne")}</td>
+            <td>${escapeHtml(row.Nazwa || "")}</td>
+            <td>${escapeHtml(row.KmOd || "")}</td>
+            <td>${escapeHtml(row.KmDo || "")}</td>
             <td style="white-space:nowrap;">
                 <button class="btn-primary" onclick="editPolecenie(${index})">Edytuj</button>
                 <button class="btn-danger" onclick="removePolecenie(${index})">Usuń</button>
@@ -123,7 +131,7 @@ function renderPolecenia() {
     });
 
     if (rows.length === 0) {
-        html += `<tr><td colspan="7" style="text-align:center; color:#94a3b8;">Brak poleceń</td></tr>`;
+        html += `<tr><td colspan="9" style="text-align:center; color:#94a3b8;">Brak poleceń</td></tr>`;
     }
 
     html += `
@@ -131,7 +139,6 @@ function renderPolecenia() {
         </table>
     </div>
 
-    <!-- MODAL -->
     <div id="polecenieModal" class="modal-overlay" style="display:none;">
         <div class="modal">
             <h2 id="polecenieModalTitle">Polecenie</h2>
@@ -152,12 +159,25 @@ function renderPolecenia() {
             <textarea id="polecenieOpis" rows="8" style="width:100%; font-family: monospace;" placeholder="Pełny opis z znacznikami..."></textarea>
 
             <br><br>
-            <label>Nazwa szlaku</label>
-            <input type="text" id="polecenieNazwaSzlaku" placeholder="Nazwa szlaku">
+            <label>Rodzaj</label>
+            <select id="polecenieRodzaj" style="width:100%; padding:8px; border-radius:8px;">
+                <option value="Inne">Inne (nie idzie do statystyk sprawdzeń)</option>
+                <option value="Szlak">Szlak</option>
+                <option value="Stacja towarowa">Stacja towarowa</option>
+                <option value="Stacja osobowa">Stacja osobowa</option>
+            </select>
 
             <br><br>
-            <label>Km</label>
-            <input type="text" id="polecenieKm" placeholder="np. 12,450">
+            <label>Nazwa (szlaku lub stacji)</label>
+            <input type="text" id="polecenieNazwa" placeholder="np. Legnica–Wrocław lub Legnica">
+
+            <br><br>
+            <label>Km od</label>
+            <input type="text" id="polecenieKmOd" placeholder="np. 12,450">
+
+            <br><br>
+            <label>Km do</label>
+            <input type="text" id="polecenieKmDo" placeholder="np. 18,200">
 
             <br><br>
             <h3>Dostępne znaczniki</h3>
@@ -201,8 +221,10 @@ function openPolecenieModal() {
     document.getElementById("polecenieOpisKrotki").value = "";
     document.getElementById("polecenieOpisPom").value = "";
     document.getElementById("polecenieOpis").value = "";
-    document.getElementById("polecenieNazwaSzlaku").value = "";
-    document.getElementById("polecenieKm").value = "";
+    document.getElementById("polecenieRodzaj").value = "Inne";
+    document.getElementById("polecenieNazwa").value = "";
+    document.getElementById("polecenieKmOd").value = "";
+    document.getElementById("polecenieKmDo").value = "";
     document.getElementById("polecenieModal").style.display = "flex";
 }
 
@@ -216,8 +238,10 @@ async function savePolecenie() {
     const opisKrotki = document.getElementById("polecenieOpisKrotki").value.trim();
     const opisPom = document.getElementById("polecenieOpisPom").value.trim();
     const opis = document.getElementById("polecenieOpis").value.trim();
-    const nazwaSzlaku = document.getElementById("polecenieNazwaSzlaku").value.trim();
-    const km = document.getElementById("polecenieKm").value.trim();
+    const rodzaj = document.getElementById("polecenieRodzaj").value || "Inne";
+    const nazwa = document.getElementById("polecenieNazwa").value.trim();
+    const kmOd = document.getElementById("polecenieKmOd").value.trim();
+    const kmDo = document.getElementById("polecenieKmDo").value.trim();
 
     if (!linia) { alert("Podaj nr linii"); return; }
     if (!opisKrotki) { alert("Podaj opis krótki"); return; }
@@ -227,12 +251,14 @@ async function savePolecenie() {
         OpisKrotki: opisKrotki,
         OpisPom: opisPom,
         Opis: opis,
-        NazwaSzlaku: nazwaSzlaku,
-        Km: km
+        Rodzaj: rodzaj,
+        Nazwa: nazwa,
+        KmOd: kmOd,
+        KmDo: kmDo
     };
 
     if (!appState.polecenia) {
-        appState.polecenia = { columns: ["Linia", "OpisKrotki", "OpisPom", "Opis", "NazwaSzlaku", "Km"], rows: [] };
+        appState.polecenia = { columns: ["Linia", "OpisKrotki", "OpisPom", "Opis", "Rodzaj", "Nazwa", "KmOd", "KmDo"], rows: [] };
     }
     if (!Array.isArray(appState.polecenia.rows)) appState.polecenia.rows = [];
 
@@ -257,8 +283,10 @@ async function editPolecenie(index) {
     document.getElementById("polecenieOpisKrotki").value = row.OpisKrotki || "";
     document.getElementById("polecenieOpisPom").value = row.OpisPom || "";
     document.getElementById("polecenieOpis").value = row.Opis || "";
-    document.getElementById("polecenieNazwaSzlaku").value = row.NazwaSzlaku || "";
-    document.getElementById("polecenieKm").value = row.Km || "";
+    document.getElementById("polecenieRodzaj").value = row.Rodzaj || "Inne";
+    document.getElementById("polecenieNazwa").value = row.Nazwa || row.NazwaSzlaku || "";
+    document.getElementById("polecenieKmOd").value = row.KmOd || row.Km || "";
+    document.getElementById("polecenieKmDo").value = row.KmDo || "";
     document.getElementById("polecenieModal").style.display = "flex";
 }
 
