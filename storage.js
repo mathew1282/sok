@@ -28,15 +28,19 @@ const defaultState = {
         rows: []
     },
     zgloszenia: {
-        columns: ["Linia", "Opis"],
+        columns: ["Linia", "OpisKrotki", "OpisPom", "Opis", "NazwaSzlaku", "Km"],
         rows: []
     },
     polecenia: {
-        columns: ["Linia", "Opis"],
+        columns: ["Linia", "OpisKrotki", "OpisPom", "Opis", "Rodzaj", "Nazwa", "KmOd", "KmDo"],
         rows: []
     },
     patrole: [],
     szablony: [],
+    statystyki: {
+        interwencje: [],
+        sprawdzenia: []
+    },
     kz: "",
     mkk: "",
     linie: {
@@ -79,6 +83,23 @@ async function saveState() {
     }
 }
 
+function normalizeState() {
+    if (!Array.isArray(appState.patrole)) appState.patrole = [];
+    if (!Array.isArray(appState.szablony)) appState.szablony = [];
+
+    if (!appState.zgloszenia) appState.zgloszenia = { columns: ["Linia", "OpisKrotki", "OpisPom", "Opis", "NazwaSzlaku", "Km"], rows: [] };
+    if (!Array.isArray(appState.zgloszenia.rows)) appState.zgloszenia.rows = [];
+
+    if (!appState.polecenia) appState.polecenia = { columns: ["Linia", "OpisKrotki", "OpisPom", "Opis", "Rodzaj", "Nazwa", "KmOd", "KmDo"], rows: [] };
+    if (!Array.isArray(appState.polecenia.rows)) appState.polecenia.rows = [];
+
+    if (!appState.dane) appState.dane = defaultState.dane;
+
+    if (!appState.statystyki) appState.statystyki = { interwencje: [], sprawdzenia: [] };
+    if (!Array.isArray(appState.statystyki.interwencje)) appState.statystyki.interwencje = [];
+    if (!Array.isArray(appState.statystyki.sprawdzenia)) appState.statystyki.sprawdzenia = [];
+}
+
 async function loadState() {
     try {
         const client = getSupabase();
@@ -90,17 +111,13 @@ async function loadState() {
 
         if (data?.data) {
             appState = { ...defaultState, ...data.data };
-            // zabezpieczenie tablic
-            if (!Array.isArray(appState.patrole)) appState.patrole = [];
-            if (!Array.isArray(appState.szablony)) appState.szablony = [];
-            if (!appState.zgloszenia) appState.zgloszenia = { columns: ["Linia", "Opis"], rows: [] };
-            if (!appState.polecenia) appState.polecenia = { columns: ["Linia", "Opis"], rows: [] };
-            if (!appState.dane) appState.dane = defaultState.dane;
+            normalizeState();
             console.log("✅ Wczytano dane z Supabase");
         } else {
             const local = localStorage.getItem("sokData");
             if (local) {
                 appState = { ...defaultState, ...JSON.parse(local) };
+                normalizeState();
             }
         }
     } catch (err) {
@@ -109,13 +126,13 @@ async function loadState() {
         if (local) {
             try {
                 appState = { ...defaultState, ...JSON.parse(local) };
+                normalizeState();
             } catch (e) {
                 console.error("Błąd localStorage", e);
             }
         }
     }
 
-    // zawsze po wczytaniu
     window.dispatchEvent(new Event("sokStateLoaded"));
 }
 
@@ -129,6 +146,7 @@ window.saveState = saveState;
 window.loadState = loadState;
 window.uploadPDF = uploadPDF;
 window.appState = appState;
+window.defaultState = defaultState;
 
 document.addEventListener("DOMContentLoaded", async () => {
     await loadState();
