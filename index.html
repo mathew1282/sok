@@ -5,118 +5,87 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Straż Ochrony Kolei - IOKP Legnica</title>
     <link rel="icon" href="https://kgsok.pl/wp-content/themes/kgsok/assets/img/logo-gold.svg">
-<link rel="apple-touch-icon" href="https://kgsok.pl/wp-content/themes/kgsok/assets/img/logo-gold.svg">
+    <link rel="apple-touch-icon" href="https://kgsok.pl/wp-content/themes/kgsok/assets/img/logo-gold.svg">
     <link rel="stylesheet" href="main.css">
 </head>
 <body>
 
 <div class="app">
 
-    <!-- MENU BOCZNE -->
     <aside class="sidebar">
-
         <div class="logo">
             <h2>SOK</h2>
             <span>IOKP Legnica</span>
         </div>
 
         <nav class="menu">
-
-            <button class="menu-btn"
-                    data-page="ksiazka">
+            <button class="menu-btn" data-page="ksiazka">
                 📖 Książka wydarzeń
             </button>
 
-            <button class="menu-btn"
-                    data-page="dane">
+            <button class="menu-btn" data-page="dane">
                 👮 Dane
             </button>
 
-            <button class="menu-btn"
-                    data-page="zgloszenia">
+            <button class="menu-btn" data-page="zgloszenia">
                 📋 Zgłoszenia
             </button>
 
-            <button class="menu-btn"
-                    data-page="polecenia">
+            <button class="menu-btn" data-page="polecenia">
                 📌 Polecenia
             </button>
 
-            <button class="menu-btn"
-                    data-page="patrole">
+            <button class="menu-btn" data-page="patrole">
                 🚓 Patrole
             </button>
 
-            <button class="menu-btn"
-                    data-page="szablony">
-                📝 Szablony
+            <button class="menu-btn" data-page="statystyki">
+                📊 Statystyki
             </button>
 
-            <button class="menu-btn active"
-                    data-page="generator">
+            <button class="menu-btn active" data-page="generator">
                 ⚙️ Generator wpisów
             </button>
 
-            <button class="menu-btn"
-                    data-page="linie">
+            <button class="menu-btn" data-page="linie">
                 🚉 Linie
             </button>
-
         </nav>
-
     </aside>
 
-    <!-- GŁÓWNA CZĘŚĆ -->
     <main class="main-content">
-
         <header class="topbar">
-
             <div class="title">
                 Straż Ochrony Kolei – IOKP Legnica
             </div>
 
             <div class="topbar-actions">
-
                 <button id="saveDataBtn">
                     💾 Zapisz dane
                 </button>
-
                 <button id="loadDataBtn">
                     📂 Wczytaj dane
                 </button>
-
-                <input
-                    type="file"
-                    id="jsonLoader"
-                    accept=".json"
-                    hidden
-                >
-
+                <input type="file" id="jsonLoader" accept=".json" hidden>
             </div>
-
         </header>
 
-        <!-- TUTAJ BĘDĄ ŁADOWANE ZAKŁADKI -->
         <section id="content">
-
             <div class="loading">
                 Wybierz zakładkę z menu...
             </div>
-
         </section>
-
     </main>
 
 </div>
 
-<!-- GŁÓWNE SKRYPTY -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="storage.js"></script>
 <script src="dane.js"></script>
 <script src="zgloszenia.js"></script>
 <script src="polecenia.js"></script>
 <script src="patrole.js"></script>
-<script src="szablony.js"></script>
+<script src="statystyki.js"></script>
 <script src="generator.js"></script>
 <script src="linie.js"></script>
 <script src="app.js"></script>
