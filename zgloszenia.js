@@ -127,25 +127,29 @@ function renderZgloszenia() {
     </div>
 
     <div id="zgloszenieModal" class="modal-overlay" style="display:none;">
-        <div class="modal">
+        <div class="modal" style="max-width:920px;">
             <h2 id="zgloszenieModalTitle">Zgłoszenie</h2>
 
-            <label>Nr linii</label>
-            <input type="text" id="zgloszenieLinia" placeholder="np. 275, 1, Legnica">
+            <!-- Rząd: Nr linii | Opis krótki | Opis pom -->
+            <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+                <div style="flex:1; min-width:140px;">
+                    <label>Nr linii</label>
+                    <input type="text" id="zgloszenieLinia" placeholder="np. 275" style="width:100%;">
+                </div>
+                <div style="flex:1; min-width:160px;">
+                    <label>Opis krótki</label>
+                    <input type="text" id="zgloszenieOpisKrotki" placeholder="Krótka nazwa" style="width:100%;">
+                </div>
+                <div style="flex:1; min-width:160px;">
+                    <label>Opis pom</label>
+                    <input type="text" id="zgloszenieOpisPom" placeholder="Opis pomocniczy" style="width:100%;">
+                </div>
+            </div>
 
-            <br><br>
-            <label>Opis krótki (2. poziom w Generatorze)</label>
-            <input type="text" id="zgloszenieOpisKrotki" placeholder="Krótka nazwa zgłoszenia">
-
-            <br><br>
-            <label>Opis pom (3. poziom w Generatorze)</label>
-            <input type="text" id="zgloszenieOpisPom" placeholder="Opis pomocniczy">
-
-            <br><br>
+            <!-- Opis – pełna szerokość -->
             <label>Opis (tekst generowany do wpisu)</label>
-            <textarea id="zgloszenieOpis" rows="10" style="width:100%; font-family: monospace;" placeholder="Pełny opis z możliwością znaczników..."></textarea>
+            <textarea id="zgloszenieOpis" rows="10" style="width:100%; font-family: monospace; margin-bottom:14px;" placeholder="Pełny opis z możliwością znaczników..."></textarea>
 
-            <br><br>
             <h3>Dostępne znaczniki</h3>
             <div class="tag-buttons">
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@patrol')">@patrol</button>
