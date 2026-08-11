@@ -1,9 +1,8 @@
 // =====================================
 // GENERATOR WPISÓW
-// + autofilt linii
 // + 3 poziomy kafelków (linia → opis krótki → opis pom)
-// + UWAGI (TAK / NIE)
-// + @wybrani w uwagach
+// + UWAGI (TAK / NIE) + @wybrani
+// + logowanie sprawdzeń (Polecenia) + interwencji (Uwagi)
 // =====================================
 
 let selectedPatrols = [];
@@ -15,6 +14,7 @@ let selectedZgloszeniaOpisKrotki = null;
 let selectedPoleceniaOpisKrotki = null;
 let selectedWybrani = [];
 let uwagiWybrane = "NIE";
+let selectedUwagiTyp = null; // MKK / Pouczony / Legitymowany / Inne
 
 const defaultUwagiSzablony = {
     "MKK": "Przeprowadzono kontrolę dokumentów. MKK: @MKK.",
@@ -81,7 +81,7 @@ function getPolSearch() {
 
 function rowMatchesSearch(row, search) {
     if (!search) return true;
-    const t = `${row.Linia || ""} ${row.OpisKrotki || ""} ${row.OpisPom || ""} ${row.Opis || ""} ${row.NazwaSzlaku || ""} ${row.Km || ""}`.toLowerCase();
+    const t = `${row.Linia || ""} ${row.OpisKrotki || ""} ${row.OpisPom || ""} ${row.Opis || ""} ${row.Nazwa || ""} ${row.NazwaSzlaku || ""} ${row.KmOd || ""} ${row.KmDo || ""} ${row.Km || ""} ${row.Rodzaj || ""}`.toLowerCase();
     return t.includes(search);
 }
 
@@ -91,6 +91,10 @@ function sortByOpisKrotki(rows) {
         const bLabel = (b.OpisKrotki || b.Opis || "").toLowerCase();
         return aLabel.localeCompare(bLabel, "pl", { sensitivity: "base", numeric: true });
     });
+}
+
+function nowHHMMSafe() {
+    return new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
 }
 
 // =====================================
@@ -107,16 +111,16 @@ function initGenerator() {
     selectedPoleceniaOpisKrotki = null;
     selectedWybrani = [];
     uwagiWybrane = "NIE";
+    selectedUwagiTyp = null;
 
     ensureUwagiState();
 
     if (!appState.zgloszenia) appState.zgloszenia = { columns: ["Linia", "OpisKrotki", "OpisPom", "Opis", "NazwaSzlaku", "Km"], rows: [] };
     if (!Array.isArray(appState.zgloszenia.rows)) appState.zgloszenia.rows = [];
-    if (!appState.polecenia) appState.polecenia = { columns: ["Linia", "OpisKrotki", "OpisPom", "Opis", "NazwaSzlaku", "Km"], rows: [] };
+    if (!appState.polecenia) appState.polecenia = { columns: ["Linia", "OpisKrotki", "OpisPom", "Opis", "Rodzaj", "Nazwa", "KmOd", "KmDo"], rows: [] };
     if (!Array.isArray(appState.polecenia.rows)) appState.polecenia.rows = [];
     if (!Array.isArray(appState.patrole)) appState.patrole = [];
 
-    // migracja
     (appState.zgloszenia.rows || []).forEach(row => {
         if (row.OpisPom === undefined) row.OpisPom = "";
         if (row.NazwaSzlaku === undefined) row.NazwaSzlaku = "";
@@ -125,8 +129,10 @@ function initGenerator() {
     });
     (appState.polecenia.rows || []).forEach(row => {
         if (row.OpisPom === undefined) row.OpisPom = "";
-        if (row.NazwaSzlaku === undefined) row.NazwaSzlaku = "";
-        if (row.Km === undefined) row.Km = "";
+        if (row.Rodzaj === undefined) row.Rodzaj = "Inne";
+        if (row.Nazwa === undefined) row.Nazwa = row.NazwaSzlaku || "";
+        if (row.KmOd === undefined) row.KmOd = row.Km || "";
+        if (row.KmDo === undefined) row.KmDo = "";
         if (row.OpisKrotki === undefined) row.OpisKrotki = row.Opis || "";
     });
 
@@ -471,6 +477,95 @@ function filterGeneratorTiles() {
 }
 
 // =====================================
+// LOGOWANIE SPRAWDZEŃ (ze zaznaczonych poleceń)
+// =====================================
+
+function getSelectedPoleceniaDoSprawdzen() {
+    const rows = appState.polecenia?.rows || [];
+    const allowed = ["Szlak", "Stacja towarowa", "Stacja osobowa"];
+    return selectedPoleceniaIndexes
+        .map(i => ({ ...rows[i], _index: i }))
+        .filter(r => r && allowed.includes(r.Rodzaj));
+}
+
+function openLogSprawdzenModal() {
+    const items = getSelectedPoleceniaDoSprawdzen();
+    if (items.length === 0) {
+        showToast("Zaznacz polecenie typu Szlak / Stacja towarowa / Stacja osobowa");
+        return;
+    }
+
+    let existing = document.getElementById("logSprawdzenModal");
+    if (existing) existing.remove();
+
+    const now = nowHHMMSafe();
+    const overlay = document.createElement("div");
+    overlay.id = "logSprawdzenModal";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "flex";
+
+    let body = items.map((it, idx) => `
+        <div style="border:1px solid #334155; border-radius:10px; padding:12px; margin-bottom:12px;">
+            <div style="font-weight:600; margin-bottom:8px;">${escapeHtml(it.Rodzaj)} – ${escapeHtml(it.Nazwa || it.OpisKrotki || "")}</div>
+            <div style="font-size:13px; color:#94a3b8; margin-bottom:8px;">
+                Linia: ${escapeHtml(it.Linia || "")} | Km: ${escapeHtml(it.KmOd || "")} – ${escapeHtml(it.KmDo || "")}
+            </div>
+            <label>Godzina rozpoczęcia</label>
+            <input type="text" id="sprawdGodzOd_${idx}" value="${now}" placeholder="gg:mm" style="width:100%; margin-bottom:8px;">
+            <label>Szacunkowa godzina zakończenia</label>
+            <input type="text" id="sprawdGodzDo_${idx}" value="${now}" placeholder="gg:mm" style="width:100%;">
+        </div>
+    `).join("");
+
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:560px;">
+            <h2>Zaloguj sprawdzenie</h2>
+            <p style="color:#94a3b8; font-size:14px;">Podaj godziny (gg:mm) dla każdego zaznaczonego polecenia.</p>
+            ${body}
+            <div class="modal-actions">
+                <button class="btn-success" onclick="confirmLogSprawdzen()">Zapisz do statystyk</button>
+                <button class="btn-danger" onclick="closeLogSprawdzenModal()">Anuluj</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function closeLogSprawdzenModal() {
+    const m = document.getElementById("logSprawdzenModal");
+    if (m) m.remove();
+}
+
+async function confirmLogSprawdzen() {
+    const items = getSelectedPoleceniaDoSprawdzen();
+    if (!items.length) return;
+
+    for (let idx = 0; idx < items.length; idx++) {
+        const it = items[idx];
+        const godzOd = (document.getElementById(`sprawdGodzOd_${idx}`)?.value || "").trim();
+        const godzDo = (document.getElementById(`sprawdGodzDo_${idx}`)?.value || "").trim();
+        if (!godzOd || !godzDo) {
+            showToast("Uzupełnij godziny (gg:mm)");
+            return;
+        }
+        if (typeof logSprawdzenie === "function") {
+            await logSprawdzenie({
+                rodzaj: it.Rodzaj,
+                nazwa: it.Nazwa || it.OpisKrotki || "",
+                linia: it.Linia || "",
+                kmOd: it.KmOd || "",
+                kmDo: it.KmDo || "",
+                godzOd,
+                godzDo
+            });
+        }
+    }
+
+    closeLogSprawdzenModal();
+    showToast("✅ Zapisano sprawdzenia w statystykach");
+}
+
+// =====================================
 // UWAGI (TAK / NIE)
 // =====================================
 
@@ -545,6 +640,7 @@ function ensureUwagiModal() {
 function openUwagiModal() {
     ensureUwagiState();
     ensureUwagiModal();
+    selectedUwagiTyp = null;
     document.getElementById("uwagiTekst").value = "";
     document.getElementById("uwagiModal").style.display = "flex";
 }
@@ -556,6 +652,7 @@ function closeUwagiModal() {
 
 function wybierzTypUwagi(typ) {
     ensureUwagiState();
+    selectedUwagiTyp = typ;
     const tekst = appState.uwagiSzablony[typ] || "";
     const textarea = document.getElementById("uwagiTekst");
     if (!textarea) return;
@@ -578,7 +675,7 @@ function ensureUwagiSzablonyModal() {
         <div class="modal" style="max-width:800px;">
             <h2>Szablony uwag</h2>
             <p style="color:#94a3b8; font-size:14px; margin-bottom:15px;">
-                Edytuj szablony. Możesz używać wszystkich znaczników:<br>
+                Edytuj szablony. Możesz używać znaczników:<br>
                 @patrol, @sklad, @dowodca, @kierowca, @wszyscy, @KZ, @MKK, @data, @godzina, @wybrani, @wot, @policjant
             </p>
             <label>MKK</label>
@@ -625,7 +722,7 @@ async function saveUwagiSzablony() {
 }
 
 // =====================================
-// WSTAWIANIE UWAGI (+ obsługa @wybrani)
+// WSTAWIANIE UWAGI (+ @wybrani)
 // =====================================
 
 function wstawUwagi() {
@@ -642,11 +739,7 @@ function wstawUwagi() {
             return;
         }
         window._uwagiTekstDoWstawienia = tekst;
-
-        // Zamyka główne okienko Uwagi
         closeUwagiModal();
-
-        // Otwiera tylko pomocnicze
         openWybraniModalForUwagi();
         return;
     }
@@ -670,6 +763,12 @@ function wstawTekstUwagiDoWpis(tekst) {
 
     textarea.value = current;
     closeUwagiModal();
+
+    if (typeof logInterwencja === "function") {
+        logInterwencja(selectedUwagiTyp || "Inne");
+    }
+    selectedUwagiTyp = null;
+
     showToast("✅ Uwaga wstawiona");
 }
 
@@ -903,7 +1002,6 @@ function ensureWybraniModal() {
             <h2>Wybierz osoby ze składu patrolu</h2>
             <p style="margin-bottom:15px; color:#94a3b8; font-size:14px;">
                 Zaznacz kliknięciem osoby, które mają pojawić się w miejscu znacznika <strong>@wybrani</strong>.
-                Możesz wybrać jedną, kilka lub wszystkich.
             </p>
             <div id="wybraniList" class="card-grid" style="max-height:50vh; overflow:auto;"></div>
             <div class="modal-actions">
@@ -955,8 +1053,7 @@ function toggleWybranaOsoba(index) {
 
 function selectAllWybrani() {
     selectedWybrani = [...getSkladFromSelectedPatrols()];
-    const cards = document.querySelectorAll("#wybraniList .item-card");
-    cards.forEach(card => card.classList.add("selected"));
+    document.querySelectorAll("#wybraniList .item-card").forEach(card => card.classList.add("selected"));
 }
 
 function closeWybraniModal() {
@@ -1018,6 +1115,7 @@ function clearEntry() {
     selectedPoleceniaOpisKrotki = null;
     selectedWybrani = [];
     uwagiWybrane = "NIE";
+    selectedUwagiTyp = null;
 
     const zSearch = document.getElementById("zglSearch");
     const pSearch = document.getElementById("polSearch");
@@ -1086,3 +1184,7 @@ window.closeUwagiModal = closeUwagiModal;
 window.toggleWybranaOsobaUwagi = toggleWybranaOsobaUwagi;
 window.selectAllWybraniUwagi = selectAllWybraniUwagi;
 window.confirmWybraniUwagi = confirmWybraniUwagi;
+
+window.openLogSprawdzenModal = openLogSprawdzenModal;
+window.closeLogSprawdzenModal = closeLogSprawdzenModal;
+window.confirmLogSprawdzen = confirmLogSprawdzen;
