@@ -43,27 +43,47 @@ function renderPatrole() {
     html += `
         </div>
         <br><br>
-        <label>Nazwa patrolu</label>
-        <input type="text" id="patrolName">
-        <br><br>
-        <label>Dowódca</label>
-        <select id="dowodcaSelect"><option value="">-- brak --</option></select>
-        <br><br>
-        <label>Kierowca</label>
-        <select id="kierowcaSelect"><option value="">-- brak --</option></select>
-        <br><br>
-        <label>WOT 1</label>
-        <input type="text" id="wot1Input" placeholder="Imię i nazwisko">
-        <br><br>
-        <label>WOT 2</label>
-        <input type="text" id="wot2Input" placeholder="Imię i nazwisko">
-        <br><br>
-        <label>Policjant 1</label>
-        <input type="text" id="policjant1Input" placeholder="Imię i nazwisko">
-        <br><br>
-        <label>Policjant 2</label>
-        <input type="text" id="policjant2Input" placeholder="Imię i nazwisko">
-        <br><br>
+
+        <!-- Linia 1: Nazwa, Dowódca, Kierowca -->
+        <div style="display:flex; flex-wrap:wrap; gap:15px; align-items:flex-end; margin-bottom:15px;">
+            <div style="flex:1; min-width:180px;">
+                <label>Nazwa patrolu</label>
+                <input type="text" id="patrolName">
+            </div>
+            <div style="flex:1; min-width:180px;">
+                <label>Dowódca</label>
+                <select id="dowodcaSelect"><option value="">-- brak --</option></select>
+            </div>
+            <div style="flex:1; min-width:180px;">
+                <label>Kierowca</label>
+                <select id="kierowcaSelect"><option value="">-- brak --</option></select>
+            </div>
+        </div>
+
+        <!-- Linia 2: WOT -->
+        <div style="display:flex; flex-wrap:wrap; gap:15px; align-items:flex-end; margin-bottom:15px;">
+            <div style="flex:1; min-width:180px;">
+                <label>WOT 1</label>
+                <input type="text" id="wot1Input" placeholder="Imię i nazwisko">
+            </div>
+            <div style="flex:1; min-width:180px;">
+                <label>WOT 2</label>
+                <input type="text" id="wot2Input" placeholder="Imię i nazwisko">
+            </div>
+        </div>
+
+        <!-- Linia 3: Policjanci -->
+        <div style="display:flex; flex-wrap:wrap; gap:15px; align-items:flex-end; margin-bottom:20px;">
+            <div style="flex:1; min-width:180px;">
+                <label>Policjant 1</label>
+                <input type="text" id="policjant1Input" placeholder="Imię i nazwisko">
+            </div>
+            <div style="flex:1; min-width:180px;">
+                <label>Policjant 2</label>
+                <input type="text" id="policjant2Input" placeholder="Imię i nazwisko">
+            </div>
+        </div>
+
         <button class="btn-success" onclick="createPatrol()">Stwórz patrol</button>
     </div>
 
