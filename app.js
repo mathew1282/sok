@@ -84,6 +84,15 @@ const pages = {
             <div id="poleceniaItems" class="card-grid"></div>
         </div>
 
+        <!-- UWAGI -->
+        <div class="generator-section">
+            <div class="generator-title">Uwagi</div>
+            <div class="card-grid" style="gap:14px;">
+                <div id="uwagiNie" class="uwagi-card nie active" onclick="setUwagi('NIE')">NIE</div>
+                <div id="uwagiTak" class="uwagi-card tak" onclick="setUwagi('TAK')">TAK</div>
+            </div>
+        </div>
+
         <div class="generator-section">
             <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                 <button class="btn-success" onclick="generateEntry()">Generuj wpis</button>
@@ -100,7 +109,8 @@ const pages = {
             <textarea id="generatedEntry" style="width:100%; min-height:280px;"></textarea>
         </div>
     </div>`,
-    linie: `<div id="linieContainer"></div>`
+    linie: `<div id="linieContainer"></div>`,
+    ksiazka: `<div id="ksiazkaContainer"></div>`
 };
 
 function loadPage(page) {
@@ -117,6 +127,7 @@ function loadPage(page) {
         case "szablony":   if (typeof initSzablony === "function") initSzablony(); break;
         case "generator":  if (typeof initGenerator === "function") initGenerator(); break;
         case "linie":      if (typeof initLinie === "function") initLinie(); break;
+        case "ksiazka":    if (typeof initKsiazka === "function") initKsiazka(); break;
     }
 }
 
