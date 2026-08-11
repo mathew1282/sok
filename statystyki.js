@@ -18,7 +18,6 @@ function nowHHMM() {
     return new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
 }
 
-/** Wywołuj przy wstawianiu uwagi */
 async function logInterwencja(typ) {
     ensureStatystykiState();
     const t = String(typ || "Inne").trim() || "Inne";
@@ -30,7 +29,6 @@ async function logInterwencja(typ) {
     await saveState();
 }
 
-/** Wywołuj po zatwierdzeniu godzin dla polecenia */
 async function logSprawdzenie(payload) {
     ensureStatystykiState();
     appState.statystyki.sprawdzenia.push({
@@ -75,6 +73,13 @@ function renderStatystyki() {
     const towarowe = sprawdzenia.filter(s => s.rodzaj === "Stacja towarowa");
     const osobowe = sprawdzenia.filter(s => s.rodzaj === "Stacja osobowa");
 
+    const towaroweTxt = towarowe.length
+        ? towarowe.map(s => s.nazwa || "?").join(", ")
+        : "brak";
+    const osoboweTxt = osobowe.length
+        ? osobowe.map(s => s.nazwa || "?").join(", ")
+        : "brak";
+
     let html = `
     <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:8px;">
@@ -85,15 +90,21 @@ function renderStatystyki() {
             Widok z dzisiejszego dnia. Bez ręcznego kasowania dane zbierają się dalej w tle.
         </p>
 
-        <h3>Interwencje (z Uwag)</h3>
-        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin:12px 0 16px; font-size:16px;">
+        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-bottom:14px; font-size:16px;">
+            <span><strong>Interwencje:</strong></span>
             <span><strong>MKK:</strong> ${counts.MKK}</span>
             <span><strong>Pouczony:</strong> ${counts.Pouczony}</span>
             <span><strong>Legitymowany:</strong> ${counts.Legitymowany}</span>
             <span><strong>Inne:</strong> ${counts.Inne}</span>
         </div>
-        <button class="btn-primary" onclick="copyInterwencje()">Kopiuj interwencje do Excela</button>
-        <br><br>
+
+        <div style="margin-bottom:10px; font-size:16px;">
+            <strong>Stacje towarowe (${towarowe.length}):</strong> ${escapeHtml(towaroweTxt)}
+        </div>
+
+        <div style="margin-bottom:20px; font-size:16px;">
+            <strong>Stacje osobowe (${osobowe.length}):</strong> ${escapeHtml(osoboweTxt)}
+        </div>
 
         <h3>Sprawdzenia szlaków (${szlaki.length})</h3>
         <table>
@@ -135,16 +146,6 @@ function renderStatystyki() {
         </table>
         <br>
         <button class="btn-primary" onclick="copySzlaki()">Kopiuj szlaki do Excela</button>
-        <br><br>
-
-        <h3>Stacje towarowe (${towarowe.length})</h3>
-        <p>${towarowe.length ? towarowe.map(s => escapeHtml(s.nazwa || "?")).join(", ") : "<span style='color:#94a3b8'>Brak</span>"}</p>
-        <button class="btn-primary" onclick="copyStacje('Stacja towarowa')">Kopiuj towarowe do Excela</button>
-        <br><br>
-
-        <h3>Stacje osobowe (${osobowe.length})</h3>
-        <p>${osobowe.length ? osobowe.map(s => escapeHtml(s.nazwa || "?")).join(", ") : "<span style='color:#94a3b8'>Brak</span>"}</p>
-        <button class="btn-primary" onclick="copyStacje('Stacja osobowa')">Kopiuj osobowe do Excela</button>
     </div>
     `;
 
@@ -166,38 +167,19 @@ function copyText(text) {
     }).catch(() => alert("Nie udało się skopiować"));
 }
 
-function copyInterwencje() {
-    ensureStatystykiState();
-    const interwencje = filterToday(appState.statystyki.interwencje);
-    const counts = { MKK: 0, Pouczony: 0, Legitymowany: 0, Inne: 0 };
-    interwencje.forEach(i => {
-        const t = i.typ || "Inne";
-        if (counts[t] !== undefined) counts[t]++;
-        else counts.Inne++;
-    });
-    const header = "Data\tMKK\tPouczony\tLegitymowany\tInne";
-    const values = `${todayPL()}\t${counts.MKK}\t${counts.Pouczony}\t${counts.Legitymowany}\t${counts.Inne}`;
-    copyText([header, values].join("\n"));
-}
-
+/** Tylko wiersze tabeli, bez nagłówków – każdy wiersz w nowej linii */
 function copySzlaki() {
     ensureStatystykiState();
     const szlaki = filterToday(appState.statystyki.sprawdzenia).filter(s => s.rodzaj === "Szlak");
-    const header = "Data\tGodz. rozpoczęcia\tGodz. zakończenia\tNazwa szlaku\tKm początek\tKm koniec\tNr linii";
+    if (szlaki.length === 0) {
+        if (typeof showToast === "function") showToast("Brak wierszy do skopiowania");
+        else alert("Brak wierszy do skopiowania");
+        return;
+    }
     const rows = szlaki.map(s =>
         [s.data, s.godzOd, s.godzDo, s.nazwa, s.kmOd, s.kmDo, s.linia].join("\t")
     );
-    copyText([header, ...rows].join("\n"));
-}
-
-function copyStacje(rodzaj) {
-    ensureStatystykiState();
-    const list = filterToday(appState.statystyki.sprawdzenia).filter(s => s.rodzaj === rodzaj);
-    const header = "Data\tGodz. rozpoczęcia\tGodz. zakończenia\tNazwa\tNr linii";
-    const rows = list.map(s =>
-        [s.data, s.godzOd, s.godzDo, s.nazwa, s.linia].join("\t")
-    );
-    copyText([header, `Ilość\t${list.length}`, ...rows].join("\n"));
+    copyText(rows.join("\n"));
 }
 
 async function removeSprawdzenie(index) {
@@ -221,8 +203,6 @@ async function clearAllStatystyki() {
 window.initStatystyki = initStatystyki;
 window.logInterwencja = logInterwencja;
 window.logSprawdzenie = logSprawdzenie;
-window.copyInterwencje = copyInterwencje;
 window.copySzlaki = copySzlaki;
-window.copyStacje = copyStacje;
 window.removeSprawdzenie = removeSprawdzenie;
 window.clearAllStatystyki = clearAllStatystyki;
