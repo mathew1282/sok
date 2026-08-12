@@ -80,29 +80,30 @@ const pages = {
             <div id="poleceniaItems" class="card-grid"></div>
         </div>
 
+        <!-- Linia 1: Logowanie sprawdzeń + Uwagi + przyciski -->
         <div class="generator-section">
-            <div class="generator-title">Logowanie sprawdzeń</div>
-            <button class="btn-success" onclick="openLogSprawdzenModal()">Zaloguj sprawdzenie z zaznaczonych poleceń</button>
-        </div>
+            <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:center;">
+                <div class="generator-title" style="margin-bottom:0;">Logowanie sprawdzeń</div>
+                <button class="btn-success" onclick="openLogSprawdzenModal()">Zaloguj sprawdzenie</button>
 
-        <div class="generator-section">
-            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
-                <div class="generator-title" style="margin-bottom:0;">Uwagi</div>
+                <div class="generator-title" style="margin-bottom:0; margin-left:8px;">Uwagi</div>
                 <div id="uwagiNie" class="line-pill active" onclick="setUwagi('NIE')">NIE</div>
                 <div id="uwagiTak" class="line-pill" onclick="setUwagi('TAK')">TAK</div>
-            </div>
-        </div>
 
-        <div class="generator-section">
-            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                 <button class="btn-success" onclick="generateEntry()">Generuj wpis</button>
                 <button class="btn-primary" onclick="copyEntry()">Kopiuj</button>
                 <button class="btn-danger" onclick="clearEntry()">Wyczyść / odznacz wszystko</button>
             </div>
         </div>
 
+        <!-- Linia 2: Wygenerowany wpis + przyciski, pod spodem textarea -->
         <div class="generator-section">
-            <div class="generator-title">Wygenerowany wpis</div>
+            <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:12px;">
+                <div class="generator-title" style="margin-bottom:0;">Wygenerowany wpis</div>
+                <button class="btn-success" onclick="generateEntry()">Generuj wpis</button>
+                <button class="btn-primary" onclick="copyEntry()">Kopiuj</button>
+                <button class="btn-danger" onclick="clearEntry()">Wyczyść / odznacz wszystko</button>
+            </div>
             <div id="wybraniHintBanner" class="wybrani-hint-banner" style="display:none;">
                 ⚠ W tekście jest @wybrani — kliknij „Generuj wpis”, aby wybrać osoby
             </div>
