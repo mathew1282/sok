@@ -3,7 +3,7 @@
 // + 3 poziomy kafelków
 // + UWAGI + @wybrani
 // + logowanie sprawdzeń
-// + @patrol: 1. wystąpienie → 1. patrol, 2. → 2. patrol (modal opcjonalnie)
+// + tagi patrolowe SEKWENCYJNIE (1.→patrol1, 2.→patrol2)
 // =====================================
 
 let selectedPatrols = [];
@@ -138,7 +138,7 @@ function getPatrolName(index) {
     return (p && p.nazwa) ? p.nazwa : ("Patrol " + (index + 1));
 }
 
-/** 1. @patrol → 1. zaznaczony patrol, 2. → 2. itd. */
+/** 1. slot → 1. zaznaczony patrol, 2. → 2. itd. */
 function buildSequentialOccurrenceList(text) {
     const count = countPatrolTags(text);
     const list = [];
@@ -714,11 +714,7 @@ function wybierzTypUwagi(typ) {
     const tekst = appState.uwagiSzablony[typ] || "";
     const textarea = document.getElementById("uwagiTekst");
     if (!textarea) return;
-    const replacements = buildReplacements();
-    delete replacements["@wybrani"];
-    // przy wielu patrolach nie zlewaj @patrol
-    if (selectedPatrols.length > 1) replacements["@patrol"] = getPatrolName(selectedPatrols[0]);
-    textarea.value = applyTags(tekst, replacements);
+    textarea.value = applyTextWithPatrolOccurrences(tekst, buildSequentialOccurrenceList(tekst));
 }
 
 function ensureUwagiSzablonyModal() {
@@ -795,7 +791,6 @@ function wstawUwagi() {
         return;
     }
 
-    // uwagi: sekwencyjne @patrol
     tekst = applyTextWithPatrolOccurrences(tekst, buildSequentialOccurrenceList(tekst));
     wstawTekstUwagiDoWpis(tekst);
 }
@@ -889,9 +884,12 @@ function selectAllWybraniUwagi() {
 function updateUwagiLivePreview() {
     const preview = document.getElementById("uwagiLivePreview");
     if (!preview) return;
-    const tekst = window._uwagiTekstDoWstawienia || "";
-    const wynik = applyTextWithPatrolOccurrences(tekst, buildSequentialOccurrenceList(tekst));
-    preview.innerHTML = `<strong>Podgląd:</strong><br>${escapeHtml(wynik || "(brak tekstu)")}`;
+    let tekst = window._uwagiTekstDoWstawienia || "";
+    tekst = applyTextWithPatrolOccurrences(tekst, buildSequentialOccurrenceList(tekst));
+    if (selectedWybrani.length > 0) {
+        tekst = tekst.replace(/@wybrani/gi, forceOneLine(uniqueNonEmpty(selectedWybrani)));
+    }
+    preview.innerHTML = `<strong>Podgląd:</strong><br>${escapeHtml(tekst || "(brak tekstu)")}`;
 }
 
 function confirmWybraniUwagi() {
@@ -902,7 +900,6 @@ function confirmWybraniUwagi() {
 
     let tekst = window._uwagiTekstDoWstawienia || "";
     tekst = applyTextWithPatrolOccurrences(tekst, buildSequentialOccurrenceList(tekst));
-    // @wybrani
     tekst = tekst.replace(/@wybrani/gi, forceOneLine(uniqueNonEmpty(selectedWybrani)));
 
     closeWybraniModal();
@@ -926,7 +923,7 @@ function confirmWybraniUwagi() {
 }
 
 // =====================================
-// GENEROWANIE + @patrol SEKWENCYJNIE
+// GENEROWANIE – tagi SEKWENCYJNIE
 // =====================================
 
 function getSkladFromSelectedPatrols() {
@@ -998,7 +995,6 @@ function buildReplacementsForPatrols(patrolIndexes) {
 }
 
 function buildReplacements() {
-    // do tagów INNYCH niż wielokrotne @patrol
     return buildReplacementsForPatrols(selectedPatrols);
 }
 
@@ -1014,40 +1010,46 @@ function applyTags(text, replacements) {
 }
 
 /**
- * Każde @patrol osobno według occurrenceList.
- * NIGDY nie wstawia wszystkich patroli w jedno miejsce.
+ * Każde wystąpienie tagu osobno według slotu:
+ * 1. @patrol / @sklad / @dowodca / … → patrol 1
+ * 2. @patrol / @sklad / @dowodca / … → patrol 2
  */
 function applyTextWithPatrolOccurrences(text, occurrenceList) {
     const list = Array.isArray(occurrenceList) ? occurrenceList : [];
-    const raw = String(text || "");
-    const matches = [...raw.matchAll(/@patrol\b/gi)];
+    let out = String(text || "");
 
-    if (matches.length === 0) {
-        return applyTags(raw, buildReplacementsForPatrols(selectedPatrols));
-    }
+    const sequentialTags = [
+        "@patrol",
+        "@sklad",
+        "@dowodca",
+        "@kierowca",
+        "@wszyscy",
+        "@wot",
+        "@policjant"
+    ];
 
-    let out = "";
-    let last = 0;
-    const usedIndexes = [];
+    sequentialTags.forEach(tag => {
+        const safe = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const re = new RegExp(safe, "gi");
+        let occ = 0;
 
-    matches.forEach((m, occ) => {
-        out += raw.slice(last, m.index);
-
-        let idxs = uniqueIndexes(list[occ]);
-        // awaryjnie: sekwencyjnie (jeden patrol), NIGDY cała lista
-        if (!idxs.length && selectedPatrols.length) {
-            idxs = [selectedPatrols[occ % selectedPatrols.length]];
-        }
-
-        idxs.forEach(i => usedIndexes.push(i));
-        out += forceOneLine(uniqueNonEmpty(idxs.map(i => getPatrolName(i)))) || "";
-        last = m.index + m[0].length;
+        out = out.replace(re, () => {
+            let idxs = uniqueIndexes(list[occ]);
+            if (!idxs.length && selectedPatrols.length) {
+                idxs = [selectedPatrols[occ % selectedPatrols.length]];
+            }
+            occ++;
+            const rep = buildReplacementsForPatrols(idxs);
+            return rep[tag] || "";
+        });
     });
-    out += raw.slice(last);
 
-    const replacements = buildReplacementsForPatrols(uniqueIndexes(usedIndexes));
-    delete replacements["@patrol"];
-    return applyTags(out, replacements);
+    // globalne: @data, @godzina, @KZ, @MKK, @wybrani
+    const globalRep = buildReplacementsForPatrols(selectedPatrols);
+    sequentialTags.forEach(t => { delete globalRep[t]; });
+
+    out = applyTags(out, globalRep);
+    return out;
 }
 
 function updateLiveEntry() {
@@ -1085,7 +1087,7 @@ function updateLiveEntryWithAssignments() {
 }
 
 // =====================================
-// MODAL @patrol (opcjonalna zmiana kolejności)
+// MODAL @patrol
 // =====================================
 
 function ensurePatrolAssignModal() {
@@ -1099,7 +1101,7 @@ function ensurePatrolAssignModal() {
         <div class="modal" style="max-width:780px;">
             <h2>Przypisz patrole do @patrol</h2>
             <p style="color:#94a3b8; font-size:14px; margin-bottom:15px;">
-                Domyślnie: 1. @patrol = 1. patrol, 2. @patrol = 2. patrol.
+                Domyślnie: 1. @patrol = 1. patrol (i jego skład/dowódca…), 2. = 2. patrol.
                 Klik = jeden patrol. Shift+klik = kilka.
             </p>
             <div id="patrolAssignList" style="max-height:55vh; overflow:auto;"></div>
@@ -1320,7 +1322,6 @@ function confirmWybrani() {
 // =====================================
 
 function generateEntry() {
-    // zawsze najpierw sekwencja; modal tylko gdy 2+ patrole i user chce zmienić
     if (needsPatrolAssignmentModal()) {
         openPatrolAssignModal();
         return;
