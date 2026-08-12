@@ -53,9 +53,11 @@ const pages = {
             <input type="text" id="mkkInput" placeholder="Wpisz MKK" style="flex:1; min-width:180px;">
         </div>
 
-        <div class="generator-section" style="display:flex>
-            <div class="generator-title">Patrole</div>
-            <div id="patrolCards" class="card-grid"></div>
+        <div class="generator-section">
+            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:10px;">
+                <div class="generator-title" style="margin-bottom:0;">Patrole</div>
+                <div id="patrolCards" class="card-grid" style="margin:0;"></div>
+            </div>
         </div>
 
         <div class="generator-section">
