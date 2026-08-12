@@ -177,12 +177,13 @@ function setupPersistentInputs() {
 function renderPatroleCards() {
     const container = document.getElementById("patrolCards");
     if (!container) return;
+
     let html = "";
     (appState.patrole || []).forEach((patrol, index) => {
         const isSelected = selectedPatrols.includes(index) ? "active" : "";
         html += `
-        <div class="select-card ${isSelected}" onclick="togglePatrol(${index})">
-            <div class="select-card-title">${escapeHtml(patrol.nazwa || ("Patrol " + (index + 1)))}</div>
+        <div class="line-pill ${isSelected}" onclick="togglePatrol(${index})">
+            ${escapeHtml(patrol.nazwa || ("Patrol " + (index + 1)))}
         </div>`;
     });
     container.innerHTML = html || "<p>Brak patroli</p>";
