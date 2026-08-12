@@ -3,6 +3,7 @@
 // + 3 poziomy kafelków (linia → opis krótki → opis pom)
 // + UWAGI (TAK / NIE) + @wybrani
 // + logowanie sprawdzeń (Polecenia) + interwencji (Uwagi)
+// + modal przypisania patroli przy każdym @patrol
 // =====================================
 
 let selectedPatrols = [];
@@ -15,6 +16,10 @@ let selectedPoleceniaOpisKrotki = null;
 let selectedWybrani = [];
 let uwagiWybrane = "NIE";
 let selectedUwagiTyp = null; // MKK / Pouczony / Legitymowany / Inne
+
+// Przypisania @patrol per wystąpienie:
+// { "zgl_12": [ [0], [1], [0,1] ], "pol_3": [ [1] ] }
+let patrolAssignments = {};
 
 const defaultUwagiSzablony = {
     "MKK": "Przeprowadzono kontrolę dokumentów. MKK: @MKK.",
@@ -97,6 +102,26 @@ function nowHHMMSafe() {
     return new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
 }
 
+function countPatrolTags(text) {
+    const m = String(text || "").match(/@patrol\b/gi);
+    return m ? m.length : 0;
+}
+
+function hasAnyPatrolTagInSelection() {
+    let total = 0;
+    selectedZgloszeniaIndexes.forEach(i => {
+        total += countPatrolTags(appState.zgloszenia?.rows?.[i]?.Opis || "");
+    });
+    selectedPoleceniaIndexes.forEach(i => {
+        total += countPatrolTags(appState.polecenia?.rows?.[i]?.Opis || "");
+    });
+    return total > 0;
+}
+
+function needsPatrolAssignmentModal() {
+    return selectedPatrols.length > 1 && hasAnyPatrolTagInSelection();
+}
+
 // =====================================
 // INICJALIZACJA
 // =====================================
@@ -112,6 +137,7 @@ function initGenerator() {
     selectedWybrani = [];
     uwagiWybrane = "NIE";
     selectedUwagiTyp = null;
+    patrolAssignments = {};
 
     ensureUwagiState();
 
@@ -194,6 +220,7 @@ function togglePatrol(index) {
     if (pos > -1) selectedPatrols.splice(pos, 1);
     else selectedPatrols.push(index);
     selectedWybrani = [];
+    patrolAssignments = {};
     renderPatroleCards();
     updateLiveEntry();
 }
@@ -331,6 +358,7 @@ function toggleZgloszenie(index) {
     const pos = selectedZgloszeniaIndexes.indexOf(index);
     if (pos > -1) selectedZgloszeniaIndexes.splice(pos, 1);
     else selectedZgloszeniaIndexes.push(index);
+    patrolAssignments = {};
     renderZgloszeniaLines();
     updateLiveEntry();
 }
@@ -468,6 +496,7 @@ function togglePolecenie(index) {
     const pos = selectedPoleceniaIndexes.indexOf(index);
     if (pos > -1) selectedPoleceniaIndexes.splice(pos, 1);
     else selectedPoleceniaIndexes.push(index);
+    patrolAssignments = {};
     renderPoleceniaLines();
     updateLiveEntry();
 }
@@ -478,7 +507,7 @@ function filterGeneratorTiles() {
 }
 
 // =====================================
-// LOGOWANIE SPRAWDZEŃ (ze zaznaczonych poleceń)
+// LOGOWANIE SPRAWDZEŃ
 // =====================================
 
 function getSelectedPoleceniaDoSprawdzen() {
@@ -602,10 +631,6 @@ function setUwagi(val) {
     }
 }
 
-// =====================================
-// MODAL UWAGI
-// =====================================
-
 function ensureUwagiModal() {
     if (document.getElementById("uwagiModal")) return;
     const overlay = document.createElement("div");
@@ -662,10 +687,6 @@ function wybierzTypUwagi(typ) {
     textarea.value = applyTags(tekst, replacements);
 }
 
-// =====================================
-// SZABLONY UWAG
-// =====================================
-
 function ensureUwagiSzablonyModal() {
     if (document.getElementById("uwagiSzablonyModal")) return;
     const overlay = document.createElement("div");
@@ -721,10 +742,6 @@ async function saveUwagiSzablony() {
     closeUwagiSzablonyModal();
     showToast("✅ Szablony zapisane");
 }
-
-// =====================================
-// WSTAWIANIE UWAGI (+ @wybrani)
-// =====================================
 
 function wstawUwagi() {
     let tekst = (document.getElementById("uwagiTekst")?.value || "").trim();
@@ -874,7 +891,7 @@ function confirmWybraniUwagi() {
 }
 
 // =====================================
-// GENEROWANIE
+// GENEROWANIE + PRZYPISANIA @patrol
 // =====================================
 
 function getSkladFromSelectedPatrols() {
@@ -896,7 +913,7 @@ function hasWybraniTag() {
     return /@wybrani/i.test(allTexts);
 }
 
-function buildReplacements() {
+function buildReplacementsForPatrols(patrolIndexes) {
     const kz = document.getElementById("kzInput")?.value || appState.kz || "";
     const mkk = document.getElementById("mkkInput")?.value || appState.mkk || "";
 
@@ -907,7 +924,7 @@ function buildReplacements() {
     const allWot = [];
     const allPolicjanci = [];
 
-    selectedPatrols.forEach(index => {
+    (patrolIndexes || []).forEach(index => {
         const patrol = appState.patrole?.[index];
         if (!patrol) return;
         if (patrol.nazwa) patrolNames.push(patrol.nazwa);
@@ -931,19 +948,23 @@ function buildReplacements() {
         : "";
 
     return {
-        "@patrol":     forceOneLine(uniqueNonEmpty(patrolNames)),
-        "@dowodca":    forceOneLine(uniqueNonEmpty(allDowodcy)),
-        "@kierowca":   forceOneLine(uniqueNonEmpty(allKierowcy)),
-        "@sklad":      forceOneLine(uniqueNonEmpty(allSklad)),
-        "@wszyscy":    forceOneLine(uniqueNonEmpty([...allSklad, ...allDowodcy, ...allKierowcy])),
-        "@wybrani":    wybraniValue,
-        "@data":       data,
-        "@godzina":    godzina,
-        "@KZ":         kz,
-        "@MKK":        mkk,
-        "@wot":        forceOneLine(uniqueNonEmpty(allWot)),
-        "@policjant":  forceOneLine(uniqueNonEmpty(allPolicjanci))
+        "@patrol":    forceOneLine(uniqueNonEmpty(patrolNames)),
+        "@dowodca":   forceOneLine(uniqueNonEmpty(allDowodcy)),
+        "@kierowca":  forceOneLine(uniqueNonEmpty(allKierowcy)),
+        "@sklad":     forceOneLine(uniqueNonEmpty(allSklad)),
+        "@wszyscy":   forceOneLine(uniqueNonEmpty([...allSklad, ...allDowodcy, ...allKierowcy])),
+        "@wybrani":   wybraniValue,
+        "@data":      data,
+        "@godzina":   godzina,
+        "@KZ":        kz,
+        "@MKK":       mkk,
+        "@wot":       forceOneLine(uniqueNonEmpty(allWot)),
+        "@policjant": forceOneLine(uniqueNonEmpty(allPolicjanci))
     };
+}
+
+function buildReplacements() {
+    return buildReplacementsForPatrols(selectedPatrols);
 }
 
 function applyTags(text, replacements) {
@@ -957,19 +978,47 @@ function applyTags(text, replacements) {
     return out.replace(/\n+/g, " ").trim();
 }
 
+/** Podstawia każde @patrol z osobnego wyboru, resztę tagów z unii patroli z tego tekstu */
+function applyTextWithPatrolOccurrences(text, occurrenceList) {
+    const list = occurrenceList || [];
+    let occ = 0;
+
+    // 1) każde @patrol osobno
+    let out = String(text || "").replace(/@patrol\b/gi, () => {
+        const idxs = list[occ] && list[occ].length ? list[occ] : selectedPatrols;
+        occ++;
+        const names = [];
+        idxs.forEach(i => {
+            const p = appState.patrole?.[i];
+            if (p?.nazwa) names.push(p.nazwa);
+            else names.push("Patrol " + (i + 1));
+        });
+        return forceOneLine(uniqueNonEmpty(names)) || "";
+    });
+
+    // 2) pozostałe tagi z unii patroli użytych w tym tekście
+    const used = [];
+    list.forEach(arr => (arr || []).forEach(i => used.push(i)));
+    const uniqueUsed = uniqueNonEmpty(used.length ? used : selectedPatrols).map(Number);
+    const replacements = buildReplacementsForPatrols(uniqueUsed);
+    delete replacements["@patrol"]; // już obsłużone
+
+    out = applyTags(out, replacements);
+    return out;
+}
+
 function updateLiveEntry() {
+    // podgląd na żywo bez przypisań (wszystkie zaznaczone patrole)
     const textarea = document.getElementById("generatedEntry");
     const banner = document.getElementById("wybraniHintBanner");
     if (!textarea) return;
 
-    const replacements = buildReplacements();
     const needsWybraniHint = hasWybraniTag() && selectedWybrani.length === 0;
     const hintPlain = "⚠ KLIKNIJ „GENERUJ WPIS”, ABY WYBRAĆ OSOBY";
 
+    const replacements = buildReplacements();
     const replacementsForApply = { ...replacements };
-    if (needsWybraniHint) {
-        replacementsForApply["@wybrani"] = hintPlain;
-    }
+    if (needsWybraniHint) replacementsForApply["@wybrani"] = hintPlain;
 
     const zgloszeniaParts = selectedZgloszeniaIndexes
         .map(i => appState.zgloszenia?.rows?.[i]?.Opis)
@@ -986,6 +1035,188 @@ function updateLiveEntry() {
     if (banner) {
         banner.style.display = needsWybraniHint ? "block" : "none";
     }
+}
+
+function updateLiveEntryWithAssignments() {
+    const textarea = document.getElementById("generatedEntry");
+    const banner = document.getElementById("wybraniHintBanner");
+    if (!textarea) return;
+
+    const needsWybraniHint = hasWybraniTag() && selectedWybrani.length === 0;
+    const hintPlain = "⚠ KLIKNIJ „GENERUJ WPIS”, ABY WYBRAĆ OSOBY";
+
+    const parts = [];
+
+    selectedZgloszeniaIndexes.forEach(i => {
+        const t = appState.zgloszenia?.rows?.[i]?.Opis;
+        if (!t) return;
+        const key = `zgl_${i}`;
+        let text = applyTextWithPatrolOccurrences(t, patrolAssignments[key]);
+        if (needsWybraniHint) {
+            text = text.replace(/@wybrani/gi, hintPlain);
+        } else if (selectedWybrani.length > 0) {
+            text = text.replace(/@wybrani/gi, forceOneLine(uniqueNonEmpty(selectedWybrani)));
+        }
+        parts.push(text);
+    });
+
+    selectedPoleceniaIndexes.forEach(i => {
+        const t = appState.polecenia?.rows?.[i]?.Opis;
+        if (!t) return;
+        const key = `pol_${i}`;
+        let text = applyTextWithPatrolOccurrences(t, patrolAssignments[key]);
+        if (needsWybraniHint) {
+            text = text.replace(/@wybrani/gi, hintPlain);
+        } else if (selectedWybrani.length > 0) {
+            text = text.replace(/@wybrani/gi, forceOneLine(uniqueNonEmpty(selectedWybrani)));
+        }
+        parts.push(text);
+    });
+
+    textarea.value = parts.filter(Boolean).join(" ");
+
+    if (banner) {
+        banner.style.display = needsWybraniHint ? "block" : "none";
+    }
+}
+
+// =====================================
+// MODAL PRZYPISANIA PATROLI (per @patrol)
+// =====================================
+
+function ensurePatrolAssignModal() {
+    if (document.getElementById("patrolAssignModal")) return;
+
+    const overlay = document.createElement("div");
+    overlay.id = "patrolAssignModal";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "none";
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:780px;">
+            <h2>Przypisz patrole do @patrol</h2>
+            <p style="color:#94a3b8; font-size:14px; margin-bottom:15px;">
+                Przy każdym wystąpieniu <strong>@patrol</strong> wybierz kafelkami, który patrol (lub które) ma się wstawić.
+                Skład, dowódca i kierowca dobierą się automatycznie z wybranych patroli.
+            </p>
+            <div id="patrolAssignList" style="max-height:55vh; overflow:auto;"></div>
+            <div class="modal-actions">
+                <button class="btn-success" onclick="confirmPatrolAssignments()">Zatwierdź i generuj</button>
+                <button class="btn-danger" onclick="closePatrolAssignModal()">Anuluj</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function openPatrolAssignModal() {
+    ensurePatrolAssignModal();
+    patrolAssignments = {};
+
+    const list = document.getElementById("patrolAssignList");
+    let html = "";
+    let globalOcc = 0;
+
+    const addSource = (prefix, indexes, rows, labelPrefix) => {
+        indexes.forEach(i => {
+            const row = rows?.[i];
+            if (!row) return;
+            const text = row.Opis || "";
+            const count = countPatrolTags(text);
+            if (count === 0) return;
+
+            const key = `${prefix}_${i}`;
+            patrolAssignments[key] = [];
+
+            const short = (row.OpisKrotki || row.OpisPom || text).substring(0, 90);
+            html += `
+            <div style="border:1px solid #334155; border-radius:12px; padding:14px; margin-bottom:14px;">
+                <div style="font-weight:600; margin-bottom:4px;">${escapeHtml(labelPrefix)}: ${escapeHtml(short)}</div>
+                <div style="font-size:12px; color:#94a3b8; margin-bottom:12px;">${escapeHtml(text.substring(0, 160))}${text.length > 160 ? "…" : ""}</div>
+            `;
+
+            for (let occ = 0; occ < count; occ++) {
+                // domyślnie zaznaczony pierwszy patrol
+                patrolAssignments[key][occ] = selectedPatrols.length ? [selectedPatrols[0]] : [];
+                globalOcc++;
+                const rowId = `assign_${key}_${occ}`;
+
+                html += `
+                <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:10px;">
+                    <div style="min-width:90px; font-weight:600; color:#e2e8f0;">${globalOcc}. @patrol</div>
+                    <div class="card-grid" style="margin:0;" id="${rowId}">
+                        ${selectedPatrols.map(pIdx => {
+                            const p = appState.patrole?.[pIdx];
+                            const name = p?.nazwa || ("Patrol " + (pIdx + 1));
+                            const active = (patrolAssignments[key][occ] || []).includes(pIdx) ? "active" : "";
+                            return `<div class="line-pill ${active}" onclick="togglePatrolOccurrence('${key}', ${occ}, ${pIdx})">${escapeHtml(name)}</div>`;
+                        }).join("")}
+                    </div>
+                </div>`;
+            }
+
+            html += `</div>`;
+        });
+    };
+
+    addSource("zgl", selectedZgloszeniaIndexes, appState.zgloszenia?.rows, "Zgłoszenie");
+    addSource("pol", selectedPoleceniaIndexes, appState.polecenia?.rows, "Polecenie");
+
+    if (!html) {
+        html = "<p>Brak wystąpień @patrol w zaznaczonych pozycjach.</p>";
+    }
+
+    list.innerHTML = html;
+    document.getElementById("patrolAssignModal").style.display = "flex";
+}
+
+function togglePatrolOccurrence(key, occ, patrolIndex) {
+    if (!patrolAssignments[key]) patrolAssignments[key] = [];
+    if (!patrolAssignments[key][occ]) patrolAssignments[key][occ] = [];
+
+    const arr = patrolAssignments[key][occ];
+    const pos = arr.indexOf(patrolIndex);
+    if (pos > -1) arr.splice(pos, 1);
+    else arr.push(patrolIndex);
+
+    const container = document.getElementById(`assign_${key}_${occ}`);
+    if (!container) return;
+    container.querySelectorAll(".line-pill").forEach((el, i) => {
+        const pIdx = selectedPatrols[i];
+        if ((patrolAssignments[key][occ] || []).includes(pIdx)) el.classList.add("active");
+        else el.classList.remove("active");
+    });
+}
+
+function closePatrolAssignModal() {
+    const m = document.getElementById("patrolAssignModal");
+    if (m) m.style.display = "none";
+}
+
+function confirmPatrolAssignments() {
+    // każda pozycja @patrol musi mieć ≥ 1 patrol
+    for (const key of Object.keys(patrolAssignments)) {
+        const list = patrolAssignments[key] || [];
+        for (let occ = 0; occ < list.length; occ++) {
+            if (!list[occ] || list[occ].length === 0) {
+                showToast("Przy każdym @patrol wybierz przynajmniej jeden patrol");
+                return;
+            }
+        }
+    }
+
+    closePatrolAssignModal();
+
+    if (hasWybraniTag()) {
+        const opened = openWybraniModal();
+        if (!opened) {
+            selectedWybrani = [];
+            updateLiveEntryWithAssignments();
+        }
+        return;
+    }
+
+    updateLiveEntryWithAssignments();
+    showToast("✅ Wpis wygenerowany z przypisanymi patrolami");
 }
 
 // =====================================
@@ -1068,7 +1299,12 @@ function confirmWybrani() {
         return;
     }
     closeWybraniModal();
-    updateLiveEntry();
+
+    if (Object.keys(patrolAssignments).length > 0) {
+        updateLiveEntryWithAssignments();
+    } else {
+        updateLiveEntry();
+    }
     showToast("✅ Wpis wygenerowany z wybranymi osobami");
 }
 
@@ -1077,6 +1313,13 @@ function confirmWybrani() {
 // =====================================
 
 function generateEntry() {
+    if (needsPatrolAssignmentModal()) {
+        openPatrolAssignModal();
+        return;
+    }
+
+    patrolAssignments = {};
+
     if (hasWybraniTag()) {
         const opened = openWybraniModal();
         if (!opened) {
@@ -1085,6 +1328,7 @@ function generateEntry() {
         }
         return;
     }
+
     selectedWybrani = [];
     updateLiveEntry();
 }
@@ -1117,6 +1361,7 @@ function clearEntry() {
     selectedWybrani = [];
     uwagiWybrane = "NIE";
     selectedUwagiTyp = null;
+    patrolAssignments = {};
 
     const zSearch = document.getElementById("zglSearch");
     const pSearch = document.getElementById("polSearch");
@@ -1189,3 +1434,7 @@ window.confirmWybraniUwagi = confirmWybraniUwagi;
 window.openLogSprawdzenModal = openLogSprawdzenModal;
 window.closeLogSprawdzenModal = closeLogSprawdzenModal;
 window.confirmLogSprawdzen = confirmLogSprawdzen;
+
+window.togglePatrolOccurrence = togglePatrolOccurrence;
+window.confirmPatrolAssignments = confirmPatrolAssignments;
+window.closePatrolAssignModal = closePatrolAssignModal;
