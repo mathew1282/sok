@@ -1,9 +1,9 @@
 // =====================================
 // GENERATOR WPISÓW
-// + 3 poziomy kafelków (linia → opis krótki → opis pom)
-// + UWAGI (TAK / NIE) + @wybrani
-// + logowanie sprawdzeń + interwencji
-// + modal: każde @patrol osobno
+// + 3 poziomy kafelków
+// + UWAGI + @wybrani
+// + logowanie sprawdzeń
+// + @patrol: 1. wystąpienie → 1. patrol, 2. → 2. patrol (modal opcjonalnie)
 // =====================================
 
 let selectedPatrols = [];
@@ -17,7 +17,7 @@ let selectedWybrani = [];
 let uwagiWybrane = "NIE";
 let selectedUwagiTyp = null;
 
-// { "zgl_12": [ [0], [1] ], "pol_3": [ [1] ] }
+// { "zgl_12": [ [0], [1] ] } — nadpisuje domyślną sekwencję
 let patrolAssignments = {};
 
 const defaultUwagiSzablony = {
@@ -136,6 +136,24 @@ function needsPatrolAssignmentModal() {
 function getPatrolName(index) {
     const p = appState.patrole?.[index];
     return (p && p.nazwa) ? p.nazwa : ("Patrol " + (index + 1));
+}
+
+/** 1. @patrol → 1. zaznaczony patrol, 2. → 2. itd. */
+function buildSequentialOccurrenceList(text) {
+    const count = countPatrolTags(text);
+    const list = [];
+    for (let occ = 0; occ < count; occ++) {
+        if (!selectedPatrols.length) list.push([]);
+        else list.push([selectedPatrols[occ % selectedPatrols.length]]);
+    }
+    return list;
+}
+
+function getOccurrenceListForKey(key, text) {
+    if (patrolAssignments[key] && patrolAssignments[key].length) {
+        return patrolAssignments[key];
+    }
+    return buildSequentialOccurrenceList(text);
 }
 
 // =====================================
@@ -698,6 +716,8 @@ function wybierzTypUwagi(typ) {
     if (!textarea) return;
     const replacements = buildReplacements();
     delete replacements["@wybrani"];
+    // przy wielu patrolach nie zlewaj @patrol
+    if (selectedPatrols.length > 1) replacements["@patrol"] = getPatrolName(selectedPatrols[0]);
     textarea.value = applyTags(tekst, replacements);
 }
 
@@ -711,8 +731,7 @@ function ensureUwagiSzablonyModal() {
         <div class="modal" style="max-width:800px;">
             <h2>Szablony uwag</h2>
             <p style="color:#94a3b8; font-size:14px; margin-bottom:15px;">
-                Edytuj szablony. Znaczniki:<br>
-                @patrol, @sklad, @dowodca, @kierowca, @wszyscy, @KZ, @MKK, @data, @godzina, @wybrani, @wot, @policjant
+                Znaczniki: @patrol, @sklad, @dowodca, @kierowca, @wszyscy, @KZ, @MKK, @data, @godzina, @wybrani, @wot, @policjant
             </p>
             <label>MKK</label>
             <textarea id="szablonMKK" rows="3" style="width:100%; margin-bottom:12px;"></textarea>
@@ -776,7 +795,8 @@ function wstawUwagi() {
         return;
     }
 
-    tekst = applyTags(tekst, buildReplacements());
+    // uwagi: sekwencyjne @patrol
+    tekst = applyTextWithPatrolOccurrences(tekst, buildSequentialOccurrenceList(tekst));
     wstawTekstUwagiDoWpis(tekst);
 }
 
@@ -870,7 +890,7 @@ function updateUwagiLivePreview() {
     const preview = document.getElementById("uwagiLivePreview");
     if (!preview) return;
     const tekst = window._uwagiTekstDoWstawienia || "";
-    const wynik = applyTags(tekst, buildReplacements());
+    const wynik = applyTextWithPatrolOccurrences(tekst, buildSequentialOccurrenceList(tekst));
     preview.innerHTML = `<strong>Podgląd:</strong><br>${escapeHtml(wynik || "(brak tekstu)")}`;
 }
 
@@ -880,12 +900,14 @@ function confirmWybraniUwagi() {
         return;
     }
 
-    const tekst = window._uwagiTekstDoWstawienia || "";
-    const gotowyTekst = applyTags(tekst, buildReplacements());
+    let tekst = window._uwagiTekstDoWstawienia || "";
+    tekst = applyTextWithPatrolOccurrences(tekst, buildSequentialOccurrenceList(tekst));
+    // @wybrani
+    tekst = tekst.replace(/@wybrani/gi, forceOneLine(uniqueNonEmpty(selectedWybrani)));
 
     closeWybraniModal();
     closeUwagiModal();
-    wstawTekstUwagiDoWpis(gotowyTekst);
+    wstawTekstUwagiDoWpis(tekst);
 
     window._uwagiTekstDoWstawienia = "";
     selectedWybrani = [];
@@ -904,7 +926,7 @@ function confirmWybraniUwagi() {
 }
 
 // =====================================
-// GENEROWANIE + @patrol
+// GENEROWANIE + @patrol SEKWENCYJNIE
 // =====================================
 
 function getSkladFromSelectedPatrols() {
@@ -976,6 +998,7 @@ function buildReplacementsForPatrols(patrolIndexes) {
 }
 
 function buildReplacements() {
+    // do tagów INNYCH niż wielokrotne @patrol
     return buildReplacementsForPatrols(selectedPatrols);
 }
 
@@ -990,7 +1013,10 @@ function applyTags(text, replacements) {
     return out.replace(/\n+/g, " ").trim();
 }
 
-/** Każde @patrol osobno — BEZ fallbacku do wszystkich patroli */
+/**
+ * Każde @patrol osobno według occurrenceList.
+ * NIGDY nie wstawia wszystkich patroli w jedno miejsce.
+ */
 function applyTextWithPatrolOccurrences(text, occurrenceList) {
     const list = Array.isArray(occurrenceList) ? occurrenceList : [];
     const raw = String(text || "");
@@ -1007,21 +1033,20 @@ function applyTextWithPatrolOccurrences(text, occurrenceList) {
     matches.forEach((m, occ) => {
         out += raw.slice(last, m.index);
 
-        const idxs = uniqueIndexes(list[occ]);
-        if (idxs.length) {
-            idxs.forEach(i => usedIndexes.push(i));
-            out += forceOneLine(uniqueNonEmpty(idxs.map(i => getPatrolName(i)))) || "";
+        let idxs = uniqueIndexes(list[occ]);
+        // awaryjnie: sekwencyjnie (jeden patrol), NIGDY cała lista
+        if (!idxs.length && selectedPatrols.length) {
+            idxs = [selectedPatrols[occ % selectedPatrols.length]];
         }
-        // brak wyboru → pusty string (nie wstawiaj wszystkich)
 
+        idxs.forEach(i => usedIndexes.push(i));
+        out += forceOneLine(uniqueNonEmpty(idxs.map(i => getPatrolName(i)))) || "";
         last = m.index + m[0].length;
     });
     out += raw.slice(last);
 
-    const uniqueUsed = uniqueIndexes(usedIndexes);
-    const replacements = buildReplacementsForPatrols(uniqueUsed);
+    const replacements = buildReplacementsForPatrols(uniqueIndexes(usedIndexes));
     delete replacements["@patrol"];
-
     return applyTags(out, replacements);
 }
 
@@ -1032,67 +1057,35 @@ function updateLiveEntry() {
 
     const needsWybraniHint = hasWybraniTag() && selectedWybrani.length === 0;
     const hintPlain = "⚠ KLIKNIJ „GENERUJ WPIS”, ABY WYBRAĆ OSOBY";
-
-    const replacements = buildReplacements();
-    const replacementsForApply = { ...replacements };
-
-    // przy 2+ patrolach nie zlewaj wszystkich nazw w @patrol
-    if (selectedPatrols.length > 1) {
-        replacementsForApply["@patrol"] = "…";
-    }
-
-    if (needsWybraniHint) {
-        replacementsForApply["@wybrani"] = hintPlain;
-    }
-
-    const zgloszeniaParts = selectedZgloszeniaIndexes
-        .map(i => appState.zgloszenia?.rows?.[i]?.Opis)
-        .filter(Boolean)
-        .map(t => applyTags(t, replacementsForApply));
-
-    const poleceniaParts = selectedPoleceniaIndexes
-        .map(i => appState.polecenia?.rows?.[i]?.Opis)
-        .filter(Boolean)
-        .map(t => applyTags(t, replacementsForApply));
-
-    textarea.value = [...zgloszeniaParts, ...poleceniaParts].filter(Boolean).join(" ");
-
-    if (banner) banner.style.display = needsWybraniHint ? "block" : "none";
-}
-
-function updateLiveEntryWithAssignments() {
-    const textarea = document.getElementById("generatedEntry");
-    const banner = document.getElementById("wybraniHintBanner");
-    if (!textarea) return;
-
-    const needsWybraniHint = hasWybraniTag() && selectedWybrani.length === 0;
-    const hintPlain = "⚠ KLIKNIJ „GENERUJ WPIS”, ABY WYBRAĆ OSOBY";
     const parts = [];
 
-    selectedZgloszeniaIndexes.forEach(i => {
-        const t = appState.zgloszenia?.rows?.[i]?.Opis;
-        if (!t) return;
-        let text = applyTextWithPatrolOccurrences(t, patrolAssignments[`zgl_${i}`]);
-        if (needsWybraniHint) text = text.replace(/@wybrani/gi, hintPlain);
-        else if (selectedWybrani.length > 0) text = text.replace(/@wybrani/gi, forceOneLine(uniqueNonEmpty(selectedWybrani)));
-        parts.push(text);
-    });
+    const handle = (prefix, indexes, rows) => {
+        indexes.forEach(i => {
+            const t = rows?.[i]?.Opis;
+            if (!t) return;
+            const key = `${prefix}_${i}`;
+            let text = applyTextWithPatrolOccurrences(t, getOccurrenceListForKey(key, t));
+            if (needsWybraniHint) text = text.replace(/@wybrani/gi, hintPlain);
+            else if (selectedWybrani.length > 0) {
+                text = text.replace(/@wybrani/gi, forceOneLine(uniqueNonEmpty(selectedWybrani)));
+            }
+            parts.push(text);
+        });
+    };
 
-    selectedPoleceniaIndexes.forEach(i => {
-        const t = appState.polecenia?.rows?.[i]?.Opis;
-        if (!t) return;
-        let text = applyTextWithPatrolOccurrences(t, patrolAssignments[`pol_${i}`]);
-        if (needsWybraniHint) text = text.replace(/@wybrani/gi, hintPlain);
-        else if (selectedWybrani.length > 0) text = text.replace(/@wybrani/gi, forceOneLine(uniqueNonEmpty(selectedWybrani)));
-        parts.push(text);
-    });
+    handle("zgl", selectedZgloszeniaIndexes, appState.zgloszenia?.rows);
+    handle("pol", selectedPoleceniaIndexes, appState.polecenia?.rows);
 
     textarea.value = parts.filter(Boolean).join(" ");
     if (banner) banner.style.display = needsWybraniHint ? "block" : "none";
 }
 
+function updateLiveEntryWithAssignments() {
+    updateLiveEntry();
+}
+
 // =====================================
-// MODAL @patrol
+// MODAL @patrol (opcjonalna zmiana kolejności)
 // =====================================
 
 function ensurePatrolAssignModal() {
@@ -1106,9 +1099,8 @@ function ensurePatrolAssignModal() {
         <div class="modal" style="max-width:780px;">
             <h2>Przypisz patrole do @patrol</h2>
             <p style="color:#94a3b8; font-size:14px; margin-bottom:15px;">
-                Przy każdym <strong>@patrol</strong> wybierz <em>jeden</em> patrol (klik).
-                <strong>Shift+klik</strong> = kilka naraz.
-                Domyślnie: 1.→pierwszy patrol, 2.→drugi itd.
+                Domyślnie: 1. @patrol = 1. patrol, 2. @patrol = 2. patrol.
+                Klik = jeden patrol. Shift+klik = kilka.
             </p>
             <div id="patrolAssignList" style="max-height:55vh; overflow:auto;"></div>
             <div class="modal-actions">
@@ -1137,7 +1129,7 @@ function openPatrolAssignModal() {
             if (count === 0) return;
 
             const key = `${prefix}_${i}`;
-            patrolAssignments[key] = [];
+            patrolAssignments[key] = buildSequentialOccurrenceList(text);
 
             const short = (row.OpisKrotki || row.OpisPom || text).substring(0, 90);
             html += `
@@ -1147,12 +1139,8 @@ function openPatrolAssignModal() {
             `;
 
             for (let occ = 0; occ < count; occ++) {
-                patrolAssignments[key][occ] = selectedPatrols.length
-                    ? [selectedPatrols[occ % selectedPatrols.length]]
-                    : [];
                 globalOcc++;
                 const rowId = `assign_${key}_${occ}`;
-
                 html += `
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:10px;">
                     <div style="min-width:90px; font-weight:600; color:#e2e8f0;">${globalOcc}. @patrol</div>
@@ -1173,7 +1161,7 @@ function openPatrolAssignModal() {
     addSource("zgl", selectedZgloszeniaIndexes, appState.zgloszenia?.rows, "Zgłoszenie");
     addSource("pol", selectedPoleceniaIndexes, appState.polecenia?.rows, "Polecenie");
 
-    if (!html) html = "<p>Brak wystąpień @patrol w zaznaczonych pozycjach.</p>";
+    if (!html) html = "<p>Brak wystąpień @patrol.</p>";
 
     list.innerHTML = html;
     document.getElementById("patrolAssignModal").style.display = "flex";
@@ -1193,7 +1181,6 @@ function togglePatrolOccurrence(key, occ, patrolIndex, evt) {
         if (pos > -1) arr.splice(pos, 1);
         else arr.push(patrolIndex);
     } else {
-        // zwykły klik = TYLKO ten jeden patrol
         if (pos > -1 && arr.length === 1) {
             patrolAssignments[key][occ] = [];
         } else {
@@ -1237,13 +1224,13 @@ function confirmPatrolAssignments() {
         const opened = openWybraniModal();
         if (!opened) {
             selectedWybrani = [];
-            updateLiveEntryWithAssignments();
+            updateLiveEntry();
         }
         return;
     }
 
-    updateLiveEntryWithAssignments();
-    showToast("✅ Wpis wygenerowany z przypisanymi patrolami");
+    updateLiveEntry();
+    showToast("✅ Wpis wygenerowany");
 }
 
 // =====================================
@@ -1260,7 +1247,7 @@ function ensureWybraniModal() {
         <div class="modal" style="max-width:640px;">
             <h2>Wybierz osoby ze składu patrolu</h2>
             <p style="margin-bottom:15px; color:#94a3b8; font-size:14px;">
-                Zaznacz osoby dla znacznika <strong>@wybrani</strong>.
+                Zaznacz osoby dla <strong>@wybrani</strong>.
             </p>
             <div id="wybraniList" class="card-grid" style="max-height:50vh; overflow:auto;"></div>
             <div class="modal-actions">
@@ -1324,12 +1311,7 @@ function confirmWybrani() {
         return;
     }
     closeWybraniModal();
-
-    if (Object.keys(patrolAssignments).length > 0) {
-        updateLiveEntryWithAssignments();
-    } else {
-        updateLiveEntry();
-    }
+    updateLiveEntry();
     showToast("✅ Wpis wygenerowany z wybranymi osobami");
 }
 
@@ -1338,6 +1320,7 @@ function confirmWybrani() {
 // =====================================
 
 function generateEntry() {
+    // zawsze najpierw sekwencja; modal tylko gdy 2+ patrole i user chce zmienić
     if (needsPatrolAssignmentModal()) {
         openPatrolAssignModal();
         return;
