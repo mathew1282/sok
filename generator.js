@@ -2,8 +2,8 @@
 // GENERATOR WPISÓW
 // + 3 poziomy kafelków (linia → opis krótki → opis pom)
 // + UWAGI (TAK / NIE) + @wybrani
-// + logowanie sprawdzeń (Polecenia) + interwencji (Uwagi)
-// + modal: każde @patrol osobno (domyślnie kolejne patrole)
+// + logowanie sprawdzeń + interwencji
+// + modal: każde @patrol osobno
 // =====================================
 
 let selectedPatrols = [];
@@ -17,7 +17,7 @@ let selectedWybrani = [];
 let uwagiWybrane = "NIE";
 let selectedUwagiTyp = null;
 
-// { "zgl_12": [ [0], [1] ], "pol_3": [ [0,1] ] }
+// { "zgl_12": [ [0], [1] ], "pol_3": [ [1] ] }
 let patrolAssignments = {};
 
 const defaultUwagiSzablony = {
@@ -44,7 +44,6 @@ function uniqueNonEmpty(arr) {
     return [...new Set((arr || []).map(x => String(x || "").trim()).filter(x => x.length > 0))];
 }
 
-/** Unikalne indeksy numeryczne — 0 jest prawidłowy */
 function uniqueIndexes(arr) {
     const out = [];
     const seen = new Set();
@@ -613,7 +612,7 @@ async function confirmLogSprawdzen() {
 }
 
 // =====================================
-// UWAGI (TAK / NIE)
+// UWAGI
 // =====================================
 
 function ensureUwagiState() {
@@ -712,7 +711,7 @@ function ensureUwagiSzablonyModal() {
         <div class="modal" style="max-width:800px;">
             <h2>Szablony uwag</h2>
             <p style="color:#94a3b8; font-size:14px; margin-bottom:15px;">
-                Edytuj szablony. Możesz używać znaczników:<br>
+                Edytuj szablony. Znaczniki:<br>
                 @patrol, @sklad, @dowodca, @kierowca, @wszyscy, @KZ, @MKK, @data, @godzina, @wybrani, @wot, @policjant
             </p>
             <label>MKK</label>
@@ -905,7 +904,7 @@ function confirmWybraniUwagi() {
 }
 
 // =====================================
-// GENEROWANIE + PRZYPISANIA @patrol
+// GENEROWANIE + @patrol
 // =====================================
 
 function getSkladFromSelectedPatrols() {
@@ -991,8 +990,9 @@ function applyTags(text, replacements) {
     return out.replace(/\n+/g, " ").trim();
 }
 
+/** Każde @patrol osobno — BEZ fallbacku do wszystkich patroli */
 function applyTextWithPatrolOccurrences(text, occurrenceList) {
-    const list = occurrenceList || [];
+    const list = Array.isArray(occurrenceList) ? occurrenceList : [];
     const raw = String(text || "");
     const matches = [...raw.matchAll(/@patrol\b/gi)];
 
@@ -1007,16 +1007,18 @@ function applyTextWithPatrolOccurrences(text, occurrenceList) {
     matches.forEach((m, occ) => {
         out += raw.slice(last, m.index);
 
-        let idxs = uniqueIndexes(list[occ]);
-        if (!idxs.length) idxs = uniqueIndexes(selectedPatrols);
+        const idxs = uniqueIndexes(list[occ]);
+        if (idxs.length) {
+            idxs.forEach(i => usedIndexes.push(i));
+            out += forceOneLine(uniqueNonEmpty(idxs.map(i => getPatrolName(i)))) || "";
+        }
+        // brak wyboru → pusty string (nie wstawiaj wszystkich)
 
-        idxs.forEach(i => usedIndexes.push(i));
-        out += forceOneLine(uniqueNonEmpty(idxs.map(i => getPatrolName(i)))) || "";
         last = m.index + m[0].length;
     });
     out += raw.slice(last);
 
-    const uniqueUsed = uniqueIndexes(usedIndexes.length ? usedIndexes : selectedPatrols);
+    const uniqueUsed = uniqueIndexes(usedIndexes);
     const replacements = buildReplacementsForPatrols(uniqueUsed);
     delete replacements["@patrol"];
 
@@ -1033,7 +1035,15 @@ function updateLiveEntry() {
 
     const replacements = buildReplacements();
     const replacementsForApply = { ...replacements };
-    if (needsWybraniHint) replacementsForApply["@wybrani"] = hintPlain;
+
+    // przy 2+ patrolach nie zlewaj wszystkich nazw w @patrol
+    if (selectedPatrols.length > 1) {
+        replacementsForApply["@patrol"] = "…";
+    }
+
+    if (needsWybraniHint) {
+        replacementsForApply["@wybrani"] = hintPlain;
+    }
 
     const zgloszeniaParts = selectedZgloszeniaIndexes
         .map(i => appState.zgloszenia?.rows?.[i]?.Opis)
@@ -1082,7 +1092,7 @@ function updateLiveEntryWithAssignments() {
 }
 
 // =====================================
-// MODAL PRZYPISANIA PATROLI (per @patrol)
+// MODAL @patrol
 // =====================================
 
 function ensurePatrolAssignModal() {
@@ -1096,9 +1106,9 @@ function ensurePatrolAssignModal() {
         <div class="modal" style="max-width:780px;">
             <h2>Przypisz patrole do @patrol</h2>
             <p style="color:#94a3b8; font-size:14px; margin-bottom:15px;">
-                Przy każdym <strong>@patrol</strong> wybierz patrol kafelkiem.
-                Klik = jeden patrol. <strong>Shift+klik</strong> = kilka naraz.
-                Domyślnie: 1. @patrol → 1. patrol, 2. @patrol → 2. patrol itd.
+                Przy każdym <strong>@patrol</strong> wybierz <em>jeden</em> patrol (klik).
+                <strong>Shift+klik</strong> = kilka naraz.
+                Domyślnie: 1.→pierwszy patrol, 2.→drugi itd.
             </p>
             <div id="patrolAssignList" style="max-height:55vh; overflow:auto;"></div>
             <div class="modal-actions">
@@ -1137,7 +1147,6 @@ function openPatrolAssignModal() {
             `;
 
             for (let occ = 0; occ < count; occ++) {
-                // KOLEJNE patrole: 1.→pierwszy, 2.→drugi, 3.→trzeci (cyklicznie)
                 patrolAssignments[key][occ] = selectedPatrols.length
                     ? [selectedPatrols[occ % selectedPatrols.length]]
                     : [];
@@ -1181,13 +1190,11 @@ function togglePatrolOccurrence(key, occ, patrolIndex, evt) {
     const pos = arr.indexOf(patrolIndex);
 
     if (shift) {
-        // Shift: dokładanie / odznaczanie
         if (pos > -1) arr.splice(pos, 1);
         else arr.push(patrolIndex);
     } else {
-        // Zwykły klik: ustaw TYLKO ten patrol
+        // zwykły klik = TYLKO ten jeden patrol
         if (pos > -1 && arr.length === 1) {
-            // klik w jedyny aktywny → odznacz
             patrolAssignments[key][occ] = [];
         } else {
             patrolAssignments[key][occ] = [patrolIndex];
@@ -1221,6 +1228,9 @@ function confirmPatrolAssignments() {
         }
     }
 
+    patrolAssignments = JSON.parse(JSON.stringify(patrolAssignments));
+    console.log("PRZYPISANIA @patrol:", patrolAssignments);
+
     closePatrolAssignModal();
 
     if (hasWybraniTag()) {
@@ -1250,7 +1260,7 @@ function ensureWybraniModal() {
         <div class="modal" style="max-width:640px;">
             <h2>Wybierz osoby ze składu patrolu</h2>
             <p style="margin-bottom:15px; color:#94a3b8; font-size:14px;">
-                Zaznacz kliknięciem osoby, które mają pojawić się w miejscu znacznika <strong>@wybrani</strong>.
+                Zaznacz osoby dla znacznika <strong>@wybrani</strong>.
             </p>
             <div id="wybraniList" class="card-grid" style="max-height:50vh; overflow:auto;"></div>
             <div class="modal-actions">
