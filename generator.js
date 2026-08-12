@@ -3,7 +3,7 @@
 // + 3 poziomy kafelków (linia → opis krótki → opis pom)
 // + UWAGI (TAK / NIE) + @wybrani
 // + logowanie sprawdzeń (Polecenia) + interwencji (Uwagi)
-// + modal przypisania patroli przy każdym @patrol
+// + modal: każde @patrol osobno (domyślnie kolejne patrole)
 // =====================================
 
 let selectedPatrols = [];
@@ -17,7 +17,7 @@ let selectedWybrani = [];
 let uwagiWybrane = "NIE";
 let selectedUwagiTyp = null;
 
-// { "zgl_12": [ [0], [1] ], "pol_3": [ [0,1] ] }  — tablica per wystąpienie @patrol
+// { "zgl_12": [ [0], [1] ], "pol_3": [ [0,1] ] }
 let patrolAssignments = {};
 
 const defaultUwagiSzablony = {
@@ -44,7 +44,7 @@ function uniqueNonEmpty(arr) {
     return [...new Set((arr || []).map(x => String(x || "").trim()).filter(x => x.length > 0))];
 }
 
-/** Unikalne indeksy numeryczne (0 jest prawidłowy!) */
+/** Unikalne indeksy numeryczne — 0 jest prawidłowy */
 function uniqueIndexes(arr) {
     const out = [];
     const seen = new Set();
@@ -991,7 +991,6 @@ function applyTags(text, replacements) {
     return out.replace(/\n+/g, " ").trim();
 }
 
-/** Każde @patrol osobno z occurrenceList; reszta tagów z unii użytych patroli */
 function applyTextWithPatrolOccurrences(text, occurrenceList) {
     const list = occurrenceList || [];
     const raw = String(text || "");
@@ -1012,9 +1011,7 @@ function applyTextWithPatrolOccurrences(text, occurrenceList) {
         if (!idxs.length) idxs = uniqueIndexes(selectedPatrols);
 
         idxs.forEach(i => usedIndexes.push(i));
-
-        const names = idxs.map(i => getPatrolName(i));
-        out += forceOneLine(uniqueNonEmpty(names)) || "";
+        out += forceOneLine(uniqueNonEmpty(idxs.map(i => getPatrolName(i)))) || "";
         last = m.index + m[0].length;
     });
     out += raw.slice(last);
@@ -1065,8 +1062,7 @@ function updateLiveEntryWithAssignments() {
     selectedZgloszeniaIndexes.forEach(i => {
         const t = appState.zgloszenia?.rows?.[i]?.Opis;
         if (!t) return;
-        const key = `zgl_${i}`;
-        let text = applyTextWithPatrolOccurrences(t, patrolAssignments[key]);
+        let text = applyTextWithPatrolOccurrences(t, patrolAssignments[`zgl_${i}`]);
         if (needsWybraniHint) text = text.replace(/@wybrani/gi, hintPlain);
         else if (selectedWybrani.length > 0) text = text.replace(/@wybrani/gi, forceOneLine(uniqueNonEmpty(selectedWybrani)));
         parts.push(text);
@@ -1075,8 +1071,7 @@ function updateLiveEntryWithAssignments() {
     selectedPoleceniaIndexes.forEach(i => {
         const t = appState.polecenia?.rows?.[i]?.Opis;
         if (!t) return;
-        const key = `pol_${i}`;
-        let text = applyTextWithPatrolOccurrences(t, patrolAssignments[key]);
+        let text = applyTextWithPatrolOccurrences(t, patrolAssignments[`pol_${i}`]);
         if (needsWybraniHint) text = text.replace(/@wybrani/gi, hintPlain);
         else if (selectedWybrani.length > 0) text = text.replace(/@wybrani/gi, forceOneLine(uniqueNonEmpty(selectedWybrani)));
         parts.push(text);
@@ -1101,8 +1096,9 @@ function ensurePatrolAssignModal() {
         <div class="modal" style="max-width:780px;">
             <h2>Przypisz patrole do @patrol</h2>
             <p style="color:#94a3b8; font-size:14px; margin-bottom:15px;">
-                Przy każdym wystąpieniu <strong>@patrol</strong> wybierz kafelkami, który patrol (lub które) ma się wstawić.
-                Skład, dowódca i kierowca dobierą się automatycznie z wybranych patroli.
+                Przy każdym <strong>@patrol</strong> wybierz patrol kafelkiem.
+                Klik = jeden patrol. <strong>Shift+klik</strong> = kilka naraz.
+                Domyślnie: 1. @patrol → 1. patrol, 2. @patrol → 2. patrol itd.
             </p>
             <div id="patrolAssignList" style="max-height:55vh; overflow:auto;"></div>
             <div class="modal-actions">
@@ -1141,8 +1137,10 @@ function openPatrolAssignModal() {
             `;
 
             for (let occ = 0; occ < count; occ++) {
-                // domyślnie: pierwszy zaznaczony patrol (można zmienić)
-                patrolAssignments[key][occ] = selectedPatrols.length ? [selectedPatrols[0]] : [];
+                // KOLEJNE patrole: 1.→pierwszy, 2.→drugi, 3.→trzeci (cyklicznie)
+                patrolAssignments[key][occ] = selectedPatrols.length
+                    ? [selectedPatrols[occ % selectedPatrols.length]]
+                    : [];
                 globalOcc++;
                 const rowId = `assign_${key}_${occ}`;
 
@@ -1153,7 +1151,7 @@ function openPatrolAssignModal() {
                         ${selectedPatrols.map(pIdx => {
                             const name = getPatrolName(pIdx);
                             const active = (patrolAssignments[key][occ] || []).includes(pIdx) ? "active" : "";
-                            return `<div class="line-pill ${active}" onclick="togglePatrolOccurrence('${key}', ${occ}, ${pIdx})">${escapeHtml(name)}</div>`;
+                            return `<div class="line-pill ${active}" data-pidx="${pIdx}" onclick="togglePatrolOccurrence('${key}', ${occ}, ${pIdx}, event)">${escapeHtml(name)}</div>`;
                         }).join("")}
                     </div>
                 </div>`;
@@ -1172,23 +1170,37 @@ function openPatrolAssignModal() {
     document.getElementById("patrolAssignModal").style.display = "flex";
 }
 
-function togglePatrolOccurrence(key, occ, patrolIndex) {
+function togglePatrolOccurrence(key, occ, patrolIndex, evt) {
     if (!patrolAssignments[key]) patrolAssignments[key] = [];
     if (!Array.isArray(patrolAssignments[key][occ])) {
         patrolAssignments[key][occ] = [];
     }
 
+    const shift = !!(evt && evt.shiftKey);
     const arr = patrolAssignments[key][occ];
     const pos = arr.indexOf(patrolIndex);
-    if (pos > -1) arr.splice(pos, 1);
-    else arr.push(patrolIndex);
+
+    if (shift) {
+        // Shift: dokładanie / odznaczanie
+        if (pos > -1) arr.splice(pos, 1);
+        else arr.push(patrolIndex);
+    } else {
+        // Zwykły klik: ustaw TYLKO ten patrol
+        if (pos > -1 && arr.length === 1) {
+            // klik w jedyny aktywny → odznacz
+            patrolAssignments[key][occ] = [];
+        } else {
+            patrolAssignments[key][occ] = [patrolIndex];
+        }
+    }
 
     const container = document.getElementById(`assign_${key}_${occ}`);
     if (!container) return;
 
-    container.querySelectorAll(".line-pill").forEach((el, i) => {
-        const pIdx = selectedPatrols[i];
-        if (arr.includes(pIdx)) el.classList.add("active");
+    const current = patrolAssignments[key][occ] || [];
+    container.querySelectorAll(".line-pill").forEach(el => {
+        const pIdx = Number(el.getAttribute("data-pidx"));
+        if (current.includes(pIdx)) el.classList.add("active");
         else el.classList.remove("active");
     });
 }
