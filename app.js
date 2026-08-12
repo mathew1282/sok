@@ -89,10 +89,6 @@ const pages = {
                 <div class="generator-title" style="margin-bottom:0; margin-left:8px;">Uwagi</div>
                 <div id="uwagiNie" class="line-pill active" onclick="setUwagi('NIE')">NIE</div>
                 <div id="uwagiTak" class="line-pill" onclick="setUwagi('TAK')">TAK</div>
-
-                <button class="btn-success" onclick="generateEntry()">Generuj wpis</button>
-                <button class="btn-primary" onclick="copyEntry()">Kopiuj</button>
-                <button class="btn-danger" onclick="clearEntry()">Wyczyść / odznacz wszystko</button>
             </div>
         </div>
 
