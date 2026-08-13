@@ -44,9 +44,27 @@ async function logSprawdzenie(payload) {
     await saveState();
 }
 
-function filterToday(arr) {
-    const d = todayPL();
-    return (arr || []).filter(x => x.data === d);
+/** Sortowanie: najnowsze na górze (po dacie + godzinie) */
+function sortStatNewestFirst(arr) {
+    return [...(arr || [])].sort((a, b) => {
+        const da = String(a.data || "");
+        const db = String(b.data || "");
+        if (da !== db) {
+            // data w formacie pl-PL: dd.mm.rrrr
+            const pa = da.split(".").map(Number);
+            const pb = db.split(".").map(Number);
+            if (pa.length === 3 && pb.length === 3) {
+                const ta = new Date(pa[2], pa[1] - 1, pa[0]).getTime();
+                const tb = new Date(pb[2], pb[1] - 1, pb[0]).getTime();
+                if (ta !== tb) return tb - ta;
+            } else {
+                return db.localeCompare(da, "pl");
+            }
+        }
+        const ga = String(a.godzOd || a.godzina || "");
+        const gb = String(b.godzOd || b.godzina || "");
+        return gb.localeCompare(ga, "pl");
+    });
 }
 
 function initStatystyki() {
@@ -59,8 +77,9 @@ function renderStatystyki() {
     if (!container) return;
     ensureStatystykiState();
 
-    const interwencje = filterToday(appState.statystyki.interwencje);
-    const sprawdzenia = filterToday(appState.statystyki.sprawdzenia);
+    // WSZYSTKIE wpisy – bez filtrowania po dniu
+    const interwencje = sortStatNewestFirst(appState.statystyki.interwencje);
+    const sprawdzenia = sortStatNewestFirst(appState.statystyki.sprawdzenia);
 
     const counts = { MKK: 0, Pouczony: 0, Legitymowany: 0, Inne: 0 };
     interwencje.forEach(i => {
@@ -75,16 +94,17 @@ function renderStatystyki() {
 
     let html = `
     <div class="card">
-        <div style="display:flex; justify-content:space-between; alignpx; flex-wrap:wrap; margin-bottom:8px;">
-            <h2 style="margin:0;">Statystyki – ${escapeHtml(todayPL())}</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:8px;">
+            <h2 style="margin:0;">Statystyki</h2>
             <button class="btn-danger" onclick="clearAllStatystyki()">Kasuj wszystkie statystyki</button>
         </div>
         <p style="color:#94a3b8; font-size:14px; margin-bottom:16px;">
-            Widok z dzisiejszego dnia. Bez ręcznego kasowania dane zbierają się dalej w tle.
+            Pokazywane są <strong>wszystkie</strong> zapisane wpisy (ze wszystkich dni).
+            Usuwają się dopiero po kliknięciu „Kasuj wszystkie” albo pojedynczego „Usuń”.
         </p>
 
         <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-bottom:20px; font-size:16px;">
-            <span><strong>Interwencje:</strong></span>
+            <span><strong>Interwencje (łącznie):</strong></span>
             <span><strong>MKK:</strong> ${counts.MKK}</span>
             <span><strong>Pouczony:</strong> ${counts.Pouczony}</span>
             <span><strong>Legitymowany:</strong> ${counts.Legitymowany}</span>
@@ -231,7 +251,8 @@ function copyText(text) {
 
 function copySzlaki() {
     ensureStatystykiState();
-    const szlaki = filterToday(appState.statystyki.sprawdzenia).filter(s => s.rodzaj === "Szlak");
+    const szlaki = sortStatNewestFirst(appState.statystyki.sprawdzenia)
+        .filter(s => s.rodzaj === "Szlak");
     if (szlaki.length === 0) {
         if (typeof showToast === "function") showToast("Brak wierszy do skopiowania");
         else alert("Brak wierszy do skopiowania");
@@ -350,15 +371,15 @@ async function clearAllStatystyki() {
     appState.statystyki.sprawdzenia = [];
     await saveState();
     renderStatystyki();
-    if (typeof showToast === "function") showToast("✅ Statystyki wyczyszczone");
+    if (typeof showToast === "function") showToast("🗑️ Statystyki wyczyszczone");
 }
 
 window.initStatystyki = initStatystyki;
 window.logInterwencja = logInterwencja;
 window.logSprawdzenie = logSprawdzenie;
-window.copySzlaki = copySzlaki;
 window.editSprawdzenie = editSprawdzenie;
-window.closeEditSprawdzenieModal = closeEditSprawdzenieModal;
 window.saveEditSprawdzenie = saveEditSprawdzenie;
+window.closeEditSprawdzenieModal = closeEditSprawdzenieModal;
 window.removeSprawdzenie = removeSprawdzenie;
+window.copySzlaki = copySzlaki;
 window.clearAllStatystyki = clearAllStatystyki;
