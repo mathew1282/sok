@@ -3,7 +3,7 @@
 // + 3 poziomy kafelków
 // + UWAGI + @wybrani
 // + logowanie sprawdzeń
-// + tagi patrolowe SEKWENCYJNIE (1.→patrol1, 2.→patrol2)
+// + tagi patrolowe SEKWENCYJNIE (1.→patrol1, 2.→patrol2, 3.→patrol3)
 // =====================================
 
 let selectedPatrols = [];
@@ -17,7 +17,7 @@ let selectedWybrani = [];
 let uwagiWybrane = "NIE";
 let selectedUwagiTyp = null;
 
-// { "zgl_12": [ [0], [1] ] } — nadpisuje domyślną sekwencję
+// { "zgl_12": [ [0], [1], [2] ] }
 let patrolAssignments = {};
 
 const defaultUwagiSzablony = {
@@ -26,6 +26,16 @@ const defaultUwagiSzablony = {
     "Legitymowany": "Dokonywano legitymowania osób. Sprawdzono tożsamość.",
     "Inne": ""
 };
+
+const SEQUENTIAL_PATROL_TAGS = [
+    "@patrol",
+    "@sklad",
+    "@dowodca",
+    "@kierowca",
+    "@wszyscy",
+    "@wot",
+    "@policjant"
+];
 
 // =====================================
 // POMOCNICZE
@@ -113,9 +123,14 @@ function nowHHMMSafe() {
     return new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
 }
 
-function countPatrolTags(text) {
-    const m = String(text || "").match(/@patrol\b/gi);
+function countTagOccurrences(text, tag) {
+    const safe = String(tag).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const m = String(text || "").match(new RegExp(safe + "\\b", "gi"));
     return m ? m.length : 0;
+}
+
+function countPatrolTags(text) {
+    return countTagOccurrences(text, "@patrol");
 }
 
 function hasAnyPatrolTagInSelection() {
@@ -138,22 +153,43 @@ function getPatrolName(index) {
     return (p && p.nazwa) ? p.nazwa : ("Patrol " + (index + 1));
 }
 
-/** 1. slot → 1. zaznaczony patrol, 2. → 2. itd. */
+/** Tyle slotów, ile max wystąpień dowolnego tagu patrolowego */
 function buildSequentialOccurrenceList(text) {
-    const count = countPatrolTags(text);
+    const raw = String(text || "");
+    let n = 0;
+    SEQUENTIAL_PATROL_TAGS.forEach(t => {
+        n = Math.max(n, countTagOccurrences(raw, t));
+    });
+
     const list = [];
-    for (let occ = 0; occ < count; occ++) {
+    for (let i = 0; i < n; i++) {
         if (!selectedPatrols.length) list.push([]);
-        else list.push([selectedPatrols[occ % selectedPatrols.length]]);
+        else list.push([selectedPatrols[i % selectedPatrols.length]]);
     }
     return list;
 }
 
 function getOccurrenceListForKey(key, text) {
     if (patrolAssignments[key] && patrolAssignments[key].length) {
-        return patrolAssignments[key];
+        const base = patrolAssignments[key];
+        const need = Math.max(base.length, buildSequentialOccurrenceList(text).length);
+        const out = [];
+        for (let i = 0; i < need; i++) {
+            if (base[i] && base[i].length) out.push([...base[i]]);
+            else if (selectedPatrols.length) out.push([selectedPatrols[i % selectedPatrols.length]]);
+            else out.push([]);
+        }
+        return out;
     }
     return buildSequentialOccurrenceList(text);
+}
+
+function resolvePatrolIndexesForSlot(list, slot) {
+    let idxs = uniqueIndexes(list && list[slot]);
+    if (!idxs.length && selectedPatrols.length) {
+        idxs = [selectedPatrols[slot % selectedPatrols.length]];
+    }
+    return idxs;
 }
 
 // =====================================
@@ -1003,51 +1039,40 @@ function applyTags(text, replacements) {
     for (let pass = 0; pass < 2; pass++) {
         Object.entries(replacements).forEach(([tag, value]) => {
             const safe = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            out = out.replace(new RegExp(safe, "gi"), value || "");
+            out = out.replace(new RegExp(safe + "\\b", "gi"), value || "");
         });
     }
     return out.replace(/\n+/g, " ").trim();
 }
 
 /**
- * Każde wystąpienie tagu osobno według slotu:
- * 1. @patrol / @sklad / @dowodca / … → patrol 1
- * 2. @patrol / @sklad / @dowodca / … → patrol 2
+ * Każdy tag osobno:
+ * 1. @patrol/@sklad/@dowodca… → patrol 1
+ * 2. → patrol 2
+ * 3. → patrol 3
  */
 function applyTextWithPatrolOccurrences(text, occurrenceList) {
-    const list = Array.isArray(occurrenceList) ? occurrenceList : [];
+    const list = Array.isArray(occurrenceList) && occurrenceList.length
+        ? occurrenceList
+        : buildSequentialOccurrenceList(text);
+
     let out = String(text || "");
 
-    const sequentialTags = [
-        "@patrol",
-        "@sklad",
-        "@dowodca",
-        "@kierowca",
-        "@wszyscy",
-        "@wot",
-        "@policjant"
-    ];
-
-    sequentialTags.forEach(tag => {
+    SEQUENTIAL_PATROL_TAGS.forEach(tag => {
         const safe = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const re = new RegExp(safe, "gi");
+        const re = new RegExp(safe + "\\b", "gi");
         let occ = 0;
 
         out = out.replace(re, () => {
-            let idxs = uniqueIndexes(list[occ]);
-            if (!idxs.length && selectedPatrols.length) {
-                idxs = [selectedPatrols[occ % selectedPatrols.length]];
-            }
+            const idxs = resolvePatrolIndexesForSlot(list, occ);
             occ++;
             const rep = buildReplacementsForPatrols(idxs);
             return rep[tag] || "";
         });
     });
 
-    // globalne: @data, @godzina, @KZ, @MKK, @wybrani
     const globalRep = buildReplacementsForPatrols(selectedPatrols);
-    sequentialTags.forEach(t => { delete globalRep[t]; });
-
+    SEQUENTIAL_PATROL_TAGS.forEach(t => { delete globalRep[t]; });
     out = applyTags(out, globalRep);
     return out;
 }
@@ -1101,7 +1126,7 @@ function ensurePatrolAssignModal() {
         <div class="modal" style="max-width:780px;">
             <h2>Przypisz patrole do @patrol</h2>
             <p style="color:#94a3b8; font-size:14px; margin-bottom:15px;">
-                Domyślnie: 1. @patrol = 1. patrol (i jego skład/dowódca…), 2. = 2. patrol.
+                Domyślnie: 1. = 1. patrol, 2. = 2. patrol, 3. = 3. patrol (ze swoim składem/dowódcą).
                 Klik = jeden patrol. Shift+klik = kilka.
             </p>
             <div id="patrolAssignList" style="max-height:55vh; overflow:auto;"></div>
@@ -1131,7 +1156,13 @@ function openPatrolAssignModal() {
             if (count === 0) return;
 
             const key = `${prefix}_${i}`;
-            patrolAssignments[key] = buildSequentialOccurrenceList(text);
+            // sloty wg @patrol (nazwy); skład dobierze się po tym samym indeksie wystąpienia
+            patrolAssignments[key] = [];
+            for (let occ = 0; occ < count; occ++) {
+                patrolAssignments[key][occ] = selectedPatrols.length
+                    ? [selectedPatrols[occ % selectedPatrols.length]]
+                    : [];
+            }
 
             const short = (row.OpisKrotki || row.OpisPom || text).substring(0, 90);
             html += `
