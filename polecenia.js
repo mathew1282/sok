@@ -204,8 +204,6 @@ function renderPolecenia() {
                 <button type="button" class="btn-primary" onclick="insertPolecenieTag('@kierowca')">@kierowca</button>
                 <button type="button" class="btn-primary" onclick="insertPolecenieTag('@sklad')">@sklad</button>
                 <button type="button" class="btn-primary" onclick="insertPolecenieTag('@wszyscy')">@wszyscy</button>
-                <button type="button" class="btn-primary" onclick="insertPolecenieTag('@zgloszenia')">@zgloszenia</button>
-                <button type="button" class="btn-primary" onclick="insertPolecenieTag('@polecenia')">@polecenia</button>
                 <button type="button" class="btn-primary" onclick="insertPolecenieTag('@KZ')">@KZ</button>
                 <button type="button" class="btn-primary" onclick="insertPolecenieTag('@MKK')">@MKK</button>
                 <button type="button" class="btn-primary" onclick="insertPolecenieTag('@data')">@data</button>
