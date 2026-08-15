@@ -253,6 +253,7 @@ function renderKsiazka() {
     <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
             <h2 style="margin:0;">📖 Książka wydarzeń</h2>
+            <button class="btn-primary" onclick="openPlanSluzbyModal()" style="margin-right:8px;">📅 Służba dzienna – szablon</button>
             <button class="btn-danger" onclick="clearAllKsiazka()">Kasuj wszystkie</button>
         </div>
 
@@ -400,3 +401,196 @@ window.oznaczZrobione = oznaczZrobione;
 window.odznaczZrobione = odznaczZrobione;
 window.usunWpisKsiazki = usunWpisKsiazki;
 window.clearAllKsiazka = clearAllKsiazka;
+
+
+
+// =====================================
+// PLANOWANIE SŁUŻBY DZIENNEJ
+// =====================================
+
+function openPlanSluzbyModal() {
+    const old = document.getElementById("planSluzbyModal");
+    if (old) old.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "planSluzbyModal";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "flex";
+
+    const patrolOptions = (appState.patrole || []).map((p, i) =>
+        `<label style="display:flex;align-items:center;gap:6px;margin-right:12px;cursor:pointer;">
+            <input type="checkbox" class="plan-patrol-cb" value="${i}" checked>
+            ${escapeHtml(p.nazwa || ("Patrol " + (i + 1)))}
+        </label>`
+    ).join("") || "<span style='color:#94a3b8;'>Brak patroli – dodaj je w zakładce Patrole</span>";
+
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:520px;">
+            <h2 style="margin-top:0;">📅 Służba dzienna – szablon</h2>
+            <p style="color:#94a3b8; font-size:14px; margin-bottom:16px;">
+                Ustaw godziny. Program utworzy punkty dnia w Książce wydarzeń.
+            </p>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                <div>
+                    <label>Przyjęcie służby</label>
+                    <input type="time" id="planPrzyjecie" value="06:00" style="width:100%;">
+                </div>
+                <div>
+                    <label>Odprawa</label>
+                    <input type="time" id="planOdprawa" value="07:00" style="width:100%;">
+                </div>
+                <div>
+                    <label>Rozdysponowanie patroli</label>
+                    <input type="time" id="planRozdysponowanie" value="07:30" style="width:100%;">
+                </div>
+                <div>
+                    <label>Pierwsze zgłoszenie</label>
+                    <input type="time" id="planPierwszeZgl" value="08:00" style="width:100%;">
+                </div>
+                <div>
+                    <label>Interwał zgłoszeń (min)</label>
+                    <input type="number" id="planInterwal" value="60" min="15" max="180" step="15" style="width:100%;">
+                </div>
+                <div>
+                    <label>Zdanie służby</label>
+                    <input type="time" id="planZdanie" value="18:00" style="width:100%;">
+                </div>
+            </div>
+
+            <div style="margin-bottom:16px;">
+                <label style="margin-bottom:8px;display:block;">Patrole do planu:</label>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                    ${patrolOptions}
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-success" onclick="confirmPlanSluzby()">Utwórz plan dnia</button>
+                <button class="btn-danger" onclick="closePlanSluzbyModal()">Anuluj</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function closePlanSluzbyModal() {
+    const m = document.getElementById("planSluzbyModal");
+    if (m) m.remove();
+}
+
+function timeToMinutes(hhmm) {
+    const p = parseHHMM(hhmm);
+    if (!p) return 0;
+    return p.getHours() * 60 + p.getMinutes();
+}
+
+function minutesToHHMM(mins) {
+    const h = Math.floor(mins / 60) % 24;
+    const m = mins % 60;
+    return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+}
+
+async function confirmPlanSluzby() {
+    ensureKsiazkaState();
+
+    const przyjecie = document.getElementById("planPrzyjecie")?.value || "06:00";
+    const odprawa = document.getElementById("planOdprawa")?.value || "07:00";
+    const rozdysp = document.getElementById("planRozdysponowanie")?.value || "07:30";
+    const pierwsze = document.getElementById("planPierwszeZgl")?.value || "08:00";
+    const interwal = parseInt(document.getElementById("planInterwal")?.value || "60", 10) || 60;
+    const zdanie = document.getElementById("planZdanie")?.value || "18:00";
+
+    const patrolIndexes = [];
+    document.querySelectorAll(".plan-patrol-cb:checked").forEach(cb => {
+        patrolIndexes.push(parseInt(cb.value, 10));
+    });
+
+    const punkty = [];
+
+    punkty.push({
+        godzinaStart: przyjecie,
+        godzinaPlanowana: odprawa,
+        tekst: "Przyjęcie służby",
+        patrole: []
+    });
+    punkty.push({
+        godzinaStart: odprawa,
+        godzinaPlanowana: rozdysp,
+        tekst: "Odprawa",
+        patrole: []
+    });
+    punkty.push({
+        godzinaStart: rozdysp,
+        godzinaPlanowana: pierwsze,
+        tekst: "Rozdysponowanie patroli",
+        patrole: [...patrolIndexes]
+    });
+
+    let cur = timeToMinutes(pierwsze);
+    const koniec = timeToMinutes(zdanie);
+
+    while (cur < koniec) {
+        const startHH = minutesToHHMM(cur);
+        const next = cur + interwal;
+        const planHH = minutesToHHMM(Math.min(next, koniec));
+
+        if (patrolIndexes.length === 0) {
+            punkty.push({
+                godzinaStart: startHH,
+                godzinaPlanowana: planHH,
+                tekst: "Zgłoszenie sytuacji / lokalizacji patroli",
+                patrole: []
+            });
+        } else {
+            patrolIndexes.forEach(idx => {
+                punkty.push({
+                    godzinaStart: startHH,
+                    godzinaPlanowana: planHH,
+                    tekst: "Zgłoszenie – " + getPatrolName(idx),
+                    patrole: [idx]
+                });
+            });
+        }
+        cur = next;
+    }
+
+    punkty.push({
+        godzinaStart: zdanie,
+        godzinaPlanowana: zdanie,
+        tekst: "Zdanie służby",
+        patrole: []
+    });
+
+    const data = todayPL();
+    punkty.forEach(p => {
+        appState.ksiazkaWydarzen.push({
+            id: Date.now() + Math.random().toString(36).slice(2),
+            data: data,
+            godzinaStart: p.godzinaStart,
+            godzinaPlanowana: p.godzinaPlanowana,
+            tekst: p.tekst,
+            patrole: p.patrole,
+            zrobione: false,
+            createdAt: new Date().toISOString(),
+            zPlanu: true
+        });
+    });
+
+    await saveState();
+    closePlanSluzbyModal();
+
+    if (typeof showToast === "function") {
+        showToast("✅ Utworzono plan dnia (" + punkty.length + " punktów)");
+    } else {
+        alert("Utworzono plan dnia: " + punkty.length + " punktów");
+    }
+
+    if (document.getElementById("ksiazkaContainer")) {
+        renderKsiazka();
+    }
+}
+
+window.openPlanSluzbyModal = openPlanSluzbyModal;
+window.closePlanSluzbyModal = closePlanSluzbyModal;
+window.confirmPlanSluzby = confirmPlanSluzby;
