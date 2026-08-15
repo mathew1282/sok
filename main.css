@@ -619,3 +619,25 @@ tr:hover{
 .btn-import:hover {
     background: #6d28d9;
 }
+
+/* ==========================
+   KAFELEK TRYBU @patrol
+========================== */
+
+#sequentialPatrolPill.sequential-pill-on {
+    background: #334155;
+    border-color: #475569;
+    color: #e2e8f0;
+}
+
+#sequentialPatrolPill.sequential-pill-on.active {
+    background: #334155;
+    border-color: #64748b;
+    color: #f8fafc;
+}
+
+#sequentialPatrolPill.sequential-pill-off {
+    background: #dc2626;
+    border-color: #ef4444;
+    color: #fff;
+}
