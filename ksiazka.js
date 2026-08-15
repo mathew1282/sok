@@ -1,689 +1,402 @@
+// =====================================
+// KSIĄŻKA WYDARZEŃ
+// =====================================
+
+function ensureKsiazkaState() {
+    if (!Array.isArray(appState.ksiazkaWydarzen)) {
+        appState.ksiazkaWydarzen = [];
+    }
+}
+
+function nowHHMM() {
+    return new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+}
+
+function todayPL() {
+    return new Date().toLocaleDateString("pl-PL");
+}
+
+function parseHHMM(str) {
+    const m = String(str || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return null;
+    const h = parseInt(m[1], 10);
+    const min = parseInt(m[2], 10);
+    if (h < 0 || h > 23 || min < 0 || min > 59) return null;
+    const d = new Date();
+    d.setHours(h, min, 0, 0);
+    return d;
+}
+
+function isOverdue(entry) {
+    if (entry.zrobione) return false;
+    if (!entry.godzinaPlanowana) return false;
+    const plan = parseHHMM(entry.godzinaPlanowana);
+    if (!plan) return false;
+    return new Date() > plan;
+}
+
+function getPatrolName(index) {
+    const p = appState.patrole?.[index];
+    return (p && p.nazwa) ? p.nazwa : ("Patrol " + (index + 1));
+}
+
+// =====================================
+// MODAL PO GENERUJ WPIS
+// =====================================
+
+function openKsiazkaSaveModal(tekst, patrolIndexes) {
+    ensureKsiazkaState();
+
+    const old = document.getElementById("ksiazkaSaveModal");
+    if (old) old.remove();
+
+    const now = nowHHMM();
+    const planDate = new Date();
+    planDate.setHours(planDate.getHours() + 1);
+    const planDefault = planDate.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+
+    const patrolNames = (patrolIndexes || []).map(i => getPatrolName(i)).join(", ") || "Brak patrolu";
+
+    const overlay = document.createElement("div");
+    overlay.id = "ksiazkaSaveModal";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "flex";
+
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:480px;">
+            <h2 style="margin-top:0;">Zapisz do Książki wydarzeń</h2>
+            <p style="color:#94a3b8; font-size:14px; margin-bottom:16px;">
+                Patrol: <strong>${escapeHtml(patrolNames)}</strong>
+            </p>
+
+            <div style="display:flex; gap:16px; margin-bottom:14px; flex-wrap:wrap;">
+                <div style="flex:1; min-width:140px;">
+                    <label>Godzina rozpoczęcia</label>
+                    <input type="time" id="ksiazkaGodzStart" value="${now}" style="width:100%;">
+                </div>
+                <div style="flex:1; min-width:140px;">
+                    <label>Planowane zakończenie / następne zgłoszenie</label>
+                    <input type="time" id="ksiazkaGodzPlan" value="${planDefault}" style="width:100%;">
+                </div>
+            </div>
+
+            <div style="margin-bottom:16px;">
+                <label>Podgląd wpisu</label>
+                <div style="background:#0f172a; border:1px solid #334155; border-radius:10px; padding:12px; max-height:160px; overflow:auto; font-size:13px; white-space:pre-wrap; color:#e2e8f0;">
+${escapeHtml(tekst)}
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-success" onclick="confirmSaveToKsiazka()">Zapisz</button>
+                <button class="btn-danger" onclick="closeKsiazkaSaveModal()">Anuluj</button>
+            </div>
+        </div>
+    `;
+
+    overlay._tekst = tekst;
+    overlay._patrolIndexes = patrolIndexes || [];
+
+    document.body.appendChild(overlay);
+}
+
+function closeKsiazkaSaveModal() {
+    const m = document.getElementById("ksiazkaSaveModal");
+    if (m) m.remove();
+}
+
+async function confirmSaveToKsiazka() {
+    const modal = document.getElementById("ksiazkaSaveModal");
+    if (!modal) return;
+
+    const tekst = modal._tekst || "";
+    const patrolIndexes = modal._patrolIndexes || [];
+    const godzStart = document.getElementById("ksiazkaGodzStart")?.value || nowHHMM();
+    const godzPlan = document.getElementById("ksiazkaGodzPlan")?.value || "";
+
+    ensureKsiazkaState();
+
+    appState.ksiazkaWydarzen.push({
+        id: Date.now() + Math.random().toString(36).slice(2),
+        data: todayPL(),
+        godzinaStart: godzStart,
+        godzinaPlanowana: godzPlan,
+        tekst: tekst,
+        patrole: [...patrolIndexes],
+        zrobione: false,
+        createdAt: new Date().toISOString()
+    });
+
+    await saveState();
+    closeKsiazkaSaveModal();
+
+    if (typeof showToast === "function") {
+        showToast("✅ Zapisano do Książki wydarzeń");
+    } else {
+        alert("Zapisano do Książki wydarzeń");
+    }
+
+    if (document.getElementById("ksiazkaContainer")) {
+        renderKsiazka();
+    }
+}
+
+// =====================================
+// PODPIĘCIE DO GENERATORA
+// =====================================
+
+function getGeneratedEntryPlain() {
+    const el = document.getElementById("generatedEntry");
+    if (!el) return "";
+    return (el.innerText || el.textContent || "").trim();
+}
+
+(function patchGenerateEntry() {
+    const original = window.generateEntry;
+
+    window.generateEntry = function () {
+        if (typeof original === "function") {
+            original.apply(this, arguments);
+        }
+
+        setTimeout(() => {
+            const tekst = getGeneratedEntryPlain();
+            if (!tekst) return;
+
+            const patrols = (typeof selectedPatrols !== "undefined" && Array.isArray(selectedPatrols))
+                ? [...selectedPatrols]
+                : [];
+
+            openKsiazkaSaveModal(tekst, patrols);
+        }, 150);
+    };
+})();
+
+// =====================================
+// RENDER KSIĄŻKI
+// =====================================
+
+let ksiazkaFilterPatrole = [];
+
 function initKsiazka() {
+    ensureKsiazkaState();
+    ksiazkaFilterPatrole = [];
+    renderKsiazka();
+
+    if (window._ksiazkaInterval) clearInterval(window._ksiazkaInterval);
+    window._ksiazkaInterval = setInterval(() => {
+        if (document.getElementById("ksiazkaContainer")) {
+            renderKsiazka();
+        }
+    }, 30000);
+}
+
+function toggleKsiazkaFilter(patrolIndex) {
+    const pos = ksiazkaFilterPatrole.indexOf(patrolIndex);
+    if (pos > -1) ksiazkaFilterPatrole.splice(pos, 1);
+    else ksiazkaFilterPatrole.push(patrolIndex);
+    renderKsiazka();
+}
+
+function clearKsiazkaFilter() {
+    ksiazkaFilterPatrole = [];
+    renderKsiazka();
+}
+
+function renderKsiazka() {
     const container = document.getElementById("ksiazkaContainer");
     if (!container) return;
+    ensureKsiazkaState();
 
-    // ===== UKRYCIE GŁÓWNEGO PASKA NAWIGACJI + TOPBAR =====
-    const mainSidebar = document.querySelector(".app > .sidebar");
-    const mainContent = document.querySelector(".main-content");
-    const topbar = document.querySelector(".topbar");
-    const contentSection = document.getElementById("content");
+    const allEntries = [...appState.ksiazkaWydarzen].reverse();
+    const patrole = appState.patrole || [];
 
-    if (mainSidebar && !mainSidebar.dataset.originalDisplay) {
-        mainSidebar.dataset.originalDisplay = mainSidebar.style.display || "";
-    }
-    if (topbar && !topbar.dataset.originalDisplay) {
-        topbar.dataset.originalDisplay = topbar.style.display || "";
+    let filtered = allEntries;
+    if (ksiazkaFilterPatrole.length > 0) {
+        filtered = allEntries.filter(e =>
+            (e.patrole || []).some(p => ksiazkaFilterPatrole.includes(p))
+        );
     }
 
-    // Ukryj główny pasek i topbar
-    if (mainSidebar) mainSidebar.style.display = "none";
-    if (topbar) topbar.style.display = "none";
+    let columns = [];
+    if (ksiazkaFilterPatrole.length > 0) {
+        columns = ksiazkaFilterPatrole.map(idx => ({
+            key: idx,
+            name: getPatrolName(idx),
+            entries: filtered.filter(e => (e.patrole || []).includes(idx))
+        }));
+    } else {
+        const usedIndexes = new Set();
+        filtered.forEach(e => (e.patrole || []).forEach(p => usedIndexes.add(p)));
 
-    // Rozszerz treść na całą szerokość i wysokość
-    if (mainContent) {
-        mainContent.style.marginLeft = "0";
-        mainContent.style.width = "100%";
-    }
-    if (contentSection) {
-        contentSection.style.padding = "0";
-        contentSection.style.height = "100%";
-        contentSection.style.overflow = "hidden";
-    }
+        columns = [...usedIndexes].sort((a, b) => a - b).map(idx => ({
+            key: idx,
+            name: getPatrolName(idx),
+            entries: filtered.filter(e => (e.patrole || []).includes(idx))
+        }));
 
-    // ===== STYL STAREGO SYSTEMU + HOVER ZONE =====
-    if (!document.getElementById("old-ksiazka-styles")) {
-        const style = document.createElement("style");
-        style.id = "old-ksiazka-styles";
-        style.textContent = `
-/* ===== HOVER ZONE – lewa krawędź ekranu ===== */
-.ksiazka-hover-zone {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 18px;
-    height: 100vh;
-    z-index: 9998;
-    background: transparent;
-}
-
-/* Gdy najedziemy na strefę – pokazujemy oryginalny pasek */
-.ksiazka-hover-zone:hover ~ .app > .sidebar,
-.app > .sidebar.ksiazka-force-show {
-    display: flex !important;
-    position: fixed;
-    top: 0;
-    left: 0;
-    height: 100vh;
-    z-index: 9999;
-    box-shadow: 4px 0 20px rgba(0,0,0,0.4);
-    animation: slideInSidebar 0.2s ease;
-}
-
-@keyframes slideInSidebar {
-    from { transform: translateX(-100%); }
-    to   { transform: translateX(0); }
-}
-
-/* ===== STYL STAREGO SYSTEMU ===== */
-.old-ksiazka {
-    --old-blue: #003366;
-    --old-blue-hover: #004080;
-    font-family: 'Segoe UI', sans-serif;
-    color: #000;
-    background: #eaeef3;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    margin: 0;
-    overflow: hidden;
-}
-
-.old-ksiazka * {
-    box-sizing: border-box;
-}
-
-/* Górna belka */
-.old-ksiazka .top-bar {
-    background-color: var(--old-blue);
-    color: #fff;
-    padding: 0.9rem 2rem;
-    flex-shrink: 0;
-}
-
-.old-ksiazka .top-bar-content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.old-ksiazka .top-bar h1 {
-    font-size: 1.4rem;
-    font-weight: bold;
-    text-align: center;
-    margin: 0;
-    color: #fff;
-}
-
-/* Główna zawartość */
-.old-ksiazka .main-container {
-    display: flex;
-    flex: 1;
-    min-height: 0;
-    margin: 0;
-    gap: 0;
-    overflow: hidden;
-}
-
-/* Menu boczne – pełna wysokość, cały niebieski */
-.old-ksiazka .sidebar {
-    background-color: var(--old-blue);
-    color: #fff;
-    width: 240px;
-    min-width: 240px;
-    padding: 1.2rem 1rem;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    border-radius: 0;
-    overflow-y: auto;
-}
-
-.old-ksiazka .user-info {
-    background: rgba(255,255,255,0.12);
-    padding: 14px;
-    border-radius: 8px;
-    margin-bottom: 1.4rem;
-    font-size: 0.9rem;
-    line-height: 1.45;
-}
-
-.old-ksiazka .user-info strong {
-    display: block;
-    font-size: 1.05rem;
-    margin-bottom: 4px;
-}
-
-.old-ksiazka .menu {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    flex: 1;
-}
-
-.old-ksiazka .menu > li {
-    margin-bottom: 0.35rem;
-}
-
-.old-ksiazka .menu a {
-    color: #fff;
-    text-decoration: none;
-    display: block;
-    padding: 0.6rem 0.75rem;
-    border-radius: 8px;
-    transition: background-color 0.25s ease;
-    font-size: 0.95rem;
-}
-
-.old-ksiazka .menu a:hover,
-.old-ksiazka .menu a.active {
-    background-color: var(--old-blue-hover);
-}
-
-.old-ksiazka .has-submenu .submenu {
-    display: none;
-    list-style: none;
-    margin-top: 0.25rem;
-    padding-left: 0.9rem;
-}
-
-.old-ksiazka .has-submenu.open .submenu {
-    display: block;
-}
-
-.old-ksiazka .submenu a {
-    font-size: 0.87rem;
-    padding: 0.4rem 0.6rem;
-    opacity: 0.9;
-}
-
-/* Główna treść */
-.old-ksiazka .content {
-    flex: 1;
-    padding: 1.4rem 1.6rem;
-    background-color: #f5f7fa;
-    color: #000;
-    overflow-y: auto;
-    min-height: 0;
-}
-
-/* Formularz */
-.old-ksiazka .formularz {
-    background: #fff;
-    padding: 20px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.07);
-    border: 1px solid #e2e8f0;
-}
-
-.old-ksiazka .form-group {
-    margin-bottom: 14px;
-}
-
-.old-ksiazka label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: #1e293b;
-}
-
-.old-ksiazka input[type="time"],
-.old-ksiazka input[type="date"],
-.old-ksiazka input[type="text"],
-.old-ksiazka select,
-.old-ksiazka textarea {
-    width: 100%;
-    max-width: 420px;
-    padding: 8px 10px;
-    font-size: 0.95rem;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    background: #fff;
-    color: #000;
-}
-
-.old-ksiazka input[type="time"] {
-    width: auto;
-    min-width: 9ch;
-}
-
-.old-ksiazka textarea {
-    min-height: 90px;
-    resize: vertical;
-}
-
-.old-ksiazka .checkbox-row {
-    display: flex;
-    gap: 22px;
-    margin: 12px 0;
-    align-items: center;
-}
-
-.old-ksiazka .checkbox-row label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-weight: 500;
-    margin: 0;
-    cursor: pointer;
-}
-
-.old-ksiazka button,
-.old-ksiazka .btn {
-    background-color: #007acc;
-    color: white;
-    border: none;
-    padding: 9px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin-right: 8px;
-    margin-top: 6px;
-}
-
-.old-ksiazka button:hover,
-.old-ksiazka .btn:hover {
-    background-color: #005e99;
-}
-
-.old-ksiazka .btn-green { background: #16a34a; }
-.old-ksiazka .btn-green:hover { background: #15803d; }
-
-.old-ksiazka .btn-red { background: #dc2626; }
-.old-ksiazka .btn-red:hover { background: #b91c1c; }
-
-.old-ksiazka .btn-blue { background: #2563eb; }
-.old-ksiazka .btn-blue:hover { background: #1d4ed8; }
-
-/* Tabele */
-.old-ksiazka .tabela-wpisow {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 12px;
-    font-size: 0.85rem;
-    background: #fff;
-}
-
-.old-ksiazka .tabela-wpisow th,
-.old-ksiazka .tabela-wpisow td {
-    border: 1px solid #cbd5e1;
-    padding: 9px 11px;
-    text-align: left;
-    vertical-align: top;
-    color: #000;
-    background: #fff;
-}
-
-.old-ksiazka .tabela-wpisow th {
-    background-color: #f1f5f9;
-    font-weight: 700;
-    text-align: center;
-    color: #1e293b;
-}
-
-.old-ksiazka .tabela-wpisow td:first-child {
-    white-space: nowrap;
-    text-align: center;
-    width: 90px;
-}
-
-/* Nagłówek raportu – szare tło */
-.old-ksiazka .report-header {
-    background: #e2e8f0;
-    border: 1px solid #cbd5e1;
-    border-radius: 10px;
-    padding: 16px 20px;
-    margin-bottom: 20px;
-}
-
-.old-ksiazka .report-header h2 {
-    margin: 0 0 8px 0;
-    font-size: 1.25rem;
-    color: #003366;
-}
-
-.old-ksiazka .report-meta {
-    font-size: 0.92rem;
-    color: #334155;
-    line-height: 1.55;
-}
-
-/* Sekcje */
-.old-ksiazka .section-title {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #003366;
-    margin: 0 0 12px 0;
-    padding-bottom: 5px;
-    border-bottom: 2px solid #003366;
-}
-
-.old-ksiazka .section-box {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 18px 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-}
-
-.old-ksiazka .actions-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin: 16px 0 8px 0;
-}
-
-/* Responsywność */
-@media (max-width: 900px) {
-    .old-ksiazka .main-container {
-        flex-direction: column;
-    }
-    .old-ksiazka .sidebar {
-        width: 100%;
-        height: auto;
-        max-height: 280px;
-    }
-}
-`;
-        document.head.appendChild(style);
-    }
-
-    // ===== HOVER ZONE (lewa krawędź) =====
-    const oldZone = document.querySelector(".ksiazka-hover-zone");
-    if (oldZone) oldZone.remove();
-
-    const hoverZone = document.createElement("div");
-    hoverZone.className = "ksiazka-hover-zone";
-    document.body.insertBefore(hoverZone, document.body.firstChild);
-
-    let hideTimeout = null;
-
-    function showMainSidebar() {
-        if (mainSidebar) {
-            mainSidebar.classList.add("ksiazka-force-show");
-            clearTimeout(hideTimeout);
+        const without = filtered.filter(e => !e.patrole || e.patrole.length === 0);
+        if (without.length) {
+            columns.push({
+                key: "none",
+                name: "Bez patrolu",
+                entries: without
+            });
         }
     }
 
-    function hideMainSidebar() {
-        hideTimeout = setTimeout(() => {
-            if (mainSidebar) {
-                mainSidebar.classList.remove("ksiazka-force-show");
-            }
-        }, 280);
+    if (columns.length === 0) {
+        columns = [{ key: "empty", name: "Brak wpisów", entries: [] }];
     }
 
-    hoverZone.addEventListener("mouseenter", showMainSidebar);
-    hoverZone.addEventListener("mouseleave", hideMainSidebar);
-
-    if (mainSidebar) {
-        mainSidebar.addEventListener("mouseenter", showMainSidebar);
-        mainSidebar.addEventListener("mouseleave", hideMainSidebar);
-    }
-
-    // ===== HTML – NOWA KOLEJNOŚĆ SEKCJI =====
-    container.innerHTML = `
-<div class="old-ksiazka">
-    <!-- Górna belka -->
-    <div class="top-bar">
-        <div class="top-bar-content">
-            <h1>Portal SOK</h1>
+    let html = `
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+            <h2 style="margin:0;">📖 Książka wydarzeń</h2>
+            <button class="btn-danger" onclick="clearAllKsiazka()">Kasuj wszystkie</button>
         </div>
-    </div>
 
-    <div class="main-container">
-        <!-- LEWE MENU – pełna wysokość, tylko wybrane pozycje -->
-        <aside class="sidebar">
-            <div class="user-info">
-                <strong>Witaj</strong>
-                Mateusz Dąbrowski<br>
-                (PLK068970)<br>
-                Rola: Użytkownik IOKP
+        <div style="margin-bottom:18px;">
+            <div style="font-size:14px; color:#94a3b8; margin-bottom:8px;">Filtruj po patrolach (kliknij aby włączyć/wyłączyć):</div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+                <div class="line-pill ${ksiazkaFilterPatrole.length === 0 ? "active" : ""}" onclick="clearKsiazkaFilter()" style="cursor:pointer;">
+                    Wszystkie
+                </div>
+                ${patrole.map((p, idx) => `
+                    <div class="line-pill ${ksiazkaFilterPatrole.includes(idx) ? "active" : ""}"
+                         onclick="toggleKsiazkaFilter(${idx})" style="cursor:pointer;">
+                        ${escapeHtml(p.nazwa || ("Patrol " + (idx + 1)))}
+                    </div>
+                `).join("")}
             </div>
-
-            <ul class="menu">
-                <li><a href="#">Strona główna</a></li>
-                <li><a href="#" class="active">Książka Wydarzeń</a></li>
-                <li class="has-submenu">
-                    <a href="#">Słowniki ▾</a>
-                    <ul class="submenu">
-                        <li><a href="#">Numer linii</a></li>
-                        <li><a href="#">EKW – Patrol scenariusz</a></li>
-                        <li><a href="#">EKW – Szablon wpisu do raportu</a></li>
-                    </ul>
-                </li>
-                <li><a href="#">Wyloguj</a></li>
-            </ul>
-        </aside>
-
-        <!-- GŁÓWNA TREŚĆ -->
-        <div class="content">
-
-            <!-- 1. Formularz dodawania wpisu -->
-            <div class="formularz">
-                <h3 style="margin:0 0 16px 0; color:#003366;">Dodaj wpis do książki wydarzeń</h3>
-
-                <div class="form-group">
-                    <label>Data (dzisiejsza):</label>
-                    <input type="date" value="2026-08-15" readonly>
-                </div>
-
-                <div class="form-group">
-                    <label>Godzina wydarzenia:</label>
-                    <input type="time" value="14:30">
-                </div>
-
-                <div class="form-group">
-                    <label>Wybierz szablon wpisu:</label>
-                    <select>
-                        <option value="">-- wybierz szablon --</option>
-                        <option>Dyżurny ruchu nastawni dysponującej stacji Legnica zgłosił</option>
-                        <option>Dyżurny ruchu z LCS Bolesławiec zgłosił, że</option>
-                        <option>Kom. zm. IOK Wrocław zgłosił, że</option>
-                        <option>Patrol w składzie</option>
-                        <option>Przekazanie wyników do kom.zm. w IOK Wrocław</option>
-                        <option>Zgłoszenie patrolu nr</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Opis:</label>
-                    <textarea placeholder="Wpisz opis zdarzenia..."></textarea>
-                </div>
-
-                <div class="checkbox-row">
-                    <label><input type="checkbox"> Ważne</label>
-                    <label><input type="checkbox"> Trwa nadal</label>
-                </div>
-
-                <div>
-                    <button class="btn-green">Dodaj wpis</button>
-                    <button class="btn-blue">Dodaj wpis bez wymaganych danych</button>
-                </div>
-            </div>
-
-            <!-- 2. Nagłówek raportu (szare tło) -->
-            <div class="report-header">
-                <h2>Raport Nr 453/2026</h2>
-                <div class="report-meta">
-                    <strong>IOKP14/1.2720.1.2026.453</strong><br>
-                    Służba: <strong>dzienna 2026-08-15</strong><br>
-                    Służba przyjęta od: <strong>Bartosz Wołoch</strong>
-                </div>
-            </div>
-
-            <!-- 3. Odprawa -->
-            <div class="section-box">
-                <div class="section-title">Odprawa</div>
-                <p style="margin:0; color:#334155; font-size:0.95rem; line-height:1.5;">
-                    Tutaj będzie treść odprawy (obecnie puste – gotowe na dane).
-                </p>
-            </div>
-
-            <!-- 4. Patrole -->
-            <div class="section-box">
-                <div class="section-title">Patrole – Służba dyżurna IOKP</div>
-                <table class="tabela-wpisow">
-                    <thead>
-                        <tr>
-                            <th>Lp.</th>
-                            <th>Rodzaj</th>
-                            <th>Miejsce</th>
-                            <th>Linia</th>
-                            <th>Scenariusz patrolu</th>
-                            <th>Inne działania</th>
-                            <th>Skład</th>
-                            <th>Pojazdy</th>
-                            <th>Akcja</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>1</td>
-                            <td>zmotoryzowany</td>
-                            <td>szlak</td>
-                            <td>275</td>
-                            <td>Inne</td>
-                            <td>Działania Horyzont</td>
-                            <td>Starszy Strażnik Mastalerz Mateusz, Szeregowy Karejwo Alexander, Aspirant Kopcin Tomasz. Na dowódcę wyznaczono: Starszy Strażnik Mastalerz Mateusz.</td>
-                            <td>KIA B853</td>
-                            <td>
-                                <button class="btn-blue" style="padding:4px 10px;font-size:0.8rem;">Edytuj</button>
-                                <button class="btn-red" style="padding:4px 10px;font-size:0.8rem;">Usuń</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>2</td>
-                            <td>zmotoryzowany</td>
-                            <td>szlak</td>
-                            <td>275</td>
-                            <td>Inne</td>
-                            <td>Działania Horyzont</td>
-                            <td>Strażnik Horbal Maciej, Szeregowy Pankiewicz Konrad. Na kierowcę wyznaczono: Strażnik Horbal Maciej.</td>
-                            <td>14-50</td>
-                            <td>
-                                <button class="btn-blue" style="padding:4px 10px;font-size:0.8rem;">Edytuj</button>
-                                <button class="btn-red" style="padding:4px 10px;font-size:0.8rem;">Usuń</button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-                <div style="margin-top:14px;">
-                    <button class="btn-green">Dodaj patrol</button>
-                </div>
-            </div>
-
-            <!-- 5. Wpisy raportu / opis wydarzenia (białe tło + czarna czcionka) -->
-            <div class="section-box">
-                <div class="section-title">Wpisy raportu / opis wydarzenia</div>
-                <table class="tabela-wpisow">
-                    <thead>
-                        <tr>
-                            <th>Godzina</th>
-                            <th>Wpis raportu / opis zdarzenia</th>
-                            <th>Akcje</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>06:00:00</td>
-                            <td>Służbę w dniu 2026-08-15 przyjęto od Bartosz Wołoch wraz z planem zabezpieczenia jednostki, stanem broni palnej, amunicji i ŚPB zgodnie z prowadzoną ewidencją, a także posiadanym w jednostce dodatkowym inwentarzem. Notatniki służbowe - 20 szt. Kasetka, kluczyk.</td>
-                            <td><button class="btn-blue" style="padding:4px 10px;font-size:0.8rem;">Edytuj</button></td>
-                        </tr>
-                        <tr>
-                            <td>07:00:00</td>
-                            <td>Do służby zgłosili się ww. funkcjonariusze SOK: Starszy Strażnik Mastalerz Mateusz, Strażnik Horbal Maciej. Przed rozpoczęciem odprawy rozpytano o stan psychofizyczny, samopoczucie, a także zdolność do pełnienia służby, również z bronią palną. Uwagi: bez uwag.</td>
-                            <td>
-                                <button class="btn-blue" style="padding:4px 10px;font-size:0.8rem;">Edytuj</button>
-                                <button class="btn-red" style="padding:4px 10px;font-size:0.8rem;">Usuń</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>07:30:00</td>
-                            <td>Zgłoszono rozdysponowanie na służbę dzienną. Przyjął komendant zmiany Berliński Tomasz IOK Wrocław.</td>
-                            <td>
-                                <button class="btn-blue" style="padding:4px 10px;font-size:0.8rem;">Edytuj</button>
-                                <button class="btn-red" style="padding:4px 10px;font-size:0.8rem;">Usuń</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>07:40:00</td>
-                            <td>Po odprawie wyznaczono patrole w składzie: 1. Patrol nr 1: Starszy Strażnik Mastalerz Mateusz, Szeregowy Karejwo Alexander, Aspirant Kopcin Tomasz. Na dowódcę wyznaczono: Starszy Strażnik Mastalerz Mateusz, 2. Patrol nr 2: Strażnik Horbal Maciej, Szeregowy Pankiewicz Konrad. Na kierowcę wyznaczono: Strażnik Horbal Maciej.</td>
-                            <td>
-                                <button class="btn-blue" style="padding:4px 10px;font-size:0.8rem;">Edytuj</button>
-                                <button class="btn-red" style="padding:4px 10px;font-size:0.8rem;">Usuń</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>08:00:00</td>
-                            <td>Patrol nr 1 i patrol nr 2 udali się do wyznaczonych zadań.</td>
-                            <td>
-                                <button class="btn-blue" style="padding:4px 10px;font-size:0.8rem;">Edytuj</button>
-                                <button class="btn-red" style="padding:4px 10px;font-size:0.8rem;">Usuń</button>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>10:00:00</td>
-                            <td>Informowałem telefonicznie o bieżącej sytuacji w IOKP Legnica, bez uwag oraz o lokalizacji patroli potwierdzonej w CZK do IOK Wrocław. Przyjął komendant zmiany Berliński Tomasz IOK Wrocław.</td>
-                            <td>
-                                <button class="btn-blue" style="padding:4px 10px;font-size:0.8rem;">Edytuj</button>
-                                <button class="btn-red" style="padding:4px 10px;font-size:0.8rem;">Usuń</button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <div class="actions-bar">
-                    <button class="btn-red">Zakończ raport</button>
-                    <button class="btn-blue">Przekaż raport</button>
-                </div>
-            </div>
-
         </div>
-    </div>
-</div>
-`;
 
-    // Submenu
-    container.querySelectorAll('.has-submenu > a').forEach(link => {
-        link.addEventListener('click', e => {
-            e.preventDefault();
-            link.parentElement.classList.toggle('open');
-        });
+        <div style="display:flex; gap:16px; overflow-x:auto; align-items:flex-start;">
+    `;
+
+    columns.forEach(col => {
+        html += `
+        <div style="min-width:280px; max-width:380px; flex:1; background:#1e293b; border:1px solid #334155; border-radius:12px; padding:14px;">
+            <div style="font-weight:700; font-size:16px; margin-bottom:12px; color:#60a5fa; border-bottom:1px solid #334155; padding-bottom:8px;">
+                ${escapeHtml(col.name)} <span style="color:#94a3b8; font-weight:500; font-size:13px;">(${col.entries.length})</span>
+            </div>
+        `;
+
+        if (col.entries.length === 0) {
+            html += `<div style="color:#64748b; font-size:13px; padding:10px 0;">Brak wpisów</div>`;
+        } else {
+            col.entries.forEach(entry => {
+                const overdue = isOverdue(entry);
+                const globalIdx = appState.ksiazkaWydarzen.findIndex(e => e.id === entry.id);
+
+                html += `
+                <div style="
+                    background:${overdue ? "rgba(220,38,38,0.15)" : "#0f172a"};
+                    border:1px solid ${overdue ? "#dc2626" : "#334155"};
+                    border-radius:10px;
+                    padding:12px;
+                    margin-bottom:10px;
+                    ${overdue ? "box-shadow:0 0 0 1px #dc2626;" : ""}
+                ">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:13px;">
+                        <span style="color:#94a3b8;">${escapeHtml(entry.data)} · ${escapeHtml(entry.godzinaStart || "—")}</span>
+                        <span style="font-weight:600; color:${overdue ? "#f87171" : "#94a3b8"};">
+                            → ${escapeHtml(entry.godzinaPlanowana || "—")}
+                            ${overdue ? " ⚠" : ""}
+                            ${entry.zrobione ? " ✅" : ""}
+                        </span>
+                    </div>
+                    <div style="font-size:13.5px; line-height:1.45; white-space:pre-wrap; color:#e2e8f0; margin-bottom:10px;">
+                        ${escapeHtml(entry.tekst)}
+                    </div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        ${!entry.zrobione ? `
+                            <button class="btn-success" style="padding:5px 10px; font-size:12px;" onclick="oznaczZrobione(${globalIdx})">Zrobione</button>
+                        ` : `
+                            <button class="btn-primary" style="padding:5px 10px; font-size:12px;" onclick="odznaczZrobione(${globalIdx})">Cofnij zrobione</button>
+                        `}
+                        <button class="btn-danger" style="padding:5px 10px; font-size:12px;" onclick="usunWpisKsiazki(${globalIdx})">Kasuj</button>
+                    </div>
+                </div>
+                `;
+            });
+        }
+
+        html += `</div>`;
     });
+
+    html += `
+        </div>
+    </div>
+    `;
+
+    container.innerHTML = html;
 }
 
-// Przywrócenie paska i topbara gdy użytkownik przełączy się na inną zakładkę
-function restoreMainSidebar() {
-    const mainSidebar = document.querySelector(".app > .sidebar");
-    const mainContent = document.querySelector(".main-content");
-    const topbar = document.querySelector(".topbar");
-    const contentSection = document.getElementById("content");
-    const hoverZone = document.querySelector(".ksiazka-hover-zone");
+// =====================================
+// AKCJE
+// =====================================
 
-    if (mainSidebar) {
-        mainSidebar.style.display = mainSidebar.dataset.originalDisplay || "";
-        mainSidebar.classList.remove("ksiazka-force-show");
-    }
-    if (topbar) {
-        topbar.style.display = topbar.dataset.originalDisplay || "";
-    }
-    if (mainContent) {
-        mainContent.style.marginLeft = "";
-        mainContent.style.width = "";
-    }
-    if (contentSection) {
-        contentSection.style.padding = "";
-        contentSection.style.height = "";
-        contentSection.style.overflow = "";
-    }
-    if (hoverZone) {
-        hoverZone.remove();
-    }
+async function oznaczZrobione(index) {
+    ensureKsiazkaState();
+    if (!appState.ksiazkaWydarzen[index]) return;
+    appState.ksiazkaWydarzen[index].zrobione = true;
+    await saveState();
+    renderKsiazka();
 }
 
-// Podpięcie pod loadPage
-(function () {
-    const originalLoadPage = window.loadPage;
-    if (typeof originalLoadPage === "function") {
-        window.loadPage = function (page) {
-            if (page !== "ksiazka") {
-                restoreMainSidebar();
-            }
-            return originalLoadPage.apply(this, arguments);
-        };
+async function odznaczZrobione(index) {
+    ensureKsiazkaState();
+    if (!appState.ksiazkaWydarzen[index]) return;
+    appState.ksiazkaWydarzen[index].zrobione = false;
+    await saveState();
+    renderKsiazka();
+}
+
+async function usunWpisKsiazki(index) {
+    ensureKsiazkaState();
+    if (!appState.ksiazkaWydarzen[index]) return;
+    if (!confirm("Na pewno usunąć ten wpis?")) return;
+    appState.ksiazkaWydarzen.splice(index, 1);
+    await saveState();
+    renderKsiazka();
+}
+
+async function clearAllKsiazka() {
+    ensureKsiazkaState();
+    if (appState.ksiazkaWydarzen.length === 0) {
+        alert("Brak wpisów do usunięcia");
+        return;
     }
-})();
+    if (!confirm("Na pewno usunąć WSZYSTKIE wpisy z Książki wydarzeń?")) return;
+    appState.ksiazkaWydarzen = [];
+    await saveState();
+    renderKsiazka();
+}
+
+// =====================================
+// POMOCNICZE
+// =====================================
+
+function escapeHtml(str) {
+    return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+// =====================================
+// EXPOSE
+// =====================================
+window.initKsiazka = initKsiazka;
+window.renderKsiazka = renderKsiazka;
+window.openKsiazkaSaveModal = openKsiazkaSaveModal;
+window.closeKsiazkaSaveModal = closeKsiazkaSaveModal;
+window.confirmSaveToKsiazka = confirmSaveToKsiazka;
+window.toggleKsiazkaFilter = toggleKsiazkaFilter;
+window.clearKsiazkaFilter = clearKsiazkaFilter;
+window.oznaczZrobione = oznaczZrobione;
+window.odznaczZrobione = odznaczZrobione;
+window.usunWpisKsiazki = usunWpisKsiazki;
+window.clearAllKsiazka = clearAllKsiazka;
