@@ -1227,11 +1227,15 @@ function applyTextWithPatrolOccurrences(text, occurrenceList) {
 function plainTextToHtml(text) {
     // Jeśli już wygląda na HTML z formatowaniem – zostaw
     const s = String(text || "");
-    if (/<(?:b|strong|u|i|br|div|p)\b/i.test(s)) {
-        // Zamień same \n poza tagami na <br> ostrożnie
-        return s.replace(/\n/g, "<br>");
+    // Biała kropka tylko wizualnie (klasa entry-bullet – nie trafia do schowka)
+    const bulletHtml = '<span class="entry-bullet" style="color:#ffffff; font-weight:700; margin-right:6px;">•</span> ';
+    const withBullets = s.replace(/^• /gm, bulletHtml);
+    if (/<(?:b|strong|u|i|br|div|p|span)\b/i.test(withBullets)) {
+        return withBullets.replace(/\n/g, "<br>");
     }
-    return escapeHtml(s).replace(/\n/g, "<br>");
+    return escapeHtml(s)
+        .replace(/^• /gm, bulletHtml)
+        .replace(/\n/g, "<br>");
 }
 
 function getGeneratedEntryEl() {
@@ -1252,15 +1256,20 @@ function getGeneratedEntryPlain() {
     const el = getGeneratedEntryEl();
     if (!el) return "";
     if (el.getAttribute("contenteditable") === "true") {
-        // Zachowaj nowe linie z bloków
         const clone = el.cloneNode(true);
+        // Usuń kropki – mają być tylko na ekranie, nie w schowku
+        clone.querySelectorAll(".entry-bullet").forEach(n => n.remove());
         clone.querySelectorAll("br").forEach(br => br.replaceWith("\n"));
         clone.querySelectorAll("div,p").forEach(d => {
             if (d.previousSibling) d.insertAdjacentText("beforebegin", "\n");
         });
-        return (clone.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+        let text = (clone.textContent || "").replace(/\n{3,}/g, "\n\n");
+        // Na wszelki wypadek usuń też same znaki • na początku linii
+        text = text.replace(/^[\s•]+/gm, (m) => m.replace(/•/g, "").replace(/^\s+/, "") ? m.replace(/•/g, "") : "");
+        text = text.split("\n").map(line => line.replace(/^•\s*/, "")).join("\n");
+        return text.trim();
     }
-    return (el.value || "").trim();
+    return (el.value || "").split("\n").map(line => line.replace(/^•\s*/, "")).join("\n").trim();
 }
 
 function getGeneratedEntryHtml() {
@@ -1298,7 +1307,9 @@ function updateLiveEntry() {
     handle("zgl", selectedZgloszeniaIndexes, appState.zgloszenia?.rows);
     handle("pol", selectedPoleceniaIndexes, appState.polecenia?.rows);
 
-    const joined = parts.filter(Boolean).join("\n\n");
+    // Każde zgłoszenie/polecenie od nowej linii z białą kropką
+    const items = parts.filter(Boolean).map(p => String(p).trim()).filter(Boolean);
+    const joined = items.map(p => "• " + p).join("\n");
     setGeneratedEntryContent(plainTextToHtml(joined));
     if (banner) banner.style.display = needsWybraniHint ? "block" : "none";
 }
@@ -1354,7 +1365,8 @@ function updatePatrolAssignPreview() {
     };
     handle("zgl", selectedZgloszeniaIndexes, appState.zgloszenia?.rows);
     handle("pol", selectedPoleceniaIndexes, appState.polecenia?.rows);
-    body.textContent = parts.filter(Boolean).join("\n\n") || "(brak tekstu)";
+    const items = parts.filter(Boolean).map(p => String(p).trim()).filter(Boolean);
+    body.textContent = items.map(p => "• " + p).join("\n") || "(brak tekstu)";
 }
 
 function openPatrolAssignModal() {
