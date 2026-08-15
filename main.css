@@ -45,7 +45,7 @@ body{
 }
 
 /* ==========================
-   UKĹAD
+   UKŁAD
 ========================== */
 
 .app{
@@ -109,7 +109,7 @@ body{
 }
 
 /* ==========================
-   GĹĂWNA CZÄĹÄ
+   GŁÓWNA CZĘŚĆ
 ========================== */
 
 .main-content{
@@ -288,7 +288,7 @@ tr:hover{
 }
 
 /* ==========================
-   KSIÄĹťKA WYDARZEĹ
+   KSIĄŻKA WYDARZEŃ
 ========================== */
 
 .line-box{
@@ -306,7 +306,7 @@ tr:hover{
 }
 
 /* ==========================
-   KAFELKI (Patrole, ZgĹoszenia, Polecenia)
+   KAFELKI (Patrole, Zgłoszenia, Polecenia)
 ========================== */
 
 .select-card{
@@ -340,12 +340,12 @@ tr:hover{
     color:#cbd5e1;
 }
 
-/* Kafelki zgĹoszeĹ i poleceĹ + patrole */
+/* Kafelki zgłoszeń i poleceń + patrole */
 .item-card{
     padding:12px 16px;
     min-height:60px;
-    background:#2a3a52;          /* jaĹniejsze */
-    border:2px solid #475569;    /* jaĹniejsze */
+    background:#2a3a52;          /* jaśniejsze */
+    border:2px solid #475569;    /* jaśniejsze */
     border-radius:12px;
     cursor:pointer;
     display:flex;
@@ -374,8 +374,8 @@ tr:hover{
 
 .line-pill{
     padding:10px 18px;
-    background:#2a3a52;          /* jaĹniejsze */
-    border:2px solid #475569;    /* jaĹniejsze */
+    background:#2a3a52;          /* jaśniejsze */
+    border:2px solid #475569;    /* jaśniejsze */
     border-radius:999px;
     cursor:pointer;
     transition:.2s;
@@ -386,12 +386,12 @@ tr:hover{
 }
 
 .line-pill.active{
-    background:#3b82f6;          /* jaĹniejsze */
+    background:#3b82f6;          /* jaśniejsze */
     border-color:#60a5fa;
 }
 
 /* ==========================
-   PODGLÄD PATROLU
+   PODGLĄD PATROLU
 ========================== */
 
 .patrol-preview{
@@ -520,7 +520,7 @@ tr:hover{
 }
 
 /* ==========================
-   RESPONSYWNOĹÄ
+   RESPONSYWNOŚĆ
 ========================== */
 
 @media(max-width:900px){
@@ -588,3 +588,34 @@ tr:hover{
     text-decoration: underline;
 }
 
+/* ==========================
+   EXCEL BUTTONS
+========================== */
+
+.btn-export {
+    background: #d97706;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background .2s;
+}
+.btn-export:hover {
+    background: #b45309;
+}
+
+.btn-import {
+    background: #7c3aed;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background .2s;
+}
+.btn-import:hover {
+    background: #6d28d9;
+}
