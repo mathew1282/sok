@@ -203,22 +203,32 @@ function countPatrolTagsInSelection() {
 }
 
 function isSequentialModeEnabled() {
-    const cb = document.getElementById("sequentialPatrolCheckbox");
-    if (cb) return !!cb.checked;
-    return sequentialPatrolMode;
+    return !!sequentialPatrolMode;
+}
+
+function updateSequentialPatrolPill() {
+    const pill = document.getElementById("sequentialPatrolPill");
+    if (!pill) return;
+    pill.classList.remove("sequential-pill-on", "sequential-pill-off", "active");
+    if (sequentialPatrolMode) {
+        pill.classList.add("sequential-pill-on", "active");
+    } else {
+        pill.classList.add("sequential-pill-off");
+    }
 }
 
 function syncSequentialCheckbox() {
-    const cb = document.getElementById("sequentialPatrolCheckbox");
-    if (!cb) return;
-    const count = countPatrolTagsInSelection();
-    // Domyślnie włączony, gdy >1 @patrol w zaznaczeniu
-    if (count > 1) {
-        cb.checked = true;
-        sequentialPatrolMode = true;
-    }
-    // Nie wymuszamy wyłączenia – użytkownik może ręcznie włączyć/wyłączyć
-    cb.disabled = false;
+    // Domyślnie włączony; przy >1 @patrol utrzymujemy włączony, ale nie nadpisujemy ręcznego wyłączenia
+    // tylko odświeżamy wygląd kafelka
+    updateSequentialPatrolPill();
+}
+
+function toggleSequentialPatrolMode() {
+    sequentialPatrolMode = !sequentialPatrolMode;
+    patrolAssignments = {};
+    updateSequentialPatrolPill();
+    updateLiveEntry();
+    showToast(sequentialPatrolMode ? "Tryb @patrol włączony" : "Tryb @patrol wyłączony");
 }
 
 function needsPatrolAssignmentModal() {
@@ -647,10 +657,8 @@ function togglePolecenie(index) {
 }
 
 function onSequentialCheckboxChange() {
-    const cb = document.getElementById("sequentialPatrolCheckbox");
-    sequentialPatrolMode = !!(cb && cb.checked);
-    patrolAssignments = {};
-    updateLiveEntry();
+    // kompatybilność – używamy kafelka
+    toggleSequentialPatrolMode();
 }
 
 function filterGeneratorTiles() {
@@ -1676,4 +1684,6 @@ window.confirmPatrolAssignments = confirmPatrolAssignments;
 window.closePatrolAssignModal = closePatrolAssignModal;
 window.onSprawdGodzOdChange = onSprawdGodzOdChange;
 window.onSequentialCheckboxChange = onSequentialCheckboxChange;
+window.toggleSequentialPatrolMode = toggleSequentialPatrolMode;
+window.updateSequentialPatrolPill = updateSequentialPatrolPill;
 window.updatePatrolAssignPreview = updatePatrolAssignPreview;
