@@ -63,8 +63,13 @@ function renderZgloszenia() {
     <div class="card">
         <h2>Zgłoszenia</h2>
         <br>
-        <button class="btn-success" onclick="openZgloszenieModal()">Dodaj zgłoszenie</button>
-        <br><br>
+        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+            <button class="btn-success" onclick="openZgloszenieModal()">Dodaj zgłoszenie</button>
+            <button class="btn-export" onclick="exportZgloszeniaExcel()">📥 Eksport Excel</button>
+            <button class="btn-import" onclick="document.getElementById('zgloszeniaExcelLoader').click()">📤 Import Excel</button>
+            <input type="file" id="zgloszeniaExcelLoader" accept=".xlsx,.xls,.csv" hidden onchange="importZgloszeniaExcel(event)">
+        </div>
+        <br>
 
         <div style="margin-bottom:15px;">
             <div style="font-size:14px; color:#94a3b8; margin-bottom:8px;">Filtr linii (kliknij):</div>
@@ -290,6 +295,107 @@ function formatZgloszenieOpis(cmd) {
     document.execCommand(cmd, false, null);
 }
 
+// =====================================
+// EXCEL – eksport / import
+// =====================================
+
+const ZGLOSZENIA_EXCEL_COLUMNS = ["Linia", "OpisKrotki", "OpisPom", "Opis"];
+
+function ensureXlsxLibZgl() {
+    if (typeof XLSX !== "undefined") return true;
+    alert("Brak biblioteki Excel (SheetJS). Dodaj w index.html:\n<script src=\"https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js\"></script>");
+    return false;
+}
+
+function exportZgloszeniaExcel() {
+    if (!ensureXlsxLibZgl()) return;
+    const rows = appState.zgloszenia?.rows || [];
+    if (!rows.length) {
+        alert("Brak zgłoszeń do eksportu");
+        return;
+    }
+    const data = rows.map(r => {
+        const o = {};
+        ZGLOSZENIA_EXCEL_COLUMNS.forEach(col => {
+            o[col] = r[col] != null ? String(r[col]) : "";
+        });
+        return o;
+    });
+    const ws = XLSX.utils.json_to_sheet(data, { header: ZGLOSZENIA_EXCEL_COLUMNS });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Zgloszenia");
+    XLSX.writeFile(wb, "zgloszenia.xlsx");
+}
+
+async function importZgloszeniaExcel(event) {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!ensureXlsxLibZgl()) return;
+
+    try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const sheetName = wb.SheetNames[0];
+        const sheet = wb.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+        if (!json.length) {
+            alert("Plik Excel jest pusty");
+            return;
+        }
+
+        const mapped = json.map(row => {
+            const get = (...keys) => {
+                for (const k of keys) {
+                    if (row[k] != null && String(row[k]).trim() !== "") return String(row[k]).trim();
+                }
+                const lower = {};
+                Object.keys(row).forEach(k => { lower[k.toLowerCase()] = row[k]; });
+                for (const k of keys) {
+                    const v = lower[k.toLowerCase()];
+                    if (v != null && String(v).trim() !== "") return String(v).trim();
+                }
+                return "";
+            };
+            return {
+                Linia: get("Linia", "Nr linii", "linia"),
+                OpisKrotki: get("OpisKrotki", "Opis krótki", "Opis krotki"),
+                OpisPom: get("OpisPom", "Opis pom", "Opis pomocniczy"),
+                Opis: get("Opis", "Opis pełny")
+            };
+        }).filter(r => r.Linia || r.OpisKrotki || r.Opis);
+
+        if (!mapped.length) {
+            alert("Nie znaleziono poprawnych wierszy (potrzebna kolumna Linia / Opis)");
+            return;
+        }
+
+        const mode = confirm(
+            `Znaleziono ${mapped.length} wierszy.\n\nOK = ZASTĄP wszystkie zgłoszenia\nAnuluj = DODAJ do istniejących`
+        );
+
+        if (!appState.zgloszenia) {
+            appState.zgloszenia = { columns: ZGLOSZENIA_EXCEL_COLUMNS.slice(), rows: [] };
+        }
+        appState.zgloszenia.columns = ZGLOSZENIA_EXCEL_COLUMNS.slice();
+
+        if (mode) {
+            appState.zgloszenia.rows = mapped;
+        } else {
+            if (!Array.isArray(appState.zgloszenia.rows)) appState.zgloszenia.rows = [];
+            appState.zgloszenia.rows.push(...mapped);
+        }
+
+        await saveState();
+        renderZgloszenia();
+        alert(`Zaimportowano ${mapped.length} zgłoszeń`);
+    } catch (err) {
+        console.error(err);
+        alert("Błąd importu Excel: " + (err.message || err));
+    }
+}
+
 window.openZgloszenieModal = openZgloszenieModal;
 window.closeZgloszenieModal = closeZgloszenieModal;
 window.saveZgloszenie = saveZgloszenie;
@@ -298,3 +404,5 @@ window.editZgloszenie = editZgloszenie;
 window.removeZgloszenie = removeZgloszenie;
 window.insertZgloszenieTag = insertZgloszenieTag;
 window.setZgloszeniaFilterLinia = setZgloszeniaFilterLinia;
+window.exportZgloszeniaExcel = exportZgloszeniaExcel;
+window.importZgloszeniaExcel = importZgloszeniaExcel;
