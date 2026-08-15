@@ -2,22 +2,75 @@ function initKsiazka() {
     const container = document.getElementById("ksiazkaContainer");
     if (!container) return;
 
-    // Wstrzyknięcie stylów starego systemu (tylko dla tej zakładki)
+    // ===== UKRYCIE GŁÓWNEGO PASKA NAWIGACJI =====
+    const mainSidebar = document.querySelector(".app > .sidebar");
+    const mainContent = document.querySelector(".main-content");
+    const contentSection = document.getElementById("content");
+
+    // Zapamiętaj oryginalne style, żeby później przywrócić
+    if (mainSidebar && !mainSidebar.dataset.originalDisplay) {
+        mainSidebar.dataset.originalDisplay = mainSidebar.style.display || "";
+    }
+
+    // Ukryj główny pasek
+    if (mainSidebar) {
+        mainSidebar.style.display = "none";
+    }
+
+    // Rozszerz treść na całą szerokość
+    if (mainContent) {
+        mainContent.style.marginLeft = "0";
+        mainContent.style.width = "100%";
+    }
+    if (contentSection) {
+        contentSection.style.padding = "0";
+    }
+
+    // ===== STYL STAREGO SYSTEMU + HOVER ZONE =====
     if (!document.getElementById("old-ksiazka-styles")) {
         const style = document.createElement("style");
         style.id = "old-ksiazka-styles";
         style.textContent = `
-/* ===== STYL STAREGO SYSTEMU – tylko wewnątrz .old-ksiazka ===== */
+/* ===== HOVER ZONE – lewa krawędź ekranu ===== */
+.ksiazka-hover-zone {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 18px;
+    height: 100vh;
+    z-index: 9998;
+    background: transparent;
+}
+
+/* Gdy najedziemy na strefę – pokazujemy oryginalny pasek */
+.ksiazka-hover-zone:hover ~ .app > .sidebar,
+.app > .sidebar.ksiazka-force-show {
+    display: flex !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 9999;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.4);
+    animation: slideInSidebar 0.2s ease;
+}
+
+@keyframes slideInSidebar {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(0); }
+}
+
+/* ===== STYL STAREGO SYSTEMU ===== */
 .old-ksiazka {
     --old-blue: #003366;
     --old-blue-hover: #004080;
     font-family: 'Segoe UI', sans-serif;
     color: #000;
     background: linear-gradient(135deg, #eaeef3, #f5f7fa);
-    min-height: 100%;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
-    margin: -25px; /* niweluje padding #content */
+    margin: 0;
     border-radius: 0;
 }
 
@@ -50,12 +103,6 @@ function initKsiazka() {
     color: #fff;
 }
 
-.old-ksiazka .logo {
-    height: 60px;
-    position: absolute;
-    left: 0;
-}
-
 /* Główna zawartość */
 .old-ksiazka .main-container {
     display: flex;
@@ -65,7 +112,7 @@ function initKsiazka() {
     gap: 1rem;
 }
 
-/* Menu boczne */
+/* Menu boczne starego systemu */
 .old-ksiazka .sidebar {
     background-color: var(--old-blue);
     color: #fff;
@@ -333,7 +380,42 @@ function initKsiazka() {
         document.head.appendChild(style);
     }
 
-    // HTML starego wyglądu
+    // ===== HOVER ZONE (lewa krawędź) =====
+    // Usuń starą strefę jeśli istnieje
+    const oldZone = document.querySelector(".ksiazka-hover-zone");
+    if (oldZone) oldZone.remove();
+
+    const hoverZone = document.createElement("div");
+    hoverZone.className = "ksiazka-hover-zone";
+    document.body.insertBefore(hoverZone, document.body.firstChild);
+
+    // Pokazuj pasek gdy najedziemy na strefę lub na sam pasek
+    let hideTimeout = null;
+
+    function showMainSidebar() {
+        if (mainSidebar) {
+            mainSidebar.classList.add("ksiazka-force-show");
+            clearTimeout(hideTimeout);
+        }
+    }
+
+    function hideMainSidebar() {
+        hideTimeout = setTimeout(() => {
+            if (mainSidebar) {
+                mainSidebar.classList.remove("ksiazka-force-show");
+            }
+        }, 300); // małe opóźnienie, żeby dało się najechać na pasek
+    }
+
+    hoverZone.addEventListener("mouseenter", showMainSidebar);
+    hoverZone.addEventListener("mouseleave", hideMainSidebar);
+
+    if (mainSidebar) {
+        mainSidebar.addEventListener("mouseenter", showMainSidebar);
+        mainSidebar.addEventListener("mouseleave", hideMainSidebar);
+    }
+
+    // ===== HTML STAREGO WYGLĄDU =====
     container.innerHTML = `
 <div class="old-ksiazka">
     <!-- Górna belka -->
@@ -344,7 +426,7 @@ function initKsiazka() {
     </div>
 
     <div class="main-container">
-        <!-- LEWE MENU (jak w starym systemie) -->
+        <!-- LEWE MENU (stary system) -->
         <aside class="sidebar">
             <div class="user-info">
                 <strong>Witaj</strong>
@@ -494,7 +576,7 @@ function initKsiazka() {
                     </tr>
                     <tr>
                         <td>07:00:00</td>
-                        <td>Do służby zgłosili się ww. funkcjonariusze SOK: Starszy Strażnik Mastalerz Mateusz, Strażnik Horbal Maciej. Przed rozpoczęciem odprawy rozpytano o stan psychofizyczny, samopoczucie, a także zdolność do pełnienia służby, również z bronią palną. Uwagi: bez uwag. Następnie po otwarciu magazynu uzbrojenia sprawdzono czy funkcjonariusze posiadają przy sobie legitymacje osoby dopuszczonej do pracy z bronią. Wydano funkcjonariuszom broń palną, amunicję i ŚPB. Odnotowano wszystko w książce wydania i przyjęcia broni, amunicji i środków przymusu bezpośredniego. Po zakończeniu wydawania wyposażenia, zamknięto magazyn. Uwagi: bez uwag. Wydano dodatkowy inwentarz dokumentując to za podpisem w książce wydania dodatkowego inwentarza. Przeprowadzono odprawę...</td>
+                        <td>Do służby zgłosili się ww. funkcjonariusze SOK: Starszy Strażnik Mastalerz Mateusz, Strażnik Horbal Maciej. Przed rozpoczęciem odprawy rozpytano o stan psychofizyczny, samopoczucie, a także zdolność do pełnienia służby, również z bronią palną. Uwagi: bez uwag.</td>
                         <td>
                             <button class="btn-blue" style="padding:4px 10px;font-size:0.8rem;">Edytuj</button>
                             <button class="btn-red" style="padding:4px 10px;font-size:0.8rem;">Usuń</button>
@@ -548,7 +630,7 @@ function initKsiazka() {
 </div>
 `;
 
-    // Proste otwieranie/zamykanie submenu (tylko wizualnie)
+    // Submenu (tylko wizualnie)
     container.querySelectorAll('.has-submenu > a').forEach(link => {
         link.addEventListener('click', e => {
             e.preventDefault();
@@ -556,3 +638,39 @@ function initKsiazka() {
         });
     });
 }
+
+// Przywrócenie paska gdy użytkownik przełączy się na inną zakładkę
+function restoreMainSidebar() {
+    const mainSidebar = document.querySelector(".app > .sidebar");
+    const mainContent = document.querySelector(".main-content");
+    const contentSection = document.getElementById("content");
+    const hoverZone = document.querySelector(".ksiazka-hover-zone");
+
+    if (mainSidebar) {
+        mainSidebar.style.display = mainSidebar.dataset.originalDisplay || "";
+        mainSidebar.classList.remove("ksiazka-force-show");
+    }
+    if (mainContent) {
+        mainContent.style.marginLeft = "";
+        mainContent.style.width = "";
+    }
+    if (contentSection) {
+        contentSection.style.padding = "";
+    }
+    if (hoverZone) {
+        hoverZone.remove();
+    }
+}
+
+// Podpięcie pod oryginalne loadPage – przywracamy pasek przy każdej innej zakładce
+(function () {
+    const originalLoadPage = window.loadPage;
+    if (typeof originalLoadPage === "function") {
+        window.loadPage = function (page) {
+            if (page !== "ksiazka") {
+                restoreMainSidebar();
+            }
+            return originalLoadPage.apply(this, arguments);
+        };
+    }
+})();
