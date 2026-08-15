@@ -316,6 +316,7 @@ function renderKsiazka() {
                         ` : `
                             <button class="btn-primary" style="padding:5px 10px; font-size:12px;" onclick="odznaczZrobione(${globalIdx})">Cofnij zrobione</button>
                         `}
+                        <button class="btn-primary" style="padding:5px 10px; font-size:12px;" onclick="kopiujWpisKsiazki(${globalIdx})">Kopiuj</button>
                         <button class="btn-danger" style="padding:5px 10px; font-size:12px;" onclick="usunWpisKsiazki(${globalIdx})">Kasuj</button>
                     </div>
                 </div>
@@ -424,6 +425,16 @@ function openPlanSluzbyModal() {
         </label>`
     ).join("") || "<span style='color:#94a3b8;'>Brak patroli – dodaj je w zakładce Patrole</span>";
 
+    const zglOptions = (appState.zgloszenia?.rows || []).map((r, i) => {
+        const label = (r.OpisKrotki || r.Opis || ("Zgłoszenie " + (i + 1))).slice(0, 60);
+        return `<option value="zgl_${i}">${escapeHtml(label)}</option>`;
+    }).join("");
+
+    const polOptions = (appState.polecenia?.rows || []).map((r, i) => {
+        const label = (r.OpisKrotki || r.Opis || ("Polecenie " + (i + 1))).slice(0, 60);
+        return `<option value="pol_${i}">${escapeHtml(label)}</option>`;
+    }).join("");
+
     overlay.innerHTML = `
         <div class="modal" style="max-width:520px;">
             <h2 style="margin-top:0;">📅 Służba dzienna – szablon</h2>
@@ -462,6 +473,28 @@ function openPlanSluzbyModal() {
                 <label style="margin-bottom:8px;display:block;">Patrole do planu:</label>
                 <div style="display:flex;flex-wrap:wrap;gap:8px;">
                     ${patrolOptions}
+                </div>
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <label>Treść cyklicznych zgłoszeń (opcjonalnie)</label>
+                <textarea id="planTrescZgl" rows="2" placeholder="Np. Zgłoszenie lokalizacji i sytuacji – bez wydarzeń" style="width:100%;"></textarea>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                <div>
+                    <label>Szablon ze Zgłoszeń</label>
+                    <select id="planSelectZgl" style="width:100%;">
+                        <option value="">— brak —</option>
+                        ${zglOptions}
+                    </select>
+                </div>
+                <div>
+                    <label>Szablon z Poleceń</label>
+                    <select id="planSelectPol" style="width:100%;">
+                        <option value="">— brak —</option>
+                        ${polOptions}
+                    </select>
                 </div>
             </div>
 
@@ -506,6 +539,21 @@ async function confirmPlanSluzby() {
         patrolIndexes.push(parseInt(cb.value, 10));
     });
 
+    // Treść cyklicznych zgłoszeń
+    let trescCykliczna = (document.getElementById("planTrescZgl")?.value || "").trim();
+    const selZgl = document.getElementById("planSelectZgl")?.value || "";
+    const selPol = document.getElementById("planSelectPol")?.value || "";
+    if (!trescCykliczna && selZgl.startsWith("zgl_")) {
+        const i = parseInt(selZgl.slice(4), 10);
+        const row = appState.zgloszenia?.rows?.[i];
+        if (row) trescCykliczna = row.Opis || row.OpisKrotki || "";
+    }
+    if (!trescCykliczna && selPol.startsWith("pol_")) {
+        const i = parseInt(selPol.slice(4), 10);
+        const row = appState.polecenia?.rows?.[i];
+        if (row) trescCykliczna = row.Opis || row.OpisKrotki || "";
+    }
+
     const punkty = [];
 
     punkty.push({
@@ -539,15 +587,16 @@ async function confirmPlanSluzby() {
             punkty.push({
                 godzinaStart: startHH,
                 godzinaPlanowana: planHH,
-                tekst: "Zgłoszenie sytuacji / lokalizacji patroli",
+                tekst: trescCykliczna || "Zgłoszenie sytuacji / lokalizacji patroli",
                 patrole: []
             });
         } else {
             patrolIndexes.forEach(idx => {
+                const base = trescCykliczna || ("Zgłoszenie – " + getPatrolName(idx));
                 punkty.push({
                     godzinaStart: startHH,
                     godzinaPlanowana: planHH,
-                    tekst: "Zgłoszenie – " + getPatrolName(idx),
+                    tekst: base,
                     patrole: [idx]
                 });
             });
@@ -590,6 +639,23 @@ async function confirmPlanSluzby() {
         renderKsiazka();
     }
 }
+
+
+async function kopiujWpisKsiazki(index) {
+    ensureKsiazkaState();
+    const e = appState.ksiazkaWydarzen[index];
+    if (!e) return;
+    const text = e.tekst || "";
+    try {
+        await navigator.clipboard.writeText(text);
+        if (typeof showToast === "function") showToast("✅ Skopiowano");
+        else alert("Skopiowano");
+    } catch (err) {
+        alert("Nie udało się skopiować");
+    }
+}
+
+window.kopiujWpisKsiazki = kopiujWpisKsiazki;
 
 window.openPlanSluzbyModal = openPlanSluzbyModal;
 window.closePlanSluzbyModal = closePlanSluzbyModal;
