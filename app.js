@@ -62,7 +62,7 @@ const pages = {
 
         <div class="generator-section">
             <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:10px;">
-                <div class="generator-title" style="margin-bottom:0;">ZgĹoszenia</div>
+                <div class="generator-title" style="margin-bottom:0;">Zgłoszenia</div>
                 <input type="text" id="zglSearch" placeholder="Szukaj..." style="width:180px;"
                        oninput="filterGeneratorTiles()">
             </div>
@@ -82,10 +82,10 @@ const pages = {
             <div id="poleceniaItems" class="card-grid"></div>
         </div>
 
-        <!-- Linia 1: Logowanie sprawdzeĹ + Uwagi + przyciski -->
+        <!-- Linia 1: Logowanie sprawdzeń + Uwagi + przyciski -->
         <div class="generator-section">
             <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:center;">
-                <div class="generator-title" style="margin-bottom:0;">Logowanie sprawdzeĹ</div>
+                <div class="generator-title" style="margin-bottom:0;">Logowanie sprawdzeń</div>
                 <button class="btn-success" onclick="openLogSprawdzenModal()">Zaloguj sprawdzenie</button>
 
                 <div class="generator-title" style="margin-bottom:0; margin-left:8px;">Uwagi</div>
@@ -100,14 +100,14 @@ const pages = {
                 <div class="generator-title" style="margin-bottom:0;">Wygenerowany wpis</div>
                 <button class="btn-success" onclick="generateEntry()">Generuj wpis</button>
                 <button class="btn-primary" onclick="copyEntry()">Kopiuj</button>
-                <button class="btn-danger" onclick="clearEntry()">WyczyĹÄ / odznacz wszystko</button>
+                <button class="btn-danger" onclick="clearEntry()">Wyczyść / odznacz wszystko</button>
                 <label style="display:flex; align-items:center; gap:8px; margin-left:8px; cursor:pointer; user-select:none;">
                     <input type="checkbox" id="sequentialPatrolCheckbox" checked onchange="onSequentialCheckboxChange()">
                     <span style="font-size:14px; color:#cbd5e1;">Tryb sekwencyjny @patrol</span>
                 </label>
             </div>
             <div id="wybraniHintBanner" class="wybrani-hint-banner" style="display:none;">
-                â  W tekĹcie jest @wybrani â kliknij âGeneruj wpisâ, aby wybraÄ osoby
+                ⚠ W tekście jest @wybrani — kliknij „Generuj wpis”, aby wybrać osoby
             </div>
             <div id="generatedEntry" class="generated-entry-editable" contenteditable="true"
                  style="width:100%; min-height:280px; padding:14px; border-radius:12px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; line-height:1.55; white-space:pre-wrap; outline:none;"></div>
@@ -159,7 +159,7 @@ function importFromJSON(event) {
     reader.onload = function(e) {
         try {
             const importedData = JSON.parse(e.target.result);
-            if (confirm("NadpisaÄ obecne dane?")) {
+            if (confirm("Nadpisać obecne dane?")) {
                 appState = { ...defaultState, ...importedData };
                 if (!Array.isArray(appState.patrole)) appState.patrole = [];
                 if (!appState.statystyki) appState.statystyki = { interwencje: [], sprawdzenia: [] };
@@ -172,7 +172,7 @@ function importFromJSON(event) {
                 else loadPage("generator");
             }
         } catch (error) {
-            alert("BĹÄd pliku JSON: " + error.message);
+            alert("Błąd pliku JSON: " + error.message);
         }
     };
     reader.readAsText(file);
