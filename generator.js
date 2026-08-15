@@ -170,9 +170,23 @@ function addHoursHHMM(hhmm, hours) {
     return formatHHMM(d);
 }
 
+function stripHtmlToText(html) {
+    return String(html || "")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/p>/gi, "\n")
+        .replace(/<\/div>/gi, "\n")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">");
+}
+
 function countTagOccurrences(text, tag) {
+    // Licz na tekście bez HTML, żeby nie gubić wystąpień w sformatowanym Opisie
+    const plain = stripHtmlToText(text);
     const safe = String(tag).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const m = String(text || "").match(new RegExp(safe + "\\b", "gi"));
+    const m = plain.match(new RegExp(safe + "\\b", "gi"));
     return m ? m.length : 0;
 }
 
@@ -1312,7 +1326,8 @@ function ensurePatrolAssignModal() {
                 Tagi po nim (@dowodca, @sklad, @kierowca…) biorą dane z wybranego patrolu.
                 Klik = jeden patrol. Shift+klik = kilka.
             </p>
-            <div id="patrolAssignList" style="max-height:40vh; overflow:auto;"></div>
+            <div id="patrolAssignCount" style="font-size:14px; color:#94a3b8; margin-bottom:10px;"></div>
+            <div id="patrolAssignList" style="max-height:55vh; overflow:auto;"></div>
             <div id="patrolAssignPreview" style="margin-top:14px; padding:12px; background:#0f172a; border-radius:10px; border:1px solid #334155; font-size:14px; color:#e2e8f0; white-space:pre-wrap; max-height:22vh; overflow:auto;">
                 <strong>Podgląd na żywo:</strong><br><span id="patrolAssignPreviewBody">(wybierz patrole)</span>
             </div>
@@ -1400,6 +1415,14 @@ function openPatrolAssignModal() {
     if (!html) html = "<p>Brak wystąpień @patrol.</p>";
 
     list.innerHTML = html;
+
+    const countEl = document.getElementById("patrolAssignCount");
+    if (countEl) {
+        countEl.textContent = globalOcc > 0
+            ? `Liczba znaczników @patrol do przypisania: ${globalOcc}`
+            : "Brak znaczników @patrol w zaznaczeniu";
+    }
+
     document.getElementById("patrolAssignModal").style.display = "flex";
     updatePatrolAssignPreview();
 }
