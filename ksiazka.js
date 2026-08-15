@@ -145,7 +145,7 @@ async function confirmSaveToKsiazka() {
 // PODPIĘCIE DO GENERATORA
 // =====================================
 
-function getGeneratedEntryPlain() {
+function getGeneratedEntryPlainForKsiazka() {
     const el = document.getElementById("generatedEntry");
     if (!el) return "";
     return (el.innerText || el.textContent || "").trim();
@@ -160,7 +160,7 @@ function getGeneratedEntryPlain() {
         }
 
         setTimeout(() => {
-            const tekst = getGeneratedEntryPlain();
+            const tekst = getGeneratedEntryPlainForKsiazka();
             if (!tekst) return;
 
             const patrols = (typeof selectedPatrols !== "undefined" && Array.isArray(selectedPatrols))
