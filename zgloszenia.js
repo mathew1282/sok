@@ -1,6 +1,6 @@
 // =====================================
-// ZGĹOSZENIA (4 kolumny + 3 poziomy w generatorze)
-// Nr linii | Opis krĂłtki | Opis pom | Opis
+// ZGŁOSZENIA (4 kolumny + 3 poziomy w generatorze)
+// Nr linii | Opis krótki | Opis pom | Opis
 // =====================================
 
 let currentZgloszenieEdit = null;
@@ -61,9 +61,9 @@ function renderZgloszenia() {
 
     let html = `
     <div class="card">
-        <h2>ZgĹoszenia</h2>
+        <h2>Zgłoszenia</h2>
         <br>
-        <button class="btn-success" onclick="openZgloszenieModal()">Dodaj zgĹoszenie</button>
+        <button class="btn-success" onclick="openZgloszenieModal()">Dodaj zgłoszenie</button>
         <br><br>
 
         <div style="margin-bottom:15px;">
@@ -89,7 +89,7 @@ function renderZgloszenia() {
             <thead>
                 <tr>
                     <th>Nr linii</th>
-                    <th>Opis krĂłtki</th>
+                    <th>Opis krótki</th>
                     <th>Opis pom</th>
                     <th>Opis</th>
                     <th>Akcje</th>
@@ -109,16 +109,16 @@ function renderZgloszenia() {
             <td>${escapeHtml(row.Linia || "")}</td>
             <td>${escapeHtml(krotki)}</td>
             <td>${escapeHtml(pom)}</td>
-            <td style="white-space: pre-wrap; max-width: 360px;">${escapeHtml(opis)}${(row.Opis || "").length > 120 ? "âŚ" : ""}</td>
+            <td style="white-space: pre-wrap; max-width: 360px;">${escapeHtml(opis)}${(row.Opis || "").length > 120 ? "…" : ""}</td>
             <td style="white-space:nowrap;">
                 <button class="btn-primary" onclick="editZgloszenie(${index})">Edytuj</button>
-                <button class="btn-danger" onclick="removeZgloszenie(${index})">UsuĹ</button>
+                <button class="btn-danger" onclick="removeZgloszenie(${index})">Usuń</button>
             </td>
         </tr>`;
     });
 
     if (rows.length === 0) {
-        html += `<tr><td colspan="5" style="text-align:center; color:#94a3b8;">Brak zgĹoszeĹ</td></tr>`;
+        html += `<tr><td colspan="5" style="text-align:center; color:#94a3b8;">Brak zgłoszeń</td></tr>`;
     }
 
     html += `
@@ -128,17 +128,17 @@ function renderZgloszenia() {
 
     <div id="zgloszenieModal" class="modal-overlay" style="display:none;">
         <div class="modal" style="max-width:920px;">
-            <h2 id="zgloszenieModalTitle">ZgĹoszenie</h2>
+            <h2 id="zgloszenieModalTitle">Zgłoszenie</h2>
 
-            <!-- RzÄd: Nr linii | Opis krĂłtki | Opis pom -->
+            <!-- Rząd: Nr linii | Opis krótki | Opis pom -->
             <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
                 <div style="flex:1; min-width:140px;">
                     <label>Nr linii</label>
                     <input type="text" id="zgloszenieLinia" placeholder="np. 275" style="width:100%;">
                 </div>
                 <div style="flex:1; min-width:160px;">
-                    <label>Opis krĂłtki</label>
-                    <input type="text" id="zgloszenieOpisKrotki" placeholder="KrĂłtka nazwa" style="width:100%;">
+                    <label>Opis krótki</label>
+                    <input type="text" id="zgloszenieOpisKrotki" placeholder="Krótka nazwa" style="width:100%;">
                 </div>
                 <div style="flex:1; min-width:160px;">
                     <label>Opis pom</label>
@@ -146,17 +146,17 @@ function renderZgloszenia() {
                 </div>
             </div>
 
-            <!-- Opis â peĹna szerokoĹÄ + formatowanie -->
+            <!-- Opis – pełna szerokość + formatowanie -->
             <label>Opis (tekst generowany do wpisu)</label>
             <div style="display:flex; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
                 <button type="button" class="btn-primary" style="padding:4px 12px;" onclick="formatZgloszenieOpis('bold')"><b>B</b> Pogrub</button>
-                <button type="button" class="btn-primary" style="padding:4px 12px;" onclick="formatZgloszenieOpis('underline')"><u>U</u> PodkreĹl</button>
+                <button type="button" class="btn-primary" style="padding:4px 12px;" onclick="formatZgloszenieOpis('underline')"><u>U</u> Podkreśl</button>
             </div>
             <div id="zgloszenieOpis" class="rich-opis-editor" contenteditable="true"
                  style="width:100%; min-height:160px; padding:10px; font-family: monospace; margin-bottom:14px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; white-space:pre-wrap; outline:none;"
-                 data-placeholder="PeĹny opis z moĹźliwoĹciÄ znacznikĂłw..."></div>
+                 data-placeholder="Pełny opis z możliwością znaczników..."></div>
 
-            <h3>DostÄpne znaczniki</h3>
+            <h3>Dostępne znaczniki</h3>
             <div class="tag-buttons">
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@patrol')">@patrol</button>
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@dowodca')">@dowodca</button>
@@ -175,7 +175,7 @@ function renderZgloszenia() {
             </div>
 
             <div class="modal-actions">
-                <button class="btn-success" onclick="saveZgloszenie()">Zapisz zgĹoszenie</button>
+                <button class="btn-success" onclick="saveZgloszenie()">Zapisz zgłoszenie</button>
                 <button class="btn-danger" onclick="closeZgloszenieModal()">Anuluj</button>
             </div>
         </div>
@@ -192,7 +192,7 @@ function setZgloszeniaFilterLinia(line) {
 
 function openZgloszenieModal() {
     currentZgloszenieEdit = null;
-    document.getElementById("zgloszenieModalTitle").innerText = "Dodaj zgĹoszenie";
+    document.getElementById("zgloszenieModalTitle").innerText = "Dodaj zgłoszenie";
     document.getElementById("zgloszenieLinia").value = zgloszeniaFilterLinia || "";
     document.getElementById("zgloszenieOpisKrotki").value = "";
     document.getElementById("zgloszenieOpisPom").value = "";
@@ -218,7 +218,7 @@ async function saveZgloszenie() {
         return;
     }
     if (!opisKrotki) {
-        alert("Podaj opis krĂłtki (bÄdzie widoczny na kafelku)");
+        alert("Podaj opis krótki (będzie widoczny na kafelku)");
         return;
     }
 
@@ -252,7 +252,7 @@ async function editZgloszenie(index) {
     const row = appState.zgloszenia.rows[index];
     if (!row) return;
 
-    document.getElementById("zgloszenieModalTitle").innerText = "Edytuj zgĹoszenie";
+    document.getElementById("zgloszenieModalTitle").innerText = "Edytuj zgłoszenie";
     document.getElementById("zgloszenieLinia").value = row.Linia || "";
     document.getElementById("zgloszenieOpisKrotki").value = row.OpisKrotki || row.Opis || "";
     document.getElementById("zgloszenieOpisPom").value = row.OpisPom || "";
@@ -266,7 +266,7 @@ async function editZgloszenie(index) {
 }
 
 async function removeZgloszenie(index) {
-    if (!confirm("UsunÄÄ zgĹoszenie?")) return;
+    if (!confirm("Usunąć zgłoszenie?")) return;
     appState.zgloszenia.rows.splice(index, 1);
     await saveState();
     renderZgloszenia();
