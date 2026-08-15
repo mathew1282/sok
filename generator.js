@@ -1,9 +1,9 @@
 // =====================================
-// GENERATOR WPISĂW
-// + 3 poziomy kafelkĂłw
+// GENERATOR WPISÓW
+// + 3 poziomy kafelków
 // + UWAGI + @wybrani
 // + logowanie sprawdzeń
-// + tagi patrolowe SEKWENCYJNIE (1.âpatrol1, 2.âpatrol2, 3.âpatrol3)
+// + tagi patrolowe SEKWENCYJNIE (1.→patrol1, 2.→patrol2, 3.→patrol3)
 // =====================================
 
 let selectedPatrols = [];
@@ -20,13 +20,13 @@ let selectedUwagiTyp = null;
 // { "zgl_12": [ [0], [1], [2] ] }
 let patrolAssignments = {};
 
-/** Tryb sekwencyjny: kaĹźde @patrol przeĹÄcza kontekst na wybrany patrol */
+/** Tryb sekwencyjny: każde @patrol przełącza kontekst na wybrany patrol */
 let sequentialPatrolMode = true;
 
 const defaultUwagiSzablony = {
-    "MKK": "Przeprowadzono kontrolÄ dokumentĂłw. MKK: @MKK.",
-    "Pouczony": "Osoba zostaĹa pouczona o obowiÄzujÄcych przepisach.",
-    "Legitymowany": "Dokonywano legitymowania osĂłb. Sprawdzono toĹźsamoĹÄ.",
+    "MKK": "Przeprowadzono kontrolę dokumentów. MKK: @MKK.",
+    "Pouczony": "Osoba została pouczona o obowiązujących przepisach.",
+    "Legitymowany": "Dokonywano legitymowania osób. Sprawdzono tożsamość.",
     "Inne": ""
 };
 
@@ -126,7 +126,7 @@ function nowHHMMSafe() {
     return new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
 }
 
-/** ZaokrÄglenie matematyczne do peĹnych 10 minut (0â4 w dĂłĹ, 5â9 w gĂłrÄ) */
+/** Zaokrąglenie matematyczne do pełnych 10 minut (0–4 w dół, 5–9 w górę) */
 function roundTo10Minutes(date) {
     const d = new Date(date);
     let h = d.getHours();
@@ -212,12 +212,12 @@ function syncSequentialCheckbox() {
     const cb = document.getElementById("sequentialPatrolCheckbox");
     if (!cb) return;
     const count = countPatrolTagsInSelection();
-    // DomyĹlnie wĹÄczony, gdy >1 @patrol w zaznaczeniu
+    // Domyślnie włączony, gdy >1 @patrol w zaznaczeniu
     if (count > 1) {
         cb.checked = true;
         sequentialPatrolMode = true;
     }
-    // Nie wymuszamy wyĹÄczenia â uĹźytkownik moĹźe rÄcznie wĹÄczyÄ/wyĹÄczyÄ
+    // Nie wymuszamy wyłączenia – użytkownik może ręcznie włączyć/wyłączyć
     cb.disabled = false;
 }
 
@@ -231,7 +231,7 @@ function getPatrolName(index) {
     return (p && p.nazwa) ? p.nazwa : ("Patrol " + (index + 1));
 }
 
-/** Tyle slotĂłw, ile wystÄpieĹ @patrol (kontekst sekwencyjny) */
+/** Tyle slotów, ile wystąpień @patrol (kontekst sekwencyjny) */
 function buildSequentialOccurrenceList(text) {
     const n = countPatrolTags(text);
     const list = [];
@@ -369,7 +369,7 @@ function togglePatrol(index) {
 }
 
 // =====================================
-// ZGĹOSZENIA â 3 POZIOMY
+// ZGŁOSZENIA – 3 POZIOMY
 // =====================================
 
 function renderZgloszeniaLines() {
@@ -400,7 +400,7 @@ function renderZgloszeniaLines() {
         html += `<div class="${className}" onclick="selectZgloszeniaLine('${escapeAttr(line)}')">${escapeHtml(line)}</div>`;
     });
 
-    container.innerHTML = html || "<p>Brak zgĹoszeĹ</p>";
+    container.innerHTML = html || "<p>Brak zgłoszeń</p>";
     renderZgloszeniaLevel2();
 }
 
@@ -459,7 +459,7 @@ function renderZgloszeniaLevel2() {
         html += `<div class="${className}" onclick="selectZgloszeniaOpisKrotki('${escapeAttr(k)}')">${escapeHtml(k)}</div>`;
     });
 
-    container.innerHTML = html || "<p>Brak wynikĂłw</p>";
+    container.innerHTML = html || "<p>Brak wyników</p>";
     renderZgloszeniaLevel3();
 }
 
@@ -494,7 +494,7 @@ function renderZgloszeniaLevel3() {
             ${escapeHtml(label)}
         </div>`;
     });
-    container.innerHTML = html || "<p>Brak wynikĂłw</p>";
+    container.innerHTML = html || "<p>Brak wyników</p>";
 }
 
 function toggleZgloszenie(index) {
@@ -508,7 +508,7 @@ function toggleZgloszenie(index) {
 }
 
 // =====================================
-// POLECENIA â 3 POZIOMY
+// POLECENIA – 3 POZIOMY
 // =====================================
 
 function renderPoleceniaLines() {
@@ -539,7 +539,7 @@ function renderPoleceniaLines() {
         html += `<div class="${className}" onclick="selectPoleceniaLine('${escapeAttr(line)}')">${escapeHtml(line)}</div>`;
     });
 
-    container.innerHTML = html || "<p>Brak poleceĹ</p>";
+    container.innerHTML = html || "<p>Brak poleceń</p>";
     renderPoleceniaLevel2();
 }
 
@@ -598,7 +598,7 @@ function renderPoleceniaLevel2() {
         html += `<div class="${className}" onclick="selectPoleceniaOpisKrotki('${escapeAttr(k)}')">${escapeHtml(k)}</div>`;
     });
 
-    container.innerHTML = html || "<p>Brak wynikĂłw</p>";
+    container.innerHTML = html || "<p>Brak wyników</p>";
     renderPoleceniaLevel3();
 }
 
@@ -633,7 +633,7 @@ function renderPoleceniaLevel3() {
             ${escapeHtml(label)}
         </div>`;
     });
-    container.innerHTML = html || "<p>Brak wynikĂłw</p>";
+    container.innerHTML = html || "<p>Brak wyników</p>";
 }
 
 function togglePolecenie(index) {
@@ -690,9 +690,9 @@ function openLogSprawdzenModal() {
 
     let body = items.map((it, idx) => `
         <div style="border:1px solid #334155; border-radius:10px; padding:12px; margin-bottom:12px;">
-            <div style="font-weight:600; margin-bottom:8px;">${escapeHtml(it.Rodzaj)} â ${escapeHtml(it.Nazwa || it.OpisKrotki || "")}</div>
+            <div style="font-weight:600; margin-bottom:8px;">${escapeHtml(it.Rodzaj)} – ${escapeHtml(it.Nazwa || it.OpisKrotki || "")}</div>
             <div style="font-size:13px; color:#94a3b8; margin-bottom:8px;">
-                Linia: ${escapeHtml(it.Linia || "")} | Km: ${escapeHtml(it.KmOd || "")} â ${escapeHtml(it.KmDo || "")}
+                Linia: ${escapeHtml(it.Linia || "")} | Km: ${escapeHtml(it.KmOd || "")} – ${escapeHtml(it.KmDo || "")}
             </div>
             <label>Godzina rozpoczęcia</label>
             <input type="text" id="sprawdGodzOd_${idx}" value="${startRounded}" placeholder="gg:mm"
@@ -706,7 +706,10 @@ function openLogSprawdzenModal() {
     overlay.innerHTML = `
         <div class="modal" style="max-width:560px;">
             <h2>Zaloguj sprawdzenie</h2>
-          
+            <p style="color:#94a3b8; font-size:14px;">
+                Godzina rozpoczęcia zaokrąglona matematycznie do 10 min.
+                Zakończenie domyślnie +2h (możesz zmienić).
+            </p>
             ${body}
             <div class="modal-actions">
                 <button class="btn-success" onclick="confirmLogSprawdzen()">Zapisz do statystyk</button>
@@ -740,7 +743,7 @@ async function confirmLogSprawdzen() {
         const godzOd = (document.getElementById(`sprawdGodzOd_${idx}`)?.value || "").trim();
         const godzDo = (document.getElementById(`sprawdGodzDo_${idx}`)?.value || "").trim();
         if (!godzOd || !godzDo) {
-            showToast("UzupeĹnij godziny (gg:mm)");
+            showToast("Uzupełnij godziny (gg:mm)");
             return;
         }
         if (typeof logSprawdzenie === "function") {
@@ -757,7 +760,7 @@ async function confirmLogSprawdzen() {
     }
 
     closeLogSprawdzenModal();
-    showToast("â Zapisano sprawdzenia w statystykach");
+    showToast("✅ Zapisano sprawdzenia w statystykach");
 }
 
 // =====================================
@@ -815,11 +818,11 @@ function ensureUwagiModal() {
             <div style="margin-bottom:12px;">
                 <button class="btn-primary" onclick="openUwagiSzablonyModal()">Szablony</button>
             </div>
-            <label style="display:block; margin-bottom:6px;">TreĹÄ uwagi (moĹźesz edytowaÄ):</label>
+            <label style="display:block; margin-bottom:6px;">Treść uwagi (możesz edytować):</label>
             <textarea id="uwagiTekst" rows="8" style="width:100%; font-family:inherit; margin-bottom:15px;"></textarea>
             <div class="modal-actions">
                 <button class="btn-success" onclick="wstawUwagi()">Wstaw</button>
-                <button class="btn-danger" onclick="closeUwagiModal()">WyjdĹş</button>
+                <button class="btn-danger" onclick="closeUwagiModal()">Wyjdź</button>
             </div>
         </div>
     `;
@@ -900,20 +903,20 @@ async function saveUwagiSzablony() {
     appState.uwagiSzablony["Inne"] = document.getElementById("szablonInne").value;
     await saveState();
     closeUwagiSzablonyModal();
-    showToast("â Szablony zapisane");
+    showToast("✅ Szablony zapisane");
 }
 
 function wstawUwagi() {
     let tekst = (document.getElementById("uwagiTekst")?.value || "").trim();
     if (!tekst) {
-        showToast("Wpisz treĹÄ uwagi");
+        showToast("Wpisz treść uwagi");
         return;
     }
 
     if (/@wybrani/i.test(tekst)) {
         const people = getSkladFromSelectedPatrols();
         if (people.length === 0) {
-            showToast("Brak osĂłb w skĹadzie zaznaczonych patroli");
+            showToast("Brak osób w składzie zaznaczonych patroli");
             return;
         }
         window._uwagiTekstDoWstawienia = tekst;
@@ -931,7 +934,7 @@ function wstawTekstUwagiDoWpis(tekst) {
     if (!el) return;
 
     let current = getGeneratedEntryPlain();
-    const regex = /(brak wydarzeĹ|bez wydarzeĹ)/gi;
+    const regex = /(brak wydarzeń|bez wydarzeń)/gi;
 
     if (regex.test(current)) {
         current = current.replace(regex, tekst);
@@ -946,14 +949,14 @@ function wstawTekstUwagiDoWpis(tekst) {
         logInterwencja(selectedUwagiTyp || "Inne");
     }
     selectedUwagiTyp = null;
-    showToast("â Uwaga wstawiona");
+    showToast("✅ Uwaga wstawiona");
 }
 
 function openWybraniModalForUwagi() {
     ensureWybraniModal();
     const people = getSkladFromSelectedPatrols();
     if (people.length === 0) {
-        showToast("Brak osĂłb w skĹadzie zaznaczonych patroli");
+        showToast("Brak osób w składzie zaznaczonych patroli");
         return;
     }
 
@@ -972,7 +975,7 @@ function openWybraniModalForUwagi() {
     const actions = document.querySelector("#wybraniModal .modal-actions");
     if (actions) {
         actions.innerHTML = `
-            <button class="btn-success" onclick="confirmWybraniUwagi()">ZatwierdĹş i wstaw</button>
+            <button class="btn-success" onclick="confirmWybraniUwagi()">Zatwierdź i wstaw</button>
             <button class="btn-primary" onclick="selectAllWybraniUwagi()">Zaznacz wszystkich</button>
             <button class="btn-danger" onclick="closeWybraniModal()">Anuluj</button>
         `;
@@ -1020,12 +1023,12 @@ function updateUwagiLivePreview() {
     if (selectedWybrani.length > 0) {
         tekst = tekst.replace(/@wybrani/gi, forceOneLine(uniqueNonEmpty(selectedWybrani)));
     }
-    preview.innerHTML = `<strong>PodglÄd:</strong><br>${escapeHtml(tekst || "(brak tekstu)")}`;
+    preview.innerHTML = `<strong>Podgląd:</strong><br>${escapeHtml(tekst || "(brak tekstu)")}`;
 }
 
 function confirmWybraniUwagi() {
     if (selectedWybrani.length === 0) {
-        showToast("Wybierz przynajmniej jednÄ osobÄ");
+        showToast("Wybierz przynajmniej jedną osobę");
         return;
     }
 
@@ -1046,7 +1049,7 @@ function confirmWybraniUwagi() {
     const actions = document.querySelector("#wybraniModal .modal-actions");
     if (actions) {
         actions.innerHTML = `
-            <button class="btn-success" onclick="confirmWybrani()">ZatwierdĹş i generuj</button>
+            <button class="btn-success" onclick="confirmWybrani()">Zatwierdź i generuj</button>
             <button class="btn-primary" onclick="selectAllWybrani()">Zaznacz wszystkich</button>
             <button class="btn-danger" onclick="closeWybraniModal()">Anuluj</button>
         `;
@@ -1054,7 +1057,7 @@ function confirmWybraniUwagi() {
 }
 
 // =====================================
-// GENEROWANIE â tagi SEKWENCYJNIE
+// GENEROWANIE – tagi SEKWENCYJNIE
 // =====================================
 
 function getSkladFromSelectedPatrols() {
@@ -1137,20 +1140,20 @@ function applyTags(text, replacements) {
             out = out.replace(new RegExp(safe + "\\b", "gi"), value || "");
         });
     }
-    // Zachowaj nowe linie â nie zamieniaj \n na spacje
+    // Zachowaj nowe linie – nie zamieniaj \n na spacje
     return out.replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim();
 }
 
 /**
- * Tryb zwykĹy: wszystkie tagi z wszystkich zaznaczonych patroli (przecinek).
- * Tryb sekwencyjny: kaĹźde @patrol przeĹÄcza kontekst; tagi po nim biorÄ dane z tego patrolu.
+ * Tryb zwykły: wszystkie tagi z wszystkich zaznaczonych patroli (przecinek).
+ * Tryb sekwencyjny: każde @patrol przełącza kontekst; tagi po nim biorą dane z tego patrolu.
  */
 function applyTextWithPatrolOccurrences(text, occurrenceList) {
     const raw = String(text || "");
     const sequential = isSequentialModeEnabled() && countPatrolTags(raw) > 0;
 
     if (!sequential) {
-        // ZwykĹy tryb â poĹÄcz dane ze wszystkich zaznaczonych patroli
+        // Zwykły tryb – połącz dane ze wszystkich zaznaczonych patroli
         const rep = buildReplacementsForPatrols(selectedPatrols);
         return applyTags(raw, rep);
     }
@@ -1159,14 +1162,14 @@ function applyTextWithPatrolOccurrences(text, occurrenceList) {
         ? occurrenceList
         : buildSequentialOccurrenceList(raw);
 
-    // Idziemy od lewej: @patrol przeĹÄcza aktywny patrol, reszta tagĂłw bierze z aktywnego
+    // Idziemy od lewej: @patrol przełącza aktywny patrol, reszta tagów bierze z aktywnego
     const tagPattern = /@(?:patrol|sklad|dowodca|kierowca|wszyscy|wot|policjant)\b/gi;
     let result = "";
     let lastIndex = 0;
     let patrolOcc = 0;
     let activeIdxs = resolvePatrolIndexesForSlot(list, 0);
 
-    // Tekst przed pierwszym @patrol â uĹźyj pierwszego slotu (lub selected)
+    // Tekst przed pierwszym @patrol – użyj pierwszego slotu (lub selected)
     if (!countPatrolTags(raw)) {
         activeIdxs = selectedPatrols.length ? selectedPatrols : activeIdxs;
     }
@@ -1200,10 +1203,10 @@ function applyTextWithPatrolOccurrences(text, occurrenceList) {
 }
 
 function plainTextToHtml(text) {
-    // JeĹli juĹź wyglÄda na HTML z formatowaniem â zostaw
+    // Jeśli już wygląda na HTML z formatowaniem – zostaw
     const s = String(text || "");
     if (/<(?:b|strong|u|i|br|div|p)\b/i.test(s)) {
-        // ZamieĹ same \n poza tagami na <br> ostroĹźnie
+        // Zamień same \n poza tagami na <br> ostrożnie
         return s.replace(/\n/g, "<br>");
     }
     return escapeHtml(s).replace(/\n/g, "<br>");
@@ -1227,7 +1230,7 @@ function getGeneratedEntryPlain() {
     const el = getGeneratedEntryEl();
     if (!el) return "";
     if (el.getAttribute("contenteditable") === "true") {
-        // Zachowaj nowe linie z blokĂłw
+        // Zachowaj nowe linie z bloków
         const clone = el.cloneNode(true);
         clone.querySelectorAll("br").forEach(br => br.replaceWith("\n"));
         clone.querySelectorAll("div,p").forEach(d => {
@@ -1253,7 +1256,7 @@ function updateLiveEntry() {
     syncSequentialCheckbox();
 
     const needsWybraniHint = hasWybraniTag() && selectedWybrani.length === 0;
-    const hintPlain = "â  KLIKNIJ âGENERUJ WPISâ, ABY WYBRAÄ OSOBY";
+    const hintPlain = "⚠ KLIKNIJ „GENERUJ WPIS”, ABY WYBRAĆ OSOBY";
     const parts = [];
 
     const handle = (prefix, indexes, rows) => {
@@ -1297,16 +1300,16 @@ function ensurePatrolAssignModal() {
         <div class="modal" style="max-width:820px;">
             <h2>Przypisz patrole do @patrol</h2>
             <p style="color:#94a3b8; font-size:14px; margin-bottom:15px;">
-                KaĹźde wystÄpienie <strong>@patrol</strong> przeĹÄcza kontekst.
-                Tagi po nim (@dowodca, @sklad, @kierowcaâŚ) biorÄ dane z wybranego patrolu.
+                Każde wystąpienie <strong>@patrol</strong> przełącza kontekst.
+                Tagi po nim (@dowodca, @sklad, @kierowca…) biorą dane z wybranego patrolu.
                 Klik = jeden patrol. Shift+klik = kilka.
             </p>
             <div id="patrolAssignList" style="max-height:40vh; overflow:auto;"></div>
             <div id="patrolAssignPreview" style="margin-top:14px; padding:12px; background:#0f172a; border-radius:10px; border:1px solid #334155; font-size:14px; color:#e2e8f0; white-space:pre-wrap; max-height:22vh; overflow:auto;">
-                <strong>PodglÄd na Ĺźywo:</strong><br><span id="patrolAssignPreviewBody">(wybierz patrole)</span>
+                <strong>Podgląd na żywo:</strong><br><span id="patrolAssignPreviewBody">(wybierz patrole)</span>
             </div>
             <div class="modal-actions">
-                <button class="btn-success" onclick="confirmPatrolAssignments()">ZatwierdĹş i generuj</button>
+                <button class="btn-success" onclick="confirmPatrolAssignments()">Zatwierdź i generuj</button>
                 <button class="btn-danger" onclick="closePatrolAssignModal()">Anuluj</button>
             </div>
         </div>
@@ -1348,7 +1351,7 @@ function openPatrolAssignModal() {
             if (count === 0) return;
 
             const key = `${prefix}_${i}`;
-            // sloty wg @patrol (nazwy); skĹad dobierze siÄ po tym samym indeksie wystÄpienia
+            // sloty wg @patrol (nazwy); skład dobierze się po tym samym indeksie wystąpienia
             patrolAssignments[key] = [];
             for (let occ = 0; occ < count; occ++) {
                 patrolAssignments[key][occ] = selectedPatrols.length
@@ -1360,7 +1363,7 @@ function openPatrolAssignModal() {
             html += `
             <div style="border:1px solid #334155; border-radius:12px; padding:14px; margin-bottom:14px;">
                 <div style="font-weight:600; margin-bottom:4px;">${escapeHtml(labelPrefix)}: ${escapeHtml(short)}</div>
-                <div style="font-size:12px; color:#94a3b8; margin-bottom:12px;">${escapeHtml(text.substring(0, 160))}${text.length > 160 ? "âŚ" : ""}</div>
+                <div style="font-size:12px; color:#94a3b8; margin-bottom:12px;">${escapeHtml(text.substring(0, 160))}${text.length > 160 ? "…" : ""}</div>
             `;
 
             for (let occ = 0; occ < count; occ++) {
@@ -1383,10 +1386,10 @@ function openPatrolAssignModal() {
         });
     };
 
-    addSource("zgl", selectedZgloszeniaIndexes, appState.zgloszenia?.rows, "ZgĹoszenie");
+    addSource("zgl", selectedZgloszeniaIndexes, appState.zgloszenia?.rows, "Zgłoszenie");
     addSource("pol", selectedPoleceniaIndexes, appState.polecenia?.rows, "Polecenie");
 
-    if (!html) html = "<p>Brak wystÄpieĹ @patrol.</p>";
+    if (!html) html = "<p>Brak wystąpień @patrol.</p>";
 
     list.innerHTML = html;
     document.getElementById("patrolAssignModal").style.display = "flex";
@@ -1436,7 +1439,7 @@ function confirmPatrolAssignments() {
         const list = patrolAssignments[key] || [];
         for (let occ = 0; occ < list.length; occ++) {
             if (!list[occ] || list[occ].length === 0) {
-                showToast("Przy kaĹźdym @patrol wybierz przynajmniej jeden patrol");
+                showToast("Przy każdym @patrol wybierz przynajmniej jeden patrol");
                 return;
             }
         }
@@ -1457,7 +1460,7 @@ function confirmPatrolAssignments() {
     }
 
     updateLiveEntry();
-    showToast("â Wpis wygenerowany");
+    showToast("✅ Wpis wygenerowany");
 }
 
 // =====================================
@@ -1472,13 +1475,13 @@ function ensureWybraniModal() {
     overlay.style.display = "none";
     overlay.innerHTML = `
         <div class="modal" style="max-width:640px;">
-            <h2>Wybierz osoby ze skĹadu patrolu</h2>
+            <h2>Wybierz osoby ze składu patrolu</h2>
             <p style="margin-bottom:15px; color:#94a3b8; font-size:14px;">
                 Zaznacz osoby dla <strong>@wybrani</strong>.
             </p>
             <div id="wybraniList" class="card-grid" style="max-height:50vh; overflow:auto;"></div>
             <div class="modal-actions">
-                <button class="btn-success" onclick="confirmWybrani()">ZatwierdĹş i generuj</button>
+                <button class="btn-success" onclick="confirmWybrani()">Zatwierdź i generuj</button>
                 <button class="btn-primary" onclick="selectAllWybrani()">Zaznacz wszystkich</button>
                 <button class="btn-danger" onclick="closeWybraniModal()">Anuluj</button>
             </div>
@@ -1491,7 +1494,7 @@ function openWybraniModal() {
     ensureWybraniModal();
     const people = getSkladFromSelectedPatrols();
     if (people.length === 0) {
-        showToast("Brak osĂłb w skĹadzie zaznaczonych patroli");
+        showToast("Brak osób w składzie zaznaczonych patroli");
         return false;
     }
     selectedWybrani = selectedWybrani.filter(p => people.includes(p));
@@ -1534,12 +1537,12 @@ function closeWybraniModal() {
 
 function confirmWybrani() {
     if (selectedWybrani.length === 0) {
-        showToast("Wybierz przynajmniej jednÄ osobÄ");
+        showToast("Wybierz przynajmniej jedną osobę");
         return;
     }
     closeWybraniModal();
     updateLiveEntry();
-    showToast("â Wpis wygenerowany z wybranymi osobami");
+    showToast("✅ Wpis wygenerowany z wybranymi osobami");
 }
 
 // =====================================
@@ -1574,8 +1577,8 @@ function copyEntry() {
         return;
     }
     navigator.clipboard.writeText(plain).then(() => {
-        showToast("â Skopiowano do schowka");
-    }).catch(() => showToast("Nie udaĹo siÄ skopiowaÄ"));
+        showToast("✅ Skopiowano do schowka");
+    }).catch(() => showToast("Nie udało się skopiować"));
 }
 
 function clearEntry() {
