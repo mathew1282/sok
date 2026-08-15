@@ -1139,7 +1139,8 @@ function buildReplacementsForPatrols(patrolIndexes) {
         "@dowodca":   forceOneLine(uniqueNonEmpty(allDowodcy)),
         "@kierowca":  forceOneLine(uniqueNonEmpty(allKierowcy)),
         "@sklad":     forceOneLine(uniqueNonEmpty(allSklad)),
-        "@wszyscy":   forceOneLine(uniqueNonEmpty([...allSklad, ...allDowodcy, ...allKierowcy])),
+        // @wszyscy = skład + WOT + policjant (po przecinku)
+        "@wszyscy":   forceOneLine(uniqueNonEmpty([...allSklad, ...allWot, ...allPolicjanci])),
         "@wybrani":   wybraniValue,
         "@data":      data,
         "@godzina":   godzina,
