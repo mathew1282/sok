@@ -92,7 +92,7 @@ function renderPolecenia() {
             <thead>
                 <tr>
                     <th>Nr linii</th>
-                    <th>Opis krĂłtki</th>
+                    <th>Opis krótki</th>
                     <th>Opis pom</th>
                     <th>Opis</th>
                     <th>Rodzaj</th>
@@ -116,20 +116,20 @@ function renderPolecenia() {
             <td>${escapeHtml(row.Linia || "")}</td>
             <td>${escapeHtml(krotki)}</td>
             <td>${escapeHtml(pom)}</td>
-            <td style="white-space: pre-wrap; max-width: 220px;">${escapeHtml(opis)}${(row.Opis || "").length > 60 ? "âŚ" : ""}</td>
+            <td style="white-space: pre-wrap; max-width: 220px;">${escapeHtml(opis)}${(row.Opis || "").length > 60 ? "…" : ""}</td>
             <td>${escapeHtml(row.Rodzaj || "Inne")}</td>
             <td>${escapeHtml(row.Nazwa || "")}</td>
             <td>${escapeHtml(row.KmOd || "")}</td>
             <td>${escapeHtml(row.KmDo || "")}</td>
             <td style="white-space:nowrap;">
                 <button class="btn-primary" onclick="editPolecenie(${index})">Edytuj</button>
-                <button class="btn-danger" onclick="removePolecenie(${index})">UsuĹ</button>
+                <button class="btn-danger" onclick="removePolecenie(${index})">Usuń</button>
             </td>
         </tr>`;
     });
 
     if (rows.length === 0) {
-        html += `<tr><td colspan="9" style="text-align:center; color:#94a3b8;">Brak poleceĹ</td></tr>`;
+        html += `<tr><td colspan="9" style="text-align:center; color:#94a3b8;">Brak poleceń</td></tr>`;
     }
 
     html += `
@@ -141,15 +141,15 @@ function renderPolecenia() {
         <div class="modal" style="max-width:920px;">
             <h2 id="polecenieModalTitle">Polecenie</h2>
 
-            <!-- RzÄd 1: Nr linii | Opis krĂłtki | Opis pom -->
+            <!-- Rząd 1: Nr linii | Opis krótki | Opis pom -->
             <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
                 <div style="flex:1; min-width:140px;">
                     <label>Nr linii</label>
                     <input type="text" id="polecenieLinia" placeholder="np. 275" style="width:100%;">
                 </div>
                 <div style="flex:1; min-width:160px;">
-                    <label>Opis krĂłtki</label>
-                    <input type="text" id="polecenieOpisKrotki" placeholder="KrĂłtka nazwa" style="width:100%;">
+                    <label>Opis krótki</label>
+                    <input type="text" id="polecenieOpisKrotki" placeholder="Krótka nazwa" style="width:100%;">
                 </div>
                 <div style="flex:1; min-width:160px;">
                     <label>Opis pom</label>
@@ -157,17 +157,17 @@ function renderPolecenia() {
                 </div>
             </div>
 
-            <!-- Opis â peĹna szerokoĹÄ + formatowanie -->
+            <!-- Opis – pełna szerokość + formatowanie -->
             <label>Opis (tekst generowany do wpisu)</label>
             <div style="display:flex; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
                 <button type="button" class="btn-primary" style="padding:4px 12px;" onclick="formatPolecenieOpis('bold')"><b>B</b> Pogrub</button>
-                <button type="button" class="btn-primary" style="padding:4px 12px;" onclick="formatPolecenieOpis('underline')"><u>U</u> PodkreĹl</button>
+                <button type="button" class="btn-primary" style="padding:4px 12px;" onclick="formatPolecenieOpis('underline')"><u>U</u> Podkreśl</button>
             </div>
             <div id="polecenieOpis" class="rich-opis-editor" contenteditable="true"
                  style="width:100%; min-height:140px; padding:10px; font-family: monospace; margin-bottom:14px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; white-space:pre-wrap; outline:none;"
-                 data-placeholder="PeĹny opis z znacznikami..."></div>
+                 data-placeholder="Pełny opis z znacznikami..."></div>
 
-            <!-- RzÄd 2: Rodzaj | Nazwa | Km od | Km do -->
+            <!-- Rząd 2: Rodzaj | Nazwa | Km od | Km do -->
             <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
                 <div style="flex:1; min-width:150px;">
                     <label>Rodzaj</label>
@@ -192,7 +192,7 @@ function renderPolecenia() {
                 </div>
             </div>
 
-            <h3>DostÄpne znaczniki</h3>
+            <h3>Dostępne znaczniki</h3>
             <div class="tag-buttons">
                 <button type="button" class="btn-primary" onclick="insertPolecenieTag('@patrol')">@patrol</button>
                 <button type="button" class="btn-primary" onclick="insertPolecenieTag('@dowodca')">@dowodca</button>
@@ -258,7 +258,7 @@ async function savePolecenie() {
     const kmDo = document.getElementById("polecenieKmDo").value.trim();
 
     if (!linia) { alert("Podaj nr linii"); return; }
-    if (!opisKrotki) { alert("Podaj opis krĂłtki"); return; }
+    if (!opisKrotki) { alert("Podaj opis krótki"); return; }
 
     const item = {
         Linia: linia,
@@ -299,7 +299,7 @@ async function editPolecenie(index) {
     const opisEl = document.getElementById("polecenieOpis");
     if (opisEl) {
         const raw = row.Opis || "";
-        // JeĹli plain text z \n â pokaĹź z <br>, jeĹli HTML â wstaw jak jest
+        // Jeśli plain text z \n – pokaż z <br>, jeśli HTML – wstaw jak jest
         if (/<(?:b|strong|u|i|br|div|p)\b/i.test(raw)) opisEl.innerHTML = raw;
         else opisEl.innerHTML = String(raw).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
     }
@@ -311,7 +311,7 @@ async function editPolecenie(index) {
 }
 
 async function removePolecenie(index) {
-    if (!confirm("UsunÄÄ polecenie?")) return;
+    if (!confirm("Usunąć polecenie?")) return;
     appState.polecenia.rows.splice(index, 1);
     await saveState();
     renderPolecenia();
