@@ -92,7 +92,7 @@ function renderPolecenia() {
             <thead>
                 <tr>
                     <th>Nr linii</th>
-                    <th>Opis krótki</th>
+                    <th>Opis krĂłtki</th>
                     <th>Opis pom</th>
                     <th>Opis</th>
                     <th>Rodzaj</th>
@@ -116,20 +116,20 @@ function renderPolecenia() {
             <td>${escapeHtml(row.Linia || "")}</td>
             <td>${escapeHtml(krotki)}</td>
             <td>${escapeHtml(pom)}</td>
-            <td style="white-space: pre-wrap; max-width: 220px;">${escapeHtml(opis)}${(row.Opis || "").length > 60 ? "…" : ""}</td>
+            <td style="white-space: pre-wrap; max-width: 220px;">${escapeHtml(opis)}${(row.Opis || "").length > 60 ? "âŚ" : ""}</td>
             <td>${escapeHtml(row.Rodzaj || "Inne")}</td>
             <td>${escapeHtml(row.Nazwa || "")}</td>
             <td>${escapeHtml(row.KmOd || "")}</td>
             <td>${escapeHtml(row.KmDo || "")}</td>
             <td style="white-space:nowrap;">
                 <button class="btn-primary" onclick="editPolecenie(${index})">Edytuj</button>
-                <button class="btn-danger" onclick="removePolecenie(${index})">Usuń</button>
+                <button class="btn-danger" onclick="removePolecenie(${index})">UsuĹ</button>
             </td>
         </tr>`;
     });
 
     if (rows.length === 0) {
-        html += `<tr><td colspan="9" style="text-align:center; color:#94a3b8;">Brak poleceń</td></tr>`;
+        html += `<tr><td colspan="9" style="text-align:center; color:#94a3b8;">Brak poleceĹ</td></tr>`;
     }
 
     html += `
@@ -141,15 +141,15 @@ function renderPolecenia() {
         <div class="modal" style="max-width:920px;">
             <h2 id="polecenieModalTitle">Polecenie</h2>
 
-            <!-- Rząd 1: Nr linii | Opis krótki | Opis pom -->
+            <!-- RzÄd 1: Nr linii | Opis krĂłtki | Opis pom -->
             <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
                 <div style="flex:1; min-width:140px;">
                     <label>Nr linii</label>
                     <input type="text" id="polecenieLinia" placeholder="np. 275" style="width:100%;">
                 </div>
                 <div style="flex:1; min-width:160px;">
-                    <label>Opis krótki</label>
-                    <input type="text" id="polecenieOpisKrotki" placeholder="Krótka nazwa" style="width:100%;">
+                    <label>Opis krĂłtki</label>
+                    <input type="text" id="polecenieOpisKrotki" placeholder="KrĂłtka nazwa" style="width:100%;">
                 </div>
                 <div style="flex:1; min-width:160px;">
                     <label>Opis pom</label>
@@ -157,11 +157,17 @@ function renderPolecenia() {
                 </div>
             </div>
 
-            <!-- Opis – pełna szerokość -->
+            <!-- Opis â peĹna szerokoĹÄ + formatowanie -->
             <label>Opis (tekst generowany do wpisu)</label>
-            <textarea id="polecenieOpis" rows="8" style="width:100%; font-family: monospace; margin-bottom:14px;" placeholder="Pełny opis z znacznikami..."></textarea>
+            <div style="display:flex; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
+                <button type="button" class="btn-primary" style="padding:4px 12px;" onclick="formatPolecenieOpis('bold')"><b>B</b> Pogrub</button>
+                <button type="button" class="btn-primary" style="padding:4px 12px;" onclick="formatPolecenieOpis('underline')"><u>U</u> PodkreĹl</button>
+            </div>
+            <div id="polecenieOpis" class="rich-opis-editor" contenteditable="true"
+                 style="width:100%; min-height:140px; padding:10px; font-family: monospace; margin-bottom:14px; border-radius:8px; border:1px solid #334155; background:#0f172a; color:#e2e8f0; white-space:pre-wrap; outline:none;"
+                 data-placeholder="PeĹny opis z znacznikami..."></div>
 
-            <!-- Rząd 2: Rodzaj | Nazwa | Km od | Km do -->
+            <!-- RzÄd 2: Rodzaj | Nazwa | Km od | Km do -->
             <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
                 <div style="flex:1; min-width:150px;">
                     <label>Rodzaj</label>
@@ -186,7 +192,7 @@ function renderPolecenia() {
                 </div>
             </div>
 
-            <h3>Dostępne znaczniki</h3>
+            <h3>DostÄpne znaczniki</h3>
             <div class="tag-buttons">
                 <button type="button" class="btn-primary" onclick="insertPolecenieTag('@patrol')">@patrol</button>
                 <button type="button" class="btn-primary" onclick="insertPolecenieTag('@dowodca')">@dowodca</button>
@@ -226,7 +232,8 @@ function openPolecenieModal() {
     document.getElementById("polecenieLinia").value = poleceniaFilterLinia || "";
     document.getElementById("polecenieOpisKrotki").value = "";
     document.getElementById("polecenieOpisPom").value = "";
-    document.getElementById("polecenieOpis").value = "";
+    const opisEl = document.getElementById("polecenieOpis");
+    if (opisEl) opisEl.innerHTML = "";
     document.getElementById("polecenieRodzaj").value = "Inne";
     document.getElementById("polecenieNazwa").value = "";
     document.getElementById("polecenieKmOd").value = "";
@@ -243,14 +250,15 @@ async function savePolecenie() {
     const linia = document.getElementById("polecenieLinia").value.trim();
     const opisKrotki = document.getElementById("polecenieOpisKrotki").value.trim();
     const opisPom = document.getElementById("polecenieOpisPom").value.trim();
-    const opis = document.getElementById("polecenieOpis").value.trim();
+    const opisEl = document.getElementById("polecenieOpis");
+    const opis = opisEl ? (opisEl.innerHTML || "").trim() : "";
     const rodzaj = document.getElementById("polecenieRodzaj").value || "Inne";
     const nazwa = document.getElementById("polecenieNazwa").value.trim();
     const kmOd = document.getElementById("polecenieKmOd").value.trim();
     const kmDo = document.getElementById("polecenieKmDo").value.trim();
 
     if (!linia) { alert("Podaj nr linii"); return; }
-    if (!opisKrotki) { alert("Podaj opis krótki"); return; }
+    if (!opisKrotki) { alert("Podaj opis krĂłtki"); return; }
 
     const item = {
         Linia: linia,
@@ -288,7 +296,13 @@ async function editPolecenie(index) {
     document.getElementById("polecenieLinia").value = row.Linia || "";
     document.getElementById("polecenieOpisKrotki").value = row.OpisKrotki || "";
     document.getElementById("polecenieOpisPom").value = row.OpisPom || "";
-    document.getElementById("polecenieOpis").value = row.Opis || "";
+    const opisEl = document.getElementById("polecenieOpis");
+    if (opisEl) {
+        const raw = row.Opis || "";
+        // JeĹli plain text z \n â pokaĹź z <br>, jeĹli HTML â wstaw jak jest
+        if (/<(?:b|strong|u|i|br|div|p)\b/i.test(raw)) opisEl.innerHTML = raw;
+        else opisEl.innerHTML = String(raw).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+    }
     document.getElementById("polecenieRodzaj").value = row.Rodzaj || "Inne";
     document.getElementById("polecenieNazwa").value = row.Nazwa || row.NazwaSzlaku || "";
     document.getElementById("polecenieKmOd").value = row.KmOd || row.Km || "";
@@ -297,22 +311,28 @@ async function editPolecenie(index) {
 }
 
 async function removePolecenie(index) {
-    if (!confirm("Usunąć polecenie?")) return;
+    if (!confirm("UsunÄÄ polecenie?")) return;
     appState.polecenia.rows.splice(index, 1);
     await saveState();
     renderPolecenia();
 }
 
 function insertPolecenieTag(tag) {
-    const textarea = document.getElementById("polecenieOpis");
-    if (!textarea) return;
-    const start = textarea.selectionStart ?? textarea.value.length;
-    const end = textarea.selectionEnd ?? textarea.value.length;
-    const text = textarea.value;
-    textarea.value = text.substring(0, start) + tag + text.substring(end);
-    textarea.focus();
-    textarea.selectionStart = start + tag.length;
-    textarea.selectionEnd = start + tag.length;
+    const el = document.getElementById("polecenieOpis");
+    if (!el) return;
+    el.focus();
+    try {
+        document.execCommand("insertText", false, tag);
+    } catch (e) {
+        el.innerHTML += tag;
+    }
+}
+
+function formatPolecenieOpis(cmd) {
+    const el = document.getElementById("polecenieOpis");
+    if (!el) return;
+    el.focus();
+    document.execCommand(cmd, false, null);
 }
 
 window.openPolecenieModal = openPolecenieModal;
@@ -321,4 +341,5 @@ window.savePolecenie = savePolecenie;
 window.editPolecenie = editPolecenie;
 window.removePolecenie = removePolecenie;
 window.insertPolecenieTag = insertPolecenieTag;
+window.formatPolecenieOpis = formatPolecenieOpis;
 window.setPoleceniaFilterLinia = setPoleceniaFilterLinia;
