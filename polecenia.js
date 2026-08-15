@@ -66,8 +66,13 @@ function renderPolecenia() {
     <div class="card">
         <h2>Polecenia</h2>
         <br>
-        <button class="btn-success" onclick="openPolecenieModal()">Dodaj polecenie</button>
-        <br><br>
+        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+            <button class="btn-success" onclick="openPolecenieModal()">Dodaj polecenie</button>
+            <button class="btn-export" onclick="exportPoleceniaExcel()">📥 Eksport Excel</button>
+            <button class="btn-import" onclick="document.getElementById('poleceniaExcelLoader').click()">📤 Import Excel</button>
+            <input type="file" id="poleceniaExcelLoader" accept=".xlsx,.xls,.csv" hidden onchange="importPoleceniaExcel(event)">
+        </div>
+        <br>
 
         <div style="margin-bottom:15px;">
             <div style="font-size:14px; color:#94a3b8; margin-bottom:8px;">Filtr linii (kliknij):</div>
@@ -335,6 +340,112 @@ function formatPolecenieOpis(cmd) {
     document.execCommand(cmd, false, null);
 }
 
+// =====================================
+// EXCEL – eksport / import
+// =====================================
+
+const POLECENIA_EXCEL_COLUMNS = ["Linia", "OpisKrotki", "OpisPom", "Opis", "Rodzaj", "Nazwa", "KmOd", "KmDo"];
+
+function ensureXlsxLib() {
+    if (typeof XLSX !== "undefined") return true;
+    alert("Brak biblioteki Excel (SheetJS). Dodaj w index.html:\n<script src=\"https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js\"></script>");
+    return false;
+}
+
+function exportPoleceniaExcel() {
+    if (!ensureXlsxLib()) return;
+    const rows = appState.polecenia?.rows || [];
+    if (!rows.length) {
+        alert("Brak poleceń do eksportu");
+        return;
+    }
+    const data = rows.map(r => {
+        const o = {};
+        POLECENIA_EXCEL_COLUMNS.forEach(col => {
+            o[col] = r[col] != null ? String(r[col]) : "";
+        });
+        return o;
+    });
+    const ws = XLSX.utils.json_to_sheet(data, { header: POLECENIA_EXCEL_COLUMNS });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Polecenia");
+    XLSX.writeFile(wb, "polecenia.xlsx");
+}
+
+async function importPoleceniaExcel(event) {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!ensureXlsxLib()) return;
+
+    try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const sheetName = wb.SheetNames[0];
+        const sheet = wb.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+        if (!json.length) {
+            alert("Plik Excel jest pusty");
+            return;
+        }
+
+        const mapped = json.map(row => {
+            const get = (...keys) => {
+                for (const k of keys) {
+                    if (row[k] != null && String(row[k]).trim() !== "") return String(row[k]).trim();
+                }
+                // case-insensitive
+                const lower = {};
+                Object.keys(row).forEach(k => { lower[k.toLowerCase()] = row[k]; });
+                for (const k of keys) {
+                    const v = lower[k.toLowerCase()];
+                    if (v != null && String(v).trim() !== "") return String(v).trim();
+                }
+                return "";
+            };
+            return {
+                Linia: get("Linia", "Nr linii", "linia"),
+                OpisKrotki: get("OpisKrotki", "Opis krótki", "Opis krotki"),
+                OpisPom: get("OpisPom", "Opis pom", "Opis pomocniczy"),
+                Opis: get("Opis", "Opis pełny"),
+                Rodzaj: get("Rodzaj") || "Inne",
+                Nazwa: get("Nazwa", "NazwaSzlaku"),
+                KmOd: get("KmOd", "Km od", "Km"),
+                KmDo: get("KmDo", "Km do")
+            };
+        }).filter(r => r.Linia || r.OpisKrotki || r.Opis);
+
+        if (!mapped.length) {
+            alert("Nie znaleziono poprawnych wierszy (potrzebna kolumna Linia / Opis)");
+            return;
+        }
+
+        const mode = confirm(
+            `Znaleziono ${mapped.length} wierszy.\n\nOK = ZASTĄP wszystkie polecenia\nAnuluj = DODAJ do istniejących`
+        );
+
+        if (!appState.polecenia) {
+            appState.polecenia = { columns: POLECENIA_EXCEL_COLUMNS.slice(), rows: [] };
+        }
+        appState.polecenia.columns = POLECENIA_EXCEL_COLUMNS.slice();
+
+        if (mode) {
+            appState.polecenia.rows = mapped;
+        } else {
+            if (!Array.isArray(appState.polecenia.rows)) appState.polecenia.rows = [];
+            appState.polecenia.rows.push(...mapped);
+        }
+
+        await saveState();
+        renderPolecenia();
+        alert(`Zaimportowano ${mapped.length} poleceń`);
+    } catch (err) {
+        console.error(err);
+        alert("Błąd importu Excel: " + (err.message || err));
+    }
+}
+
 window.openPolecenieModal = openPolecenieModal;
 window.closePolecenieModal = closePolecenieModal;
 window.savePolecenie = savePolecenie;
@@ -343,3 +454,5 @@ window.removePolecenie = removePolecenie;
 window.insertPolecenieTag = insertPolecenieTag;
 window.formatPolecenieOpis = formatPolecenieOpis;
 window.setPoleceniaFilterLinia = setPoleceniaFilterLinia;
+window.exportPoleceniaExcel = exportPoleceniaExcel;
+window.importPoleceniaExcel = importPoleceniaExcel;
