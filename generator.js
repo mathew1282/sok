@@ -2,7 +2,7 @@
 // GENERATOR WPISĂW
 // + 3 poziomy kafelkĂłw
 // + UWAGI + @wybrani
-// + logowanie sprawdzeĹ
+// + logowanie sprawdzeń
 // + tagi patrolowe SEKWENCYJNIE (1.âpatrol1, 2.âpatrol2, 3.âpatrol3)
 // =====================================
 
@@ -659,7 +659,7 @@ function filterGeneratorTiles() {
 }
 
 // =====================================
-// LOGOWANIE SPRAWDZEĹ
+// LOGOWANIE SPRAWDZEŃ
 // =====================================
 
 function getSelectedPoleceniaDoSprawdzen() {
@@ -694,11 +694,11 @@ function openLogSprawdzenModal() {
             <div style="font-size:13px; color:#94a3b8; margin-bottom:8px;">
                 Linia: ${escapeHtml(it.Linia || "")} | Km: ${escapeHtml(it.KmOd || "")} â ${escapeHtml(it.KmDo || "")}
             </div>
-            <label>Godzina rozpoczÄcia</label>
+            <label>Godzina rozpoczęcia</label>
             <input type="text" id="sprawdGodzOd_${idx}" value="${startRounded}" placeholder="gg:mm"
                    style="width:100%; margin-bottom:8px;"
                    oninput="onSprawdGodzOdChange(${idx})">
-            <label>Szacunkowa godzina zakoĹczenia (+2h, edytowalna)</label>
+            <label>Szacunkowa godzina zakończenia (+2h, edytowalna)</label>
             <input type="text" id="sprawdGodzDo_${idx}" value="${endDefault}" placeholder="gg:mm" style="width:100%;">
         </div>
     `).join("");
@@ -706,10 +706,7 @@ function openLogSprawdzenModal() {
     overlay.innerHTML = `
         <div class="modal" style="max-width:560px;">
             <h2>Zaloguj sprawdzenie</h2>
-            <p style="color:#94a3b8; font-size:14px;">
-                Godzina rozpoczÄcia zaokrÄglona matematycznie do 10 min.
-                ZakoĹczenie domyĹlnie +2h (moĹźesz zmieniÄ).
-            </p>
+          
             ${body}
             <div class="modal-actions">
                 <button class="btn-success" onclick="confirmLogSprawdzen()">Zapisz do statystyk</button>
