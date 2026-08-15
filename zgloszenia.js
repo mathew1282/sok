@@ -168,8 +168,6 @@ function renderZgloszenia() {
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@kierowca')">@kierowca</button>
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@sklad')">@sklad</button>
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@wszyscy')">@wszyscy</button>
-                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@zgloszenia')">@zgloszenia</button>
-                <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@polecenia')">@polecenia</button>
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@KZ')">@KZ</button>
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@MKK')">@MKK</button>
                 <button type="button" class="btn-primary" onclick="insertZgloszenieTag('@data')">@data</button>
