@@ -16,23 +16,43 @@ function todayPL() {
     return new Date().toLocaleDateString("pl-PL");
 }
 
-function parseHHMM(str) {
+function tomorrowPL() {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toLocaleDateString("pl-PL");
+}
+
+/** Parsuje "HH:MM" → {h, m} lub null */
+function parseTimeParts(str) {
     const m = String(str || "").trim().match(/^(\d{1,2}):(\d{2})$/);
     if (!m) return null;
     const h = parseInt(m[1], 10);
     const min = parseInt(m[2], 10);
     if (h < 0 || h > 23 || min < 0 || min > 59) return null;
-    const d = new Date();
-    d.setHours(h, min, 0, 0);
-    return d;
+    return { h, m: min };
+}
+
+/** Buduje Date z daty PL (dd.mm.rrrr) + HH:MM */
+function entryToDate(entry) {
+    const parts = parseTimeParts(entry.godzinaStart);
+    if (!parts) return null;
+
+    let day = new Date();
+    if (entry.data) {
+        const dm = String(entry.data).match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+        if (dm) {
+            day = new Date(parseInt(dm[3], 10), parseInt(dm[2], 10) - 1, parseInt(dm[1], 10));
+        }
+    }
+    day.setHours(parts.h, parts.m, 0, 0);
+    return day;
 }
 
 function isOverdue(entry) {
     if (entry.zrobione) return false;
-    if (!entry.godzinaPlanowana) return false;
-    const plan = parseHHMM(entry.godzinaPlanowana);
-    if (!plan) return false;
-    return new Date() > plan;
+    const dt = entryToDate(entry);
+    if (!dt) return false;
+    return new Date() > dt;
 }
 
 function getPatrolName(index) {
@@ -40,8 +60,25 @@ function getPatrolName(index) {
     return (p && p.nazwa) ? p.nazwa : ("Patrol " + (index + 1));
 }
 
+function escapeHtml(str) {
+    return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+/** Sortuje wpisy od najstarszych do najmłodszych */
+function sortEntriesOldestFirst(entries) {
+    return [...entries].sort((a, b) => {
+        const da = entryToDate(a) || new Date(0);
+        const db = entryToDate(b) || new Date(0);
+        return da - db;
+    });
+}
+
 // =====================================
-// MODAL PO GENERUJ WPIS
+// MODAL PO GENERUJ WPIS (tylko godzina rozpoczęcia)
 // =====================================
 
 function openKsiazkaSaveModal(tekst, patrolIndexes) {
@@ -51,10 +88,6 @@ function openKsiazkaSaveModal(tekst, patrolIndexes) {
     if (old) old.remove();
 
     const now = nowHHMM();
-    const planDate = new Date();
-    planDate.setHours(planDate.getHours() + 1);
-    const planDefault = planDate.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
-
     const patrolNames = (patrolIndexes || []).map(i => getPatrolName(i)).join(", ") || "Brak patrolu";
 
     const overlay = document.createElement("div");
@@ -69,14 +102,11 @@ function openKsiazkaSaveModal(tekst, patrolIndexes) {
                 Patrol: <strong>${escapeHtml(patrolNames)}</strong>
             </p>
 
-            <div style="display:flex; gap:16px; margin-bottom:14px; flex-wrap:wrap;">
-                <div style="flex:1; min-width:140px;">
-                    <label>Godzina rozpoczęcia</label>
-                    <input type="time" id="ksiazkaGodzStart" value="${now}" style="width:100%;">
-                </div>
-                <div style="flex:1; min-width:140px;">
-                    <label>Planowane zakończenie / następne zgłoszenie</label>
-                    <input type="time" id="ksiazkaGodzPlan" value="${planDefault}" style="width:100%;">
+            <div style="margin-bottom:14px;">
+                <label>Godzina rozpoczęcia</label>
+                <input type="time" id="ksiazkaGodzStart" value="${now}" style="width:100%;">
+                <div style="font-size:12px; color:#94a3b8; margin-top:6px;">
+                    Praca w nocy: jeśli wpiszesz godzinę wcześniejszą niż teraz – automatycznie następny dzień.
                 </div>
             </div>
 
@@ -112,15 +142,25 @@ async function confirmSaveToKsiazka() {
     const tekst = modal._tekst || "";
     const patrolIndexes = modal._patrolIndexes || [];
     const godzStart = document.getElementById("ksiazkaGodzStart")?.value || nowHHMM();
-    const godzPlan = document.getElementById("ksiazkaGodzPlan")?.value || "";
+
+    // Logika nocna: jeśli wybrana godzina < teraz → następny dzień
+    const parts = parseTimeParts(godzStart);
+    let dataWpisu = todayPL();
+    if (parts) {
+        const now = new Date();
+        const chosen = new Date();
+        chosen.setHours(parts.h, parts.m, 0, 0);
+        if (chosen < now) {
+            dataWpisu = tomorrowPL();
+        }
+    }
 
     ensureKsiazkaState();
 
     appState.ksiazkaWydarzen.push({
         id: Date.now() + Math.random().toString(36).slice(2),
-        data: todayPL(),
+        data: dataWpisu,
         godzinaStart: godzStart,
-        godzinaPlanowana: godzPlan,
         tekst: tekst,
         patrole: [...patrolIndexes],
         zrobione: false,
@@ -188,7 +228,7 @@ function initKsiazka() {
         if (document.getElementById("ksiazkaContainer")) {
             renderKsiazka();
         }
-    }, 30000);
+    }, 20000); // częstsze odświeżanie przez mruganie
 }
 
 function toggleKsiazkaFilter(patrolIndex) {
@@ -208,7 +248,7 @@ function renderKsiazka() {
     if (!container) return;
     ensureKsiazkaState();
 
-    const allEntries = [...appState.ksiazkaWydarzen].reverse();
+    const allEntries = sortEntriesOldestFirst(appState.ksiazkaWydarzen);
     const patrole = appState.patrole || [];
 
     let filtered = allEntries;
@@ -218,47 +258,19 @@ function renderKsiazka() {
         );
     }
 
-    let columns = [];
-    if (ksiazkaFilterPatrole.length > 0) {
-        columns = ksiazkaFilterPatrole.map(idx => ({
-            key: idx,
-            name: getPatrolName(idx),
-            entries: filtered.filter(e => (e.patrole || []).includes(idx))
-        }));
-    } else {
-        const usedIndexes = new Set();
-        filtered.forEach(e => (e.patrole || []).forEach(p => usedIndexes.add(p)));
-
-        columns = [...usedIndexes].sort((a, b) => a - b).map(idx => ({
-            key: idx,
-            name: getPatrolName(idx),
-            entries: filtered.filter(e => (e.patrole || []).includes(idx))
-        }));
-
-        const without = filtered.filter(e => !e.patrole || e.patrole.length === 0);
-        if (without.length) {
-            columns.push({
-                key: "none",
-                name: "Bez patrolu",
-                entries: without
-            });
-        }
-    }
-
-    if (columns.length === 0) {
-        columns = [{ key: "empty", name: "Brak wpisów", entries: [] }];
-    }
-
+    // ===== NAGŁÓWEK + FILTRY =====
     let html = `
     <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
             <h2 style="margin:0;">📖 Książka wydarzeń</h2>
-            <button class="btn-primary" onclick="openPlanSluzbyModal()" style="margin-right:8px;">📅 Służba dzienna – szablon</button>
-            <button class="btn-danger" onclick="clearAllKsiazka()">Kasuj wszystkie</button>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn-primary" onclick="openPlanSluzbyModal()">📅 Służba dzienna – szablon</button>
+                <button class="btn-danger" onclick="clearAllKsiazka()">Kasuj wszystkie</button>
+            </div>
         </div>
 
         <div style="margin-bottom:18px;">
-            <div style="font-size:14px; color:#94a3b8; margin-bottom:8px;">Filtruj po patrolach (kliknij aby włączyć/wyłączyć):</div>
+            <div style="font-size:14px; color:#94a3b8; margin-bottom:8px;">Filtruj po patrolach:</div>
             <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
                 <div class="line-pill ${ksiazkaFilterPatrole.length === 0 ? "active" : ""}" onclick="clearKsiazkaFilter()" style="cursor:pointer;">
                     Wszystkie
@@ -271,9 +283,84 @@ function renderKsiazka() {
                 `).join("")}
             </div>
         </div>
-
-        <div style="display:flex; gap:16px; overflow-x:auto; align-items:flex-start;">
     `;
+
+    // ===== WIDOK =====
+    // 0 lub 1 filtr → lista wierszy (3 kolumny)
+    // 2+ filtry → kolumny per patrol
+    if (ksiazkaFilterPatrole.length <= 1) {
+        html += renderKsiazkaListView(filtered);
+    } else {
+        html += renderKsiazkaColumnsView(filtered);
+    }
+
+    html += `</div>`;
+    container.innerHTML = html;
+}
+
+/** Widok listy: 3 kolumny (Godzina | Informacje | Akcje) */
+function renderKsiazkaListView(entries) {
+    if (entries.length === 0) {
+        return `<div style="color:#64748b; padding:20px 0;">Brak wpisów</div>`;
+    }
+
+    let html = `
+    <div class="ksiazka-list">
+        <div class="ksiazka-row ksiazka-header">
+            <div class="ksiazka-col-time">Godzina</div>
+            <div class="ksiazka-col-info">Informacje</div>
+            <div class="ksiazka-col-actions">Akcje</div>
+        </div>
+    `;
+
+    entries.forEach(entry => {
+        const globalIdx = appState.ksiazkaWydarzen.findIndex(e => e.id === entry.id);
+        const overdue = isOverdue(entry);
+        const done = !!entry.zrobione;
+
+        let rowClass = "ksiazka-row";
+        if (done) rowClass += " ksiazka-done";
+        else if (overdue) rowClass += " ksiazka-overdue";
+
+        const patrolLabel = (entry.patrole || []).map(i => getPatrolName(i)).join(", ");
+
+        html += `
+        <div class="${rowClass}">
+            <div class="ksiazka-col-time">
+                <div class="ksiazka-time">${escapeHtml(entry.godzinaStart || "—")}</div>
+                <div class="ksiazka-date">${escapeHtml(entry.data || "")}</div>
+                ${patrolLabel ? `<div class="ksiazka-patrol">${escapeHtml(patrolLabel)}</div>` : ""}
+            </div>
+            <div class="ksiazka-col-info">
+                <div class="ksiazka-text">${escapeHtml(entry.tekst)}</div>
+            </div>
+            <div class="ksiazka-col-actions">
+                ${!done ? `
+                    <button class="btn-success" style="padding:5px 10px; font-size:12px;" onclick="oznaczZrobione(${globalIdx})">Zrobione</button>
+                ` : `
+                    <button class="btn-primary" style="padding:5px 10px; font-size:12px;" onclick="odznaczZrobione(${globalIdx})">Cofnij</button>
+                `}
+                <button class="btn-primary" style="padding:5px 10px; font-size:12px;" onclick="kopiujWpisKsiazki(${globalIdx})">Kopiuj</button>
+                <button class="btn-primary" style="padding:5px 10px; font-size:12px;" onclick="edytujWpisKsiazki(${globalIdx})">Edytuj</button>
+                <button class="btn-danger" style="padding:5px 10px; font-size:12px;" onclick="usunWpisKsiazki(${globalIdx})">Kasuj</button>
+            </div>
+        </div>
+        `;
+    });
+
+    html += `</div>`;
+    return html;
+}
+
+/** Widok kolumn (gdy wybrano 2+ patrole) */
+function renderKsiazkaColumnsView(filtered) {
+    const columns = ksiazkaFilterPatrole.map(idx => ({
+        key: idx,
+        name: getPatrolName(idx),
+        entries: filtered.filter(e => (e.patrole || []).includes(idx))
+    }));
+
+    let html = `<div style="display:flex; gap:16px; overflow-x:auto; align-items:flex-start;">`;
 
     columns.forEach(col => {
         html += `
@@ -287,52 +374,47 @@ function renderKsiazka() {
             html += `<div style="color:#64748b; font-size:13px; padding:10px 0;">Brak wpisów</div>`;
         } else {
             col.entries.forEach(entry => {
-                const overdue = isOverdue(entry);
                 const globalIdx = appState.ksiazkaWydarzen.findIndex(e => e.id === entry.id);
+                const overdue = isOverdue(entry);
+                const done = !!entry.zrobione;
+
+                let boxStyle = "background:#0f172a; border:1px solid #334155;";
+                let extraClass = "";
+                if (done) {
+                    boxStyle = "background:rgba(34,197,94,0.15); border:1px solid #22c55e;";
+                } else if (overdue) {
+                    boxStyle = "background:rgba(220,38,38,0.18); border:1px solid #dc2626;";
+                    extraClass = "ksiazka-overdue-box";
+                }
 
                 html += `
-                <div style="
-                    background:${overdue ? "rgba(220,38,38,0.15)" : "#0f172a"};
-                    border:1px solid ${overdue ? "#dc2626" : "#334155"};
-                    border-radius:10px;
-                    padding:12px;
-                    margin-bottom:10px;
-                    ${overdue ? "box-shadow:0 0 0 1px #dc2626;" : ""}
-                ">
+                <div class="${extraClass}" style="${boxStyle} border-radius:10px; padding:12px; margin-bottom:10px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:13px;">
-                        <span style="color:#94a3b8;">${escapeHtml(entry.data)} · ${escapeHtml(entry.godzinaStart || "—")}</span>
-                        <span style="font-weight:600; color:${overdue ? "#f87171" : "#94a3b8"};">
-                            → ${escapeHtml(entry.godzinaPlanowana || "—")}
-                            ${overdue ? " ⚠" : ""}
-                            ${entry.zrobione ? " ✅" : ""}
-                        </span>
+                        <span style="color:#94a3b8;">${escapeHtml(entry.data)} · <strong style="color:#e2e8f0;">${escapeHtml(entry.godzinaStart || "—")}</strong></span>
+                        ${done ? "<span style='color:#4ade80;'>✅</span>" : (overdue ? "<span style='color:#f87171;'>⚠</span>" : "")}
                     </div>
                     <div style="font-size:13.5px; line-height:1.45; white-space:pre-wrap; color:#e2e8f0; margin-bottom:10px;">
                         ${escapeHtml(entry.tekst)}
                     </div>
                     <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                        ${!entry.zrobione ? `
+                        ${!done ? `
                             <button class="btn-success" style="padding:5px 10px; font-size:12px;" onclick="oznaczZrobione(${globalIdx})">Zrobione</button>
                         ` : `
-                            <button class="btn-primary" style="padding:5px 10px; font-size:12px;" onclick="odznaczZrobione(${globalIdx})">Cofnij zrobione</button>
+                            <button class="btn-primary" style="padding:5px 10px; font-size:12px;" onclick="odznaczZrobione(${globalIdx})">Cofnij</button>
                         `}
                         <button class="btn-primary" style="padding:5px 10px; font-size:12px;" onclick="kopiujWpisKsiazki(${globalIdx})">Kopiuj</button>
+                        <button class="btn-primary" style="padding:5px 10px; font-size:12px;" onclick="edytujWpisKsiazki(${globalIdx})">Edytuj</button>
                         <button class="btn-danger" style="padding:5px 10px; font-size:12px;" onclick="usunWpisKsiazki(${globalIdx})">Kasuj</button>
                     </div>
                 </div>
                 `;
             });
         }
-
         html += `</div>`;
     });
 
-    html += `
-        </div>
-    </div>
-    `;
-
-    container.innerHTML = html;
+    html += `</div>`;
+    return html;
 }
 
 // =====================================
@@ -376,34 +458,168 @@ async function clearAllKsiazka() {
     renderKsiazka();
 }
 
-// =====================================
-// POMOCNICZE
-// =====================================
-
-function escapeHtml(str) {
-    return String(str || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+async function kopiujWpisKsiazki(index) {
+    ensureKsiazkaState();
+    const e = appState.ksiazkaWydarzen[index];
+    if (!e) return;
+    try {
+        await navigator.clipboard.writeText(e.tekst || "");
+        if (typeof showToast === "function") showToast("✅ Skopiowano");
+        else alert("Skopiowano");
+    } catch (err) {
+        alert("Nie udało się skopiować");
+    }
 }
 
 // =====================================
-// EXPOSE
+// EDYCJA WPISU (kafelki + ręcznie)
 // =====================================
-window.initKsiazka = initKsiazka;
-window.renderKsiazka = renderKsiazka;
-window.openKsiazkaSaveModal = openKsiazkaSaveModal;
-window.closeKsiazkaSaveModal = closeKsiazkaSaveModal;
-window.confirmSaveToKsiazka = confirmSaveToKsiazka;
-window.toggleKsiazkaFilter = toggleKsiazkaFilter;
-window.clearKsiazkaFilter = clearKsiazkaFilter;
-window.oznaczZrobione = oznaczZrobione;
-window.odznaczZrobione = odznaczZrobione;
-window.usunWpisKsiazki = usunWpisKsiazki;
-window.clearAllKsiazka = clearAllKsiazka;
 
+function edytujWpisKsiazki(index) {
+    ensureKsiazkaState();
+    const entry = appState.ksiazkaWydarzen[index];
+    if (!entry) return;
 
+    const old = document.getElementById("ksiazkaEditModal");
+    if (old) old.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "ksiazkaEditModal";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "flex";
+    overlay._editIndex = index;
+
+    // Kafelki z poleceń
+    const poleceniaPills = (appState.polecenia?.rows || []).map((r, i) => {
+        const label = (r.OpisKrotki || r.Opis || ("Polecenie " + (i + 1))).slice(0, 40);
+        return `<div class="line-pill" style="cursor:pointer; font-size:13px;" onclick="insertTileToEdit('pol', ${i})">${escapeHtml(label)}</div>`;
+    }).join("") || "<span style='color:#64748b; font-size:13px;'>Brak poleceń</span>";
+
+    // Kafelki ze zgłoszeń
+    const zgloszeniaPills = (appState.zgloszenia?.rows || []).map((r, i) => {
+        const label = (r.OpisKrotki || r.Opis || ("Zgłoszenie " + (i + 1))).slice(0, 40);
+        return `<div class="line-pill" style="cursor:pointer; font-size:13px;" onclick="insertTileToEdit('zgl', ${i})">${escapeHtml(label)}</div>`;
+    }).join("") || "<span style='color:#64748b; font-size:13px;'>Brak zgłoszeń</span>";
+
+    // Szablony (jeśli są)
+    const szablonyPills = (appState.szablony || []).map((s, i) => {
+        const label = (s.nazwa || s.tekst || ("Szablon " + (i + 1))).slice(0, 40);
+        return `<div class="line-pill" style="cursor:pointer; font-size:13px;" onclick="insertTileToEdit('szab', ${i})">${escapeHtml(label)}</div>`;
+    }).join("");
+
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:720px;">
+            <h2 style="margin-top:0;">Edytuj wpis</h2>
+
+            <div style="margin-bottom:14px;">
+                <label>Godzina rozpoczęcia</label>
+                <input type="time" id="editGodzStart" value="${escapeHtml(entry.godzinaStart || "")}" style="width:160px;">
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <label>Treść wpisu (możesz edytować ręcznie)</label>
+                <textarea id="editTekst" rows="8" style="width:100%; font-size:14px; line-height:1.5;">${escapeHtml(entry.tekst || "")}</textarea>
+            </div>
+
+            <div style="margin-bottom:10px;">
+                <div style="font-size:13px; color:#94a3b8; margin-bottom:6px;">Wstaw z Poleceń (klik = dopisz na końcu):</div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px; max-height:90px; overflow:auto;">
+                    ${poleceniaPills}
+                </div>
+            </div>
+
+            <div style="margin-bottom:10px;">
+                <div style="font-size:13px; color:#94a3b8; margin-bottom:6px;">Wstaw ze Zgłoszeń (klik = dopisz na końcu):</div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px; max-height:90px; overflow:auto;">
+                    ${zgloszeniaPills}
+                </div>
+            </div>
+
+            ${szablonyPills ? `
+            <div style="margin-bottom:14px;">
+                <div style="font-size:13px; color:#94a3b8; margin-bottom:6px;">Szablony:</div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px; max-height:70px; overflow:auto;">
+                    ${szablonyPills}
+                </div>
+            </div>
+            ` : ""}
+
+            <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+                <button class="btn-primary" style="font-size:13px;" onclick="replaceAllFromTile()">Zastąp całość ostatnim kaflem</button>
+                <button class="btn-danger" style="font-size:13px;" onclick="document.getElementById('editTekst').value=''">Wyczyść treść</button>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-success" onclick="confirmEditKsiazka()">Zapisz zmiany</button>
+                <button class="btn-danger" onclick="closeKsiazkaEditModal()">Anuluj</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+    window._lastTileText = null;
+}
+
+function insertTileToEdit(typ, index) {
+    let text = "";
+    if (typ === "pol") {
+        const row = appState.polecenia?.rows?.[index];
+        text = row?.Opis || row?.OpisKrotki || "";
+    } else if (typ === "zgl") {
+        const row = appState.zgloszenia?.rows?.[index];
+        text = row?.Opis || row?.OpisKrotki || "";
+    } else if (typ === "szab") {
+        const s = appState.szablony?.[index];
+        text = s?.tekst || s?.nazwa || "";
+    }
+    if (!text) return;
+
+    window._lastTileText = text;
+    const ta = document.getElementById("editTekst");
+    if (!ta) return;
+
+    const cur = ta.value || "";
+    if (cur.trim()) {
+        ta.value = cur.trimEnd() + "\n\n" + text;
+    } else {
+        ta.value = text;
+    }
+    ta.focus();
+}
+
+function replaceAllFromTile() {
+    if (!window._lastTileText) {
+        alert("Najpierw kliknij jakiś kafelek");
+        return;
+    }
+    const ta = document.getElementById("editTekst");
+    if (ta) ta.value = window._lastTileText;
+}
+
+function closeKsiazkaEditModal() {
+    const m = document.getElementById("ksiazkaEditModal");
+    if (m) m.remove();
+}
+
+async function confirmEditKsiazka() {
+    const modal = document.getElementById("ksiazkaEditModal");
+    if (!modal) return;
+    const index = modal._editIndex;
+    ensureKsiazkaState();
+    if (!appState.ksiazkaWydarzen[index]) return;
+
+    const newTekst = document.getElementById("editTekst")?.value || "";
+    const newGodz = document.getElementById("editGodzStart")?.value || appState.ksiazkaWydarzen[index].godzinaStart;
+
+    appState.ksiazkaWydarzen[index].tekst = newTekst;
+    appState.ksiazkaWydarzen[index].godzinaStart = newGodz;
+
+    await saveState();
+    closeKsiazkaEditModal();
+    renderKsiazka();
+
+    if (typeof showToast === "function") showToast("✅ Zapisano zmiany");
+}
 
 // =====================================
 // PLANOWANIE SŁUŻBY DZIENNEJ
@@ -513,9 +729,9 @@ function closePlanSluzbyModal() {
 }
 
 function timeToMinutes(hhmm) {
-    const p = parseHHMM(hhmm);
+    const p = parseTimeParts(hhmm);
     if (!p) return 0;
-    return p.getHours() * 60 + p.getMinutes();
+    return p.h * 60 + p.m;
 }
 
 function minutesToHHMM(mins) {
@@ -539,7 +755,6 @@ async function confirmPlanSluzby() {
         patrolIndexes.push(parseInt(cb.value, 10));
     });
 
-    // Treść cyklicznych zgłoszeń
     let trescCykliczna = (document.getElementById("planTrescZgl")?.value || "").trim();
     const selZgl = document.getElementById("planSelectZgl")?.value || "";
     const selPol = document.getElementById("planSelectPol")?.value || "";
@@ -556,37 +771,18 @@ async function confirmPlanSluzby() {
 
     const punkty = [];
 
-    punkty.push({
-        godzinaStart: przyjecie,
-        godzinaPlanowana: odprawa,
-        tekst: "Przyjęcie służby",
-        patrole: []
-    });
-    punkty.push({
-        godzinaStart: odprawa,
-        godzinaPlanowana: rozdysp,
-        tekst: "Odprawa",
-        patrole: []
-    });
-    punkty.push({
-        godzinaStart: rozdysp,
-        godzinaPlanowana: pierwsze,
-        tekst: "Rozdysponowanie patroli",
-        patrole: [...patrolIndexes]
-    });
+    punkty.push({ godzinaStart: przyjecie, tekst: "Przyjęcie służby", patrole: [] });
+    punkty.push({ godzinaStart: odprawa, tekst: "Odprawa", patrole: [] });
+    punkty.push({ godzinaStart: rozdysp, tekst: "Rozdysponowanie patroli", patrole: [...patrolIndexes] });
 
     let cur = timeToMinutes(pierwsze);
     const koniec = timeToMinutes(zdanie);
 
     while (cur < koniec) {
         const startHH = minutesToHHMM(cur);
-        const next = cur + interwal;
-        const planHH = minutesToHHMM(Math.min(next, koniec));
-
         if (patrolIndexes.length === 0) {
             punkty.push({
                 godzinaStart: startHH,
-                godzinaPlanowana: planHH,
                 tekst: trescCykliczna || "Zgłoszenie sytuacji / lokalizacji patroli",
                 patrole: []
             });
@@ -595,21 +791,15 @@ async function confirmPlanSluzby() {
                 const base = trescCykliczna || ("Zgłoszenie – " + getPatrolName(idx));
                 punkty.push({
                     godzinaStart: startHH,
-                    godzinaPlanowana: planHH,
                     tekst: base,
                     patrole: [idx]
                 });
             });
         }
-        cur = next;
+        cur += interwal;
     }
 
-    punkty.push({
-        godzinaStart: zdanie,
-        godzinaPlanowana: zdanie,
-        tekst: "Zdanie służby",
-        patrole: []
-    });
+    punkty.push({ godzinaStart: zdanie, tekst: "Zdanie służby", patrole: [] });
 
     const data = todayPL();
     punkty.forEach(p => {
@@ -617,7 +807,6 @@ async function confirmPlanSluzby() {
             id: Date.now() + Math.random().toString(36).slice(2),
             data: data,
             godzinaStart: p.godzinaStart,
-            godzinaPlanowana: p.godzinaPlanowana,
             tekst: p.tekst,
             patrole: p.patrole,
             zrobione: false,
@@ -640,23 +829,26 @@ async function confirmPlanSluzby() {
     }
 }
 
-
-async function kopiujWpisKsiazki(index) {
-    ensureKsiazkaState();
-    const e = appState.ksiazkaWydarzen[index];
-    if (!e) return;
-    const text = e.tekst || "";
-    try {
-        await navigator.clipboard.writeText(text);
-        if (typeof showToast === "function") showToast("✅ Skopiowano");
-        else alert("Skopiowano");
-    } catch (err) {
-        alert("Nie udało się skopiować");
-    }
-}
-
+// =====================================
+// EXPOSE
+// =====================================
+window.initKsiazka = initKsiazka;
+window.renderKsiazka = renderKsiazka;
+window.openKsiazkaSaveModal = openKsiazkaSaveModal;
+window.closeKsiazkaSaveModal = closeKsiazkaSaveModal;
+window.confirmSaveToKsiazka = confirmSaveToKsiazka;
+window.toggleKsiazkaFilter = toggleKsiazkaFilter;
+window.clearKsiazkaFilter = clearKsiazkaFilter;
+window.oznaczZrobione = oznaczZrobione;
+window.odznaczZrobione = odznaczZrobione;
+window.usunWpisKsiazki = usunWpisKsiazki;
+window.clearAllKsiazka = clearAllKsiazka;
 window.kopiujWpisKsiazki = kopiujWpisKsiazki;
-
+window.edytujWpisKsiazki = edytujWpisKsiazki;
+window.insertTileToEdit = insertTileToEdit;
+window.replaceAllFromTile = replaceAllFromTile;
+window.closeKsiazkaEditModal = closeKsiazkaEditModal;
+window.confirmEditKsiazka = confirmEditKsiazka;
 window.openPlanSluzbyModal = openPlanSluzbyModal;
 window.closePlanSluzbyModal = closePlanSluzbyModal;
 window.confirmPlanSluzby = confirmPlanSluzby;
