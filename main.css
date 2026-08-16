@@ -641,3 +641,108 @@ tr:hover{
     border-color: #ef4444;
     color: #fff;
 }
+/* ==========================
+   KSIĄŻKA WYDARZEŃ – LISTA + MRUGANIE
+========================== */
+
+.ksiazka-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.ksiazka-row {
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #334155;
+    align-items: start;
+    background: #0f172a;
+    transition: background 0.2s;
+}
+
+.ksiazka-row:last-child {
+    border-bottom: none;
+}
+
+.ksiazka-header {
+    background: #1e293b;
+    font-weight: 600;
+    font-size: 13px;
+    color: #94a3b8;
+    padding: 10px 14px;
+}
+
+.ksiazka-col-time {
+    font-size: 14px;
+}
+
+.ksiazka-time {
+    font-weight: 700;
+    font-size: 16px;
+    color: #e2e8f0;
+}
+
+.ksiazka-date {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+.ksiazka-patrol {
+    font-size: 11px;
+    color: #60a5fa;
+    margin-top: 4px;
+}
+
+.ksiazka-col-info {
+    font-size: 13.5px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    color: #e2e8f0;
+}
+
+.ksiazka-col-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: flex-end;
+    min-width: 200px;
+}
+
+/* Zrobione – jasnozielony */
+.ksiazka-row.ksiazka-done {
+    background: rgba(34, 197, 94, 0.18) !important;
+    border-left: 4px solid #22c55e;
+}
+
+/* Przeterminowane – czerwony + mruganie */
+.ksiazka-row.ksiazka-overdue {
+    background: rgba(220, 38, 38, 0.22) !important;
+    border-left: 4px solid #dc2626;
+    animation: ksiazkaBlink 1.2s ease-in-out infinite;
+}
+
+.ksiazka-overdue-box {
+    animation: ksiazkaBlink 1.2s ease-in-out infinite;
+}
+
+@keyframes ksiazkaBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+
+@media (max-width: 700px) {
+    .ksiazka-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    .ksiazka-col-actions {
+        min-width: 0;
+        justify-content: flex-start;
+    }
+}
