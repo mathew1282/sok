@@ -845,23 +845,48 @@ async function confirmPlanSluzby() {
 
 
 
+
 // =====================================
-// SPRAWDZENIE (jak w generatorze – tylko Szlak / Stacja towarowa / Stacja osobowa)
+// SPRAWDZENIE
+// 1) pokaż wpisy z książki powiązane z poleceniami Szlak / Stacja towarowa / Stacja osobowa
+// 2) klik wpisu → wybór poleceń do statystyk
+// 3) okno zbiorcze z godzinami
 // =====================================
 
-function getPoleceniaDoSprawdzenKsiazka() {
+const SPRAWDZENIE_RODZAJE = ["Szlak", "Stacja towarowa", "Stacja osobowa"];
+
+function getPoleceniaSprawdzenie() {
     const rows = appState.polecenia?.rows || [];
-    const allowed = ["Szlak", "Stacja towarowa", "Stacja osobowa"];
     return rows
         .map((r, i) => ({ ...r, _index: i }))
-        .filter(r => r && allowed.includes(r.Rodzaj));
+        .filter(r => r && SPRAWDZENIE_RODZAJE.includes(r.Rodzaj));
+}
+
+function entryMatchesPolecenieSprawdzenie(entry, pol) {
+    const t = String(entry.tekst || "").toLowerCase();
+    if (!t) return false;
+    const keys = [pol.Nazwa, pol.OpisKrotki, pol.Opis, pol.NazwaSzlaku]
+        .map(x => String(x || "").trim())
+        .filter(x => x.length >= 3);
+    return keys.some(k => t.includes(k.toLowerCase()));
+}
+
+function getKsiazkaWpisyDoSprawdzenia() {
+    ensureKsiazkaState();
+    const pols = getPoleceniaSprawdzenie();
+    if (!pols.length) return [];
+    const entries = sortEntriesOldestFirst(appState.ksiazkaWydarzen);
+    return entries.filter(e => pols.some(p => entryMatchesPolecenieSprawdzenie(e, p)));
 }
 
 function openKsiazkaSprawdzenieModal() {
-    const items = getPoleceniaDoSprawdzenKsiazka();
+    const items = getKsiazkaWpisyDoSprawdzenia();
     if (items.length === 0) {
-        if (typeof showToast === "function") showToast("Brak poleceń typu Szlak / Stacja towarowa / Stacja osobowa");
-        else alert("Brak poleceń typu Szlak / Stacja towarowa / Stacja osobowa");
+        if (typeof showToast === "function") {
+            showToast("Brak wpisów powiązanych z Szlak / Stacja towarowa / Stacja osobowa");
+        } else {
+            alert("Brak wpisów powiązanych z Szlak / Stacja towarowa / Stacja osobowa");
+        }
         return;
     }
 
@@ -873,25 +898,25 @@ function openKsiazkaSprawdzenieModal() {
     overlay.className = "modal-overlay";
     overlay.style.display = "flex";
 
-    const list = items.map((it, idx) => `
-        <label style="display:flex; gap:10px; align-items:flex-start; padding:10px; border:1px solid #334155; border-radius:10px; margin-bottom:8px; cursor:pointer;">
-            <input type="checkbox" class="ksiazka-sprawd-cb" value="${it._index}" style="margin-top:3px;">
-            <div>
-                <div style="font-weight:600;">${escapeHtml(it.Rodzaj)} – ${escapeHtml(it.Nazwa || it.OpisKrotki || "")}</div>
-                <div style="font-size:12px; color:#94a3b8;">Linia: ${escapeHtml(it.Linia || "")} | Km: ${escapeHtml(it.KmOd || "")} – ${escapeHtml(it.KmDo || "")}</div>
-            </div>
-        </label>
-    `).join("");
+    const list = items.map(e => {
+        const idx = appState.ksiazkaWydarzen.findIndex(x => x.id === e.id);
+        const short = String(e.tekst || "").slice(0, 100);
+        return `
+        <div style="border:1px solid #334155; border-radius:10px; padding:10px; margin-bottom:8px; cursor:pointer;"
+             onclick="ksiazkaSprawdzenieWybranoWpis(${idx})">
+            <div style="font-weight:600; color:#60a5fa;">${escapeHtml(e.godzinaStart || "—")} · ${escapeHtml(e.data || "")}</div>
+            <div style="font-size:13px; color:#e2e8f0; margin-top:4px; white-space:pre-wrap;">${escapeHtml(short)}${(e.tekst || "").length > 100 ? "…" : ""}</div>
+        </div>`;
+    }).join("");
 
     overlay.innerHTML = `
         <div class="modal" style="max-width:560px;">
-            <h2 style="margin-top:0;">Sprawdzenie</h2>
-            <p style="color:#94a3b8; font-size:14px; margin-bottom:14px;">
-                Zaznacz polecenia (Szlak / Stacja towarowa / Stacja osobowa), potem ustaw godziny.
+            <h2 style="margin-top:0;">Sprawdzenie – wybierz wpis</h2>
+            <p style="color:#94a3b8; font-size:14px; margin-bottom:12px;">
+                Pokazane są tylko wpisy powiązane z poleceniami: Szlak / Stacja towarowa / Stacja osobowa.
             </p>
-            <div style="max-height:280px; overflow:auto; margin-bottom:14px;">${list}</div>
+            <div style="max-height:360px; overflow:auto;">${list}</div>
             <div class="modal-actions">
-                <button class="btn-success" onclick="ksiazkaSprawdzenieDalej()">Dalej – godziny</button>
                 <button class="btn-danger" onclick="closeKsiazkaSprawdzenieModal()">Anuluj</button>
             </div>
         </div>
@@ -904,7 +929,57 @@ function closeKsiazkaSprawdzenieModal() {
     if (m) m.remove();
 }
 
+function ksiazkaSprawdzenieWybranoWpis(entryIndex) {
+    ensureKsiazkaState();
+    const entry = appState.ksiazkaWydarzen[entryIndex];
+    if (!entry) return;
+
+    const pols = getPoleceniaSprawdzenie();
+    // podpowiedz zaznaczenie tych, które pasują do treści wpisu
+    const matched = new Set(
+        pols.filter(p => entryMatchesPolecenieSprawdzenie(entry, p)).map(p => p._index)
+    );
+
+    closeKsiazkaSprawdzenieModal();
+
+    const overlay = document.createElement("div");
+    overlay.id = "ksiazkaSprawdModal";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "flex";
+    overlay._entryIndex = entryIndex;
+
+    const list = pols.map(it => {
+        const checked = matched.has(it._index) ? "checked" : "";
+        return `
+        <label style="display:flex; gap:10px; align-items:flex-start; padding:10px; border:1px solid #334155; border-radius:10px; margin-bottom:8px; cursor:pointer;">
+            <input type="checkbox" class="ksiazka-sprawd-cb" value="${it._index}" ${checked} style="margin-top:3px;">
+            <div>
+                <div style="font-weight:600;">${escapeHtml(it.Rodzaj)} – ${escapeHtml(it.Nazwa || it.OpisKrotki || "")}</div>
+                <div style="font-size:12px; color:#94a3b8;">Linia: ${escapeHtml(it.Linia || "")} | Km: ${escapeHtml(it.KmOd || "")} – ${escapeHtml(it.KmDo || "")}</div>
+            </div>
+        </label>`;
+    }).join("");
+
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:560px;">
+            <h2 style="margin-top:0;">Co dodać do statystyk?</h2>
+            <p style="color:#94a3b8; font-size:14px; margin-bottom:12px;">
+                Zaznacz polecenia (Szlak / Stacja towarowa / Stacja osobowa), które chcesz zalogować.
+            </p>
+            <div style="max-height:300px; overflow:auto; margin-bottom:14px;">${list || "<div style='color:#94a3b8;'>Brak poleceń tego typu</div>"}</div>
+            <div class="modal-actions">
+                <button class="btn-success" onclick="ksiazkaSprawdzenieDalej()">Dalej – godziny</button>
+                <button class="btn-danger" onclick="closeKsiazkaSprawdzenieModal()">Anuluj</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
 function ksiazkaSprawdzenieDalej() {
+    const modal = document.getElementById("ksiazkaSprawdModal");
+    if (!modal) return;
+
     const checked = [...document.querySelectorAll(".ksiazka-sprawd-cb:checked")].map(cb => parseInt(cb.value, 10));
     if (!checked.length) {
         if (typeof showToast === "function") showToast("Zaznacz przynajmniej jedno polecenie");
@@ -914,12 +989,14 @@ function ksiazkaSprawdzenieDalej() {
 
     const rows = appState.polecenia?.rows || [];
     const items = checked.map(i => ({ ...rows[i], _index: i })).filter(Boolean);
+    const entryIndex = modal._entryIndex;
+    const entry = appState.ksiazkaWydarzen[entryIndex];
+
     closeKsiazkaSprawdzenieModal();
 
-    // reuse generator helpers if available
     const startRounded = (typeof formatHHMM === "function" && typeof roundTo10Minutes === "function")
         ? formatHHMM(roundTo10Minutes(new Date()))
-        : nowHHMM();
+        : (entry?.godzinaStart || nowHHMM());
     const endDefault = (typeof addHoursHHMM === "function")
         ? addHoursHHMM(startRounded, 2)
         : startRounded;
@@ -946,7 +1023,7 @@ function ksiazkaSprawdzenieDalej() {
     overlay.innerHTML = `
         <div class="modal" style="max-width:560px;">
             <h2 style="margin-top:0;">Zaloguj sprawdzenie</h2>
-            <p style="color:#94a3b8; font-size:14px;">Godzina startu zaokrąglona do 10 min. Koniec domyślnie +2h.</p>
+            <p style="color:#94a3b8; font-size:14px;">Okno zbiorcze – każdy wybrany obiekt ma swoje godziny.</p>
             ${body}
             <div class="modal-actions">
                 <button class="btn-success" onclick="confirmKsiazkaSprawdzenie()">Zapisz do statystyk</button>
@@ -983,7 +1060,6 @@ async function confirmKsiazkaSprawdzenie() {
                 godzDo
             });
         } else {
-            // fallback – zapisz lokalnie do statystyk
             if (!appState.statystyki) appState.statystyki = { interwencje: [], sprawdzenia: [] };
             if (!Array.isArray(appState.statystyki.sprawdzenia)) appState.statystyki.sprawdzenia = [];
             appState.statystyki.sprawdzenia.push({
@@ -1007,7 +1083,7 @@ async function confirmKsiazkaSprawdzenie() {
 }
 
 // =====================================
-// UWAGI – wybór wpisu → modal jak w generatorze → nadpisanie treści
+// UWAGI – wybór wpisu → dodaje na końcu (nie nadpisuje) + edycja
 // =====================================
 
 function openKsiazkaUwagiPicker() {
@@ -1041,7 +1117,9 @@ function openKsiazkaUwagiPicker() {
     overlay.innerHTML = `
         <div class="modal" style="max-width:560px;">
             <h2 style="margin-top:0;">Uwagi – wybierz wpis</h2>
-            <p style="color:#94a3b8; font-size:14px; margin-bottom:12px;">Po wyborze otworzy się okno uwag. Treść <strong>nadpisze</strong> wybrany wpis.</p>
+            <p style="color:#94a3b8; font-size:14px; margin-bottom:12px;">
+                Szablon uwagi zostanie <strong>dopisany na końcu</strong> wybranego wpisu (możesz edytować przed zapisem).
+            </p>
             <div style="max-height:360px; overflow:auto;">${list}</div>
             <div class="modal-actions">
                 <button class="btn-danger" onclick="closeKsiazkaUwagiPicker()">Anuluj</button>
@@ -1059,43 +1137,11 @@ function closeKsiazkaUwagiPicker() {
 function ksiazkaUwagiWybrano(index) {
     closeKsiazkaUwagiPicker();
     window._ksiazkaUwagiEditIndex = index;
+    ensureKsiazkaState();
+    const entry = appState.ksiazkaWydarzen[index];
+    if (!entry) return;
 
-    // Użyj istniejącego modala uwag z generatora, jeśli jest
     if (typeof ensureUwagiState === "function") ensureUwagiState();
-    if (typeof ensureUwagiModal === "function") {
-        ensureUwagiModal();
-    } else {
-        // minimalny modal uwag gdy generator nie załadował ensureUwagiModal
-        openKsiazkaUwagiFallbackModal();
-        return;
-    }
-
-    // podmieniamy przycisk zatwierdzenia na wersję dla książki
-    const modal = document.getElementById("uwagiModal");
-    if (!modal) {
-        openKsiazkaUwagiFallbackModal();
-        return;
-    }
-
-    // wyczyść i otwórz
-    const ta = document.getElementById("uwagiTekst");
-    if (ta) ta.value = "";
-    modal.style.display = "flex";
-
-    // podmiana onclick na przycisku wstawiania
-    const actions = modal.querySelector(".modal-actions");
-    if (actions) {
-        actions.innerHTML = `
-            <button class="btn-success" onclick="confirmKsiazkaUwagi()">Nadpisz wpis</button>
-            <button class="btn-primary" onclick="openUwagiSzablonyModal()">Szablony</button>
-            <button class="btn-danger" onclick="closeUwagiModal()">Anuluj</button>
-        `;
-    }
-}
-
-function openKsiazkaUwagiFallbackModal() {
-    const old = document.getElementById("ksiazkaUwagiFallback");
-    if (old) old.remove();
 
     const sz = (appState.uwagiSzablony) || {
         "MKK": "Przeprowadzono kontrolę dokumentów. MKK: @MKK.",
@@ -1104,64 +1150,69 @@ function openKsiazkaUwagiFallbackModal() {
         "Inne": ""
     };
 
-    const types = Object.keys(sz).map(t =>
-        `<div class="line-pill" style="cursor:pointer;" onclick="document.getElementById('ksUwagiTekst').value = ${JSON.stringify(sz[t] || '')}">${t}</div>`
-    ).join("");
+    const old = document.getElementById("ksiazkaUwagiEditModal");
+    if (old) old.remove();
+
+    const types = Object.keys(sz).map(t => {
+        const safe = JSON.stringify(sz[t] || "");
+        return `<div class="line-pill" style="cursor:pointer;" onclick='ksiazkaUwagiDodajSzablon(${safe})'>${escapeHtml(t)}</div>`;
+    }).join("");
+
+    const base = String(entry.tekst || "");
 
     const overlay = document.createElement("div");
-    overlay.id = "ksiazkaUwagiFallback";
+    overlay.id = "ksiazkaUwagiEditModal";
     overlay.className = "modal-overlay";
     overlay.style.display = "flex";
     overlay.innerHTML = `
-        <div class="modal" style="max-width:560px;">
-            <h2 style="margin-top:0;">Uwagi</h2>
+        <div class="modal" style="max-width:640px;">
+            <h2 style="margin-top:0;">Uwagi do wpisu</h2>
+            <p style="color:#94a3b8; font-size:13px; margin-bottom:10px;">
+                Kliknij szablon (MKK / Pouczony / …) – dopisze się na końcu. Możesz też edytować ręcznie.
+            </p>
             <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">${types}</div>
-            <label>Treść uwagi</label>
-            <textarea id="ksUwagiTekst" rows="8" style="width:100%; margin-bottom:14px;"></textarea>
+            <label>Treść wpisu (edycja)</label>
+            <textarea id="ksUwagiTekst" rows="10" style="width:100%; margin-bottom:14px; font-size:14px; line-height:1.45;">${escapeHtml(base)}</textarea>
             <div class="modal-actions">
-                <button class="btn-success" onclick="confirmKsiazkaUwagiFallback()">Nadpisz wpis</button>
-                <button class="btn-danger" onclick="document.getElementById('ksiazkaUwagiFallback')?.remove()">Anuluj</button>
+                <button class="btn-success" onclick="confirmKsiazkaUwagi()">Zapisz do wpisu</button>
+                <button class="btn-danger" onclick="closeKsiazkaUwagiEditModal()">Anuluj</button>
             </div>
         </div>
     `;
     document.body.appendChild(overlay);
 }
 
-async function confirmKsiazkaUwagiFallback() {
-    const tekst = (document.getElementById("ksUwagiTekst")?.value || "").trim();
-    const index = window._ksiazkaUwagiEditIndex;
-    if (index == null || !appState.ksiazkaWydarzen[index]) return;
-    if (!tekst) {
-        alert("Wpisz treść uwagi");
-        return;
+function ksiazkaUwagiDodajSzablon(tekstSzablonu) {
+    const ta = document.getElementById("ksUwagiTekst");
+    if (!ta) return;
+    const add = String(tekstSzablonu || "").trim();
+    if (!add) return;
+    const cur = ta.value || "";
+    if (cur.trim()) {
+        ta.value = cur.replace(/\s*$/, "") + "\n\n" + add;
+    } else {
+        ta.value = add;
     }
-    appState.ksiazkaWydarzen[index].tekst = tekst;
-    await saveState();
-    document.getElementById("ksiazkaUwagiFallback")?.remove();
-    renderKsiazka();
-    if (typeof showToast === "function") showToast("✅ Nadpisano wpis uwagami");
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+function closeKsiazkaUwagiEditModal() {
+    const m = document.getElementById("ksiazkaUwagiEditModal");
+    if (m) m.remove();
 }
 
 async function confirmKsiazkaUwagi() {
     const index = window._ksiazkaUwagiEditIndex;
     if (index == null || !appState.ksiazkaWydarzen[index]) return;
 
-    let tekst = (document.getElementById("uwagiTekst")?.value || "").trim();
-    if (!tekst) {
-        if (typeof showToast === "function") showToast("Wpisz treść uwagi");
-        else alert("Wpisz treść uwagi");
-        return;
-    }
-
-    // proste podstawienie bez pełnego flow @wybrani (jak minimum)
+    const tekst = (document.getElementById("ksUwagiTekst")?.value || "");
     appState.ksiazkaWydarzen[index].tekst = tekst;
     await saveState();
-
-    if (typeof closeUwagiModal === "function") closeUwagiModal();
+    closeKsiazkaUwagiEditModal();
     renderKsiazka();
-    if (typeof showToast === "function") showToast("✅ Nadpisano wpis uwagami");
+    if (typeof showToast === "function") showToast("✅ Zapisano uwagi do wpisu");
 }
-
 
 // =====================================
 // EXPOSE
@@ -1189,10 +1240,12 @@ window.confirmPlanSluzby = confirmPlanSluzby;
 window.toggleKsiazkaFilterInne = toggleKsiazkaFilterInne;
 window.openKsiazkaSprawdzenieModal = openKsiazkaSprawdzenieModal;
 window.closeKsiazkaSprawdzenieModal = closeKsiazkaSprawdzenieModal;
+window.ksiazkaSprawdzenieWybranoWpis = ksiazkaSprawdzenieWybranoWpis;
 window.ksiazkaSprawdzenieDalej = ksiazkaSprawdzenieDalej;
 window.confirmKsiazkaSprawdzenie = confirmKsiazkaSprawdzenie;
 window.openKsiazkaUwagiPicker = openKsiazkaUwagiPicker;
 window.closeKsiazkaUwagiPicker = closeKsiazkaUwagiPicker;
 window.ksiazkaUwagiWybrano = ksiazkaUwagiWybrano;
+window.ksiazkaUwagiDodajSzablon = ksiazkaUwagiDodajSzablon;
+window.closeKsiazkaUwagiEditModal = closeKsiazkaUwagiEditModal;
 window.confirmKsiazkaUwagi = confirmKsiazkaUwagi;
-window.confirmKsiazkaUwagiFallback = confirmKsiazkaUwagiFallback;
