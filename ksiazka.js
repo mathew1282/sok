@@ -228,7 +228,7 @@ function initKsiazka() {
         if (document.getElementById("ksiazkaContainer")) {
             renderKsiazka();
         }
-    }, 20000); // częstsze odświeżanie przez mruganie
+    }, 20000);
 }
 
 function toggleKsiazkaFilter(patrolIndex) {
@@ -258,36 +258,30 @@ function renderKsiazka() {
         );
     }
 
-    // ===== NAGŁÓWEK + FILTRY =====
     let html = `
-    <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
-            <h2 style="margin:0;">📖 Książka wydarzeń</h2>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button class="btn-primary" onclick="openPlanSluzbyModal()">📅 Służba dzienna – szablon</button>
-                <button class="btn-danger" onclick="clearAllKsiazka()">Kasuj wszystkie</button>
-            </div>
-        </div>
-
-        <div style="margin-bottom:18px;">
-            <div style="font-size:14px; color:#94a3b8; margin-bottom:8px;">Filtruj po patrolach:</div>
-            <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-                <div class="line-pill ${ksiazkaFilterPatrole.length === 0 ? "active" : ""}" onclick="clearKsiazkaFilter()" style="cursor:pointer;">
-                    Wszystkie
-                </div>
-                ${patrole.map((p, idx) => `
-                    <div class="line-pill ${ksiazkaFilterPatrole.includes(idx) ? "active" : ""}"
-                         onclick="toggleKsiazkaFilter(${idx})" style="cursor:pointer;">
-                        ${escapeHtml(p.nazwa || ("Patrol " + (idx + 1)))}
+    <div class="card ksiazka-card">
+        <div class="ksiazka-sticky-bar">
+            <div class="ksiazka-sticky-left">
+                <h2 style="margin:0; white-space:nowrap;">📖 Książka wydarzeń</h2>
+                <div class="ksiazka-filters">
+                    <div class="line-pill ${ksiazkaFilterPatrole.length === 0 ? "active" : ""}" onclick="clearKsiazkaFilter()" style="cursor:pointer;">
+                        Wszystkie
                     </div>
-                `).join("")}
+                    ${patrole.map((p, idx) => `
+                        <div class="line-pill ${ksiazkaFilterPatrole.includes(idx) ? "active" : ""}"
+                             onclick="toggleKsiazkaFilter(${idx})" style="cursor:pointer;">
+                            ${escapeHtml(p.nazwa || ("Patrol " + (idx + 1)))}
+                        </div>
+                    `).join("")}
+                </div>
+            </div>
+            <div class="ksiazka-sticky-right">
+                <button class="btn-primary" onclick="openPlanSluzbyModal()">📅 Służba dzienna</button>
+                <button class="btn-danger" onclick="clearAllKsiazka()">Kasuj wszystkie</button>
             </div>
         </div>
     `;
 
-    // ===== WIDOK =====
-    // 0 lub 1 filtr → lista wierszy (3 kolumny)
-    // 2+ filtry → kolumny per patrol
     if (ksiazkaFilterPatrole.length <= 1) {
         html += renderKsiazkaListView(filtered);
     } else {
@@ -462,8 +456,11 @@ async function kopiujWpisKsiazki(index) {
     ensureKsiazkaState();
     const e = appState.ksiazkaWydarzen[index];
     if (!e) return;
+    // Usuń kropki / bullet-y jak w generatorze – tylko do schowka
+    let text = String(e.tekst || "");
+    text = text.split("\n").map(line => line.replace(/^[\s•·.\-–—]+/, "").trimStart()).join("\n").trim();
     try {
-        await navigator.clipboard.writeText(e.tekst || "");
+        await navigator.clipboard.writeText(text);
         if (typeof showToast === "function") showToast("✅ Skopiowano");
         else alert("Skopiowano");
     } catch (err) {
@@ -489,19 +486,16 @@ function edytujWpisKsiazki(index) {
     overlay.style.display = "flex";
     overlay._editIndex = index;
 
-    // Kafelki z poleceń
     const poleceniaPills = (appState.polecenia?.rows || []).map((r, i) => {
         const label = (r.OpisKrotki || r.Opis || ("Polecenie " + (i + 1))).slice(0, 40);
         return `<div class="line-pill" style="cursor:pointer; font-size:13px;" onclick="insertTileToEdit('pol', ${i})">${escapeHtml(label)}</div>`;
     }).join("") || "<span style='color:#64748b; font-size:13px;'>Brak poleceń</span>";
 
-    // Kafelki ze zgłoszeń
     const zgloszeniaPills = (appState.zgloszenia?.rows || []).map((r, i) => {
         const label = (r.OpisKrotki || r.Opis || ("Zgłoszenie " + (i + 1))).slice(0, 40);
         return `<div class="line-pill" style="cursor:pointer; font-size:13px;" onclick="insertTileToEdit('zgl', ${i})">${escapeHtml(label)}</div>`;
     }).join("") || "<span style='color:#64748b; font-size:13px;'>Brak zgłoszeń</span>";
 
-    // Szablony (jeśli są)
     const szablonyPills = (appState.szablony || []).map((s, i) => {
         const label = (s.nazwa || s.tekst || ("Szablon " + (i + 1))).slice(0, 40);
         return `<div class="line-pill" style="cursor:pointer; font-size:13px;" onclick="insertTileToEdit('szab', ${i})">${escapeHtml(label)}</div>`;
