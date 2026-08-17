@@ -842,6 +842,10 @@ async function confirmPlanSluzby() {
         renderKsiazka();
     }
 }
+
+
+
+
 // =====================================
 // SPRAWDZENIE
 // 1) lista poleceń Szlak / Stacja towarowa / Stacja osobowa (multi-select + „wszystko”)
@@ -1036,9 +1040,6 @@ async function confirmKsiazkaSprawdzenie() {
     else alert("Zapisano sprawdzenia w statystykach");
 }
 
-
-
-
 // =====================================
 // UWAGI – wybór wpisu → dodaje na końcu (nie nadpisuje) + edycja
 // =====================================
@@ -1197,8 +1198,9 @@ window.confirmPlanSluzby = confirmPlanSluzby;
 window.toggleKsiazkaFilterInne = toggleKsiazkaFilterInne;
 window.openKsiazkaSprawdzenieModal = openKsiazkaSprawdzenieModal;
 window.closeKsiazkaSprawdzenieModal = closeKsiazkaSprawdzenieModal;
-window.ksiazkaSprawdzenieWybranoWpis = ksiazkaSprawdzenieWybranoWpis;
+window.ksiazkaSprawdzenieZaznaczWszystkie = ksiazkaSprawdzenieZaznaczWszystkie;
 window.ksiazkaSprawdzenieDalej = ksiazkaSprawdzenieDalej;
+window.ksiazkaSprawdGodzOdChange = ksiazkaSprawdGodzOdChange;
 window.confirmKsiazkaSprawdzenie = confirmKsiazkaSprawdzenie;
 window.openKsiazkaUwagiPicker = openKsiazkaUwagiPicker;
 window.closeKsiazkaUwagiPicker = closeKsiazkaUwagiPicker;
