@@ -646,66 +646,108 @@ tr:hover{
    (doklej na koniec main.css)
 ========================== */
 
+.ksiazka-card {
+    position: relative;
+}
+
+/* Przyklejony pasek z tytułem + filtrami */
+.ksiazka-sticky-bar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 0 12px 0;
+    margin-bottom: 10px;
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+}
+
+.ksiazka-sticky-left {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.ksiazka-sticky-right {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ksiazka-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.ksiazka-filters .line-pill {
+    padding: 5px 12px;
+    font-size: 12px;
+}
+
 .ksiazka-list {
     display: flex;
     flex-direction: column;
-    gap: 0;
-    border: 1px solid #334155;
-    border-radius: 12px;
-    overflow: hidden;
+    gap: 4px;
 }
 
 .ksiazka-row {
     display: grid;
-    grid-template-columns: 100px 1fr auto;
-    gap: 10px;
-    padding: 7px 12px;
-    border-bottom: 1px solid #334155;
+    grid-template-columns: 90px 1fr auto;
+    gap: 8px;
+    padding: 4px 10px;
+    border: 1px solid #000;
+    border-radius: 6px;
     align-items: center;
     background: #0f172a;
     transition: background 0.2s;
 }
 
-.ksiazka-row:last-child {
-    border-bottom: none;
-}
-
 .ksiazka-header {
     background: #1e293b;
     font-weight: 600;
-    font-size: 12px;
+    font-size: 11px;
     color: #94a3b8;
-    padding: 7px 12px;
+    padding: 5px 10px;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    margin-bottom: 2px;
 }
 
 .ksiazka-col-time {
-    font-size: 13px;
+    font-size: 12px;
 }
 
 .ksiazka-time {
     font-weight: 700;
-    font-size: 15px;
+    font-size: 14px;
     color: #e2e8f0;
-    line-height: 1.2;
+    line-height: 1.15;
 }
 
 .ksiazka-date {
-    font-size: 11px;
+    font-size: 10px;
     color: #94a3b8;
-    margin-top: 1px;
-    line-height: 1.2;
+    margin-top: 0;
+    line-height: 1.15;
 }
 
 .ksiazka-patrol {
     font-size: 10px;
     color: #60a5fa;
-    margin-top: 2px;
-    line-height: 1.2;
+    margin-top: 1px;
+    line-height: 1.15;
 }
 
 .ksiazka-col-info {
     font-size: 15px;
-    line-height: 1.35;
+    line-height: 1.3;
     white-space: pre-wrap;
     color: #e2e8f0;
 }
@@ -713,46 +755,52 @@ tr:hover{
 .ksiazka-col-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
+    gap: 4px;
     justify-content: flex-end;
-    min-width: 190px;
+    min-width: 180px;
 }
 
 .ksiazka-col-actions button {
-    padding: 4px 9px !important;
+    padding: 3px 8px !important;
     font-size: 11px !important;
 }
 
-/* Zrobione – jasnozielony */
+/* Zrobione – jasnozielony wchodzący w żółty */
 .ksiazka-row.ksiazka-done {
-    background: rgba(34, 197, 94, 0.18) !important;
-    border-left: 4px solid #22c55e;
+    background: linear-gradient(90deg, rgba(74, 222, 128, 0.28), rgba(250, 204, 21, 0.22)) !important;
+    border-color: #86efac;
+    border-left: 4px solid #4ade80;
 }
 
-/* Przeterminowane – czerwony + mruganie */
+/* Przeterminowane – mocniejszy, naturalny czerwony + mruganie */
 .ksiazka-row.ksiazka-overdue {
-    background: rgba(220, 38, 38, 0.22) !important;
+    background: rgba(185, 28, 28, 0.35) !important;
+    border-color: #991b1b;
     border-left: 4px solid #dc2626;
-    animation: ksiazkaBlink 1.2s ease-in-out infinite;
+    animation: ksiazkaBlink 1.1s ease-in-out infinite;
 }
 
 .ksiazka-overdue-box {
-    animation: ksiazkaBlink 1.2s ease-in-out infinite;
+    animation: ksiazkaBlink 1.1s ease-in-out infinite;
 }
 
 @keyframes ksiazkaBlink {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.55; }
+    50% { opacity: 0.5; }
 }
 
 @media (max-width: 700px) {
     .ksiazka-row {
         grid-template-columns: 1fr;
-        gap: 6px;
-        padding: 8px 10px;
+        gap: 4px;
+        padding: 6px 8px;
     }
     .ksiazka-col-actions {
         min-width: 0;
         justify-content: flex-start;
+    }
+    .ksiazka-sticky-bar {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }
