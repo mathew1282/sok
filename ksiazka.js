@@ -848,7 +848,7 @@ async function confirmPlanSluzby() {
 
 // =====================================
 // SPRAWDZENIE
-// 1) lista wpisów z książki (checkboxy, domyślnie wszystkie zaznaczone)
+// 1) lista wpisów z książki – kliknięcie odznacza/zaznacza (domyślnie wszystkie zaznaczone)
 // 2) Dalej → okno zbiorcze z godzinami
 //    (linia / nazwa / km pobrane z pasującego polecenia Szlak|towarowa|osobowa)
 // =====================================
@@ -906,6 +906,12 @@ function openKsiazkaSprawdzenieModal() {
     overlay.className = "modal-overlay";
     overlay.style.display = "flex";
 
+    // domyślnie wszystkie zaznaczone
+    const selected = new Set(
+        items.map(e => appState.ksiazkaWydarzen.findIndex(x => x.id === e.id)).filter(i => i >= 0)
+    );
+    overlay._selectedEntryIndexes = selected;
+
     const list = items.map(e => {
         const idx = appState.ksiazkaWydarzen.findIndex(x => x.id === e.id);
         const short = String(e.tekst || "").slice(0, 120);
@@ -914,22 +920,31 @@ function openKsiazkaSprawdzenieModal() {
             ? `${escapeHtml(pol.Rodzaj)} – ${escapeHtml(pol.Nazwa || pol.OpisKrotki || "")}`
             : "—";
         return `
-        <label style="display:flex; gap:10px; align-items:flex-start; padding:10px; border:1px solid #334155; border-radius:10px; margin-bottom:8px; cursor:pointer;">
-            <input type="checkbox" class="ksiazka-sprawd-entry-cb" value="${idx}" checked style="margin-top:3px;">
-            <div style="flex:1;">
-                <div style="font-weight:600; color:#60a5fa;">${escapeHtml(e.godzinaStart || "—")} · ${escapeHtml(e.data || "")}</div>
-                <div style="font-size:12px; color:#94a3b8; margin-top:2px;">${polLabel}</div>
-                <div style="font-size:13px; color:#e2e8f0; margin-top:4px; white-space:pre-wrap;">${escapeHtml(short)}${(e.tekst || "").length > 120 ? "…" : ""}</div>
-            </div>
-        </label>`;
+        <div id="ksiazkaSprawdEntry_${idx}"
+             class="ksiazka-sprawd-entry selected"
+             data-index="${idx}"
+             onclick="ksiazkaSprawdzenieToggleEntry(${idx})"
+             style="
+                border: 2px solid #22c55e;
+                background: rgba(34, 197, 94, 0.12);
+                border-radius: 10px;
+                padding: 10px;
+                margin-bottom: 8px;
+                cursor: pointer;
+                transition: border-color 0.15s, background 0.15s, opacity 0.15s;
+             ">
+            <div style="font-weight:600; color:#60a5fa;">${escapeHtml(e.godzinaStart || "—")} · ${escapeHtml(e.data || "")}</div>
+            <div style="font-size:12px; color:#94a3b8; margin-top:2px;">${polLabel}</div>
+            <div style="font-size:13px; color:#e2e8f0; margin-top:4px; white-space:pre-wrap;">${escapeHtml(short)}${(e.tekst || "").length > 120 ? "…" : ""}</div>
+        </div>`;
     }).join("");
 
     overlay.innerHTML = `
         <div class="modal" style="max-width:560px;">
             <h2 style="margin-top:0;">Sprawdzenie – wybierz wpisy</h2>
             <p style="color:#94a3b8; font-size:14px; margin-bottom:12px;">
-                Pokazane są tylko wpisy z Książki powiązane z poleceniami Szlak / Stacja towarowa / Stacja osobowa.
-                Odznacz te, których nie chcesz dodać do statystyk.
+                Kliknij wpis, aby go odznaczyć / zaznaczyć.
+                Zielone = zaznaczone, szare = odznaczone.
             </p>
             <div style="margin-bottom:12px; display:flex; gap:8px; flex-wrap:wrap;">
                 <button type="button" class="btn-primary" style="padding:6px 12px; font-size:13px;" onclick="ksiazkaSprawdzenieZaznaczWszystkie(true)">Zaznacz wszystkie</button>
@@ -950,16 +965,59 @@ function closeKsiazkaSprawdzenieModal() {
     if (m) m.remove();
 }
 
+function ksiazkaSprawdzenieToggleEntry(idx) {
+    const modal = document.getElementById("ksiazkaSprawdModal");
+    if (!modal || !modal._selectedEntryIndexes) return;
+    const set = modal._selectedEntryIndexes;
+    const el = document.getElementById(`ksiazkaSprawdEntry_${idx}`);
+    if (!el) return;
+
+    if (set.has(idx)) {
+        set.delete(idx);
+        el.classList.remove("selected");
+        el.style.borderColor = "#475569";
+        el.style.background = "rgba(71, 85, 105, 0.25)";
+        el.style.opacity = "0.65";
+    } else {
+        set.add(idx);
+        el.classList.add("selected");
+        el.style.borderColor = "#22c55e";
+        el.style.background = "rgba(34, 197, 94, 0.12)";
+        el.style.opacity = "1";
+    }
+}
+
 function ksiazkaSprawdzenieZaznaczWszystkie(zaznacz) {
-    document.querySelectorAll(".ksiazka-sprawd-entry-cb").forEach(cb => {
-        cb.checked = !!zaznacz;
+    const modal = document.getElementById("ksiazkaSprawdModal");
+    if (!modal) return;
+    if (!modal._selectedEntryIndexes) modal._selectedEntryIndexes = new Set();
+
+    document.querySelectorAll(".ksiazka-sprawd-entry").forEach(el => {
+        const idx = parseInt(el.getAttribute("data-index"), 10);
+        if (zaznacz) {
+            modal._selectedEntryIndexes.add(idx);
+            el.classList.add("selected");
+            el.style.borderColor = "#22c55e";
+            el.style.background = "rgba(34, 197, 94, 0.12)";
+            el.style.opacity = "1";
+        } else {
+            modal._selectedEntryIndexes.delete(idx);
+            el.classList.remove("selected");
+            el.style.borderColor = "#475569";
+            el.style.background = "rgba(71, 85, 105, 0.25)";
+            el.style.opacity = "0.65";
+        }
     });
 }
 
 function ksiazkaSprawdzenieDalej() {
-    const checkedIdx = [...document.querySelectorAll(".ksiazka-sprawd-entry-cb:checked")]
-        .map(cb => parseInt(cb.value, 10));
-    if (!checkedIdx.length) {
+    const modal = document.getElementById("ksiazkaSprawdModal");
+    if (!modal) return;
+
+    const selected = modal._selectedEntryIndexes
+        ? [...modal._selectedEntryIndexes]
+        : [];
+    if (!selected.length) {
         if (typeof showToast === "function") showToast("Zaznacz przynajmniej jeden wpis");
         else alert("Zaznacz przynajmniej jeden wpis");
         return;
@@ -967,7 +1025,7 @@ function ksiazkaSprawdzenieDalej() {
 
     ensureKsiazkaState();
     const items = [];
-    for (const idx of checkedIdx) {
+    for (const idx of selected) {
         const entry = appState.ksiazkaWydarzen[idx];
         if (!entry) continue;
         const pol = findMatchingPolecenieForEntry(entry);
@@ -1254,6 +1312,7 @@ window.confirmPlanSluzby = confirmPlanSluzby;
 window.toggleKsiazkaFilterInne = toggleKsiazkaFilterInne;
 window.openKsiazkaSprawdzenieModal = openKsiazkaSprawdzenieModal;
 window.closeKsiazkaSprawdzenieModal = closeKsiazkaSprawdzenieModal;
+window.ksiazkaSprawdzenieToggleEntry = ksiazkaSprawdzenieToggleEntry;
 window.ksiazkaSprawdzenieZaznaczWszystkie = ksiazkaSprawdzenieZaznaczWszystkie;
 window.ksiazkaSprawdzenieDalej = ksiazkaSprawdzenieDalej;
 window.ksiazkaSprawdGodzOdChange = ksiazkaSprawdGodzOdChange;
