@@ -644,9 +644,30 @@ async function confirmEditKsiazka() {
 // PLANOWANIE SŁUŻBY (szablony względne)
 // =====================================
 
-/** Draft edytowanego planu w modalu: [{ offsetMin, tekst, patrolIndex|null }] */
+/** Draft edytowanego planu w modalu: [{ offsetMin, tekst, patrolIndex|null }]
+ *  patrolIndex = abstrakcyjny slot 0..N-1 (= Patrol 1..N), null = bez patrolu
+ *  Mapowanie na prawdziwe patrole z zakładki Patrole dopiero przy zapisie do Książki.
+ */
 let _planDraft = [];
 let _planEditTemplateId = null; // null = nowy
+let _planNumPatroli = 2; // ile abstrakcyjnych patroli (Patrol 1, Patrol 2, …)
+
+function planAbstractPatrolName(idx) {
+    if (idx == null || idx === "") return "bez patrolu";
+    const n = Number(idx);
+    if (!Number.isFinite(n) || n < 0) return "bez patrolu";
+    return "Patrol " + (n + 1);
+}
+
+function planBuildAbstractPatrolOpts(selectedVal) {
+    const n = Math.max(1, Math.min(12, Number(_planNumPatroli) || 2));
+    let html = `<option value="">— bez patrolu —</option>`;
+    for (let i = 0; i < n; i++) {
+        const sel = (selectedVal !== null && selectedVal !== "" && Number(selectedVal) === i) ? " selected" : "";
+        html += `<option value="${i}"${sel}>Patrol ${i + 1}</option>`;
+    }
+    return html;
+}
 
 function ensurePlanSzablonyState() {
     if (!Array.isArray(appState.planSzablony)) {
@@ -730,8 +751,10 @@ function renderPlanSluzbyModal() {
         `<option value="${i}">${escapeHtml(s.nazwa || ("Szablon " + (i + 1)))} (${(s.rekordy || []).length} pkt)</option>`
     ).join("");
 
-    const patrolOpts = `<option value="">— bez patrolu —</option>` +
-        patrole.map((p, i) => `<option value="${i}">${escapeHtml(p.nazwa || ("Patrol " + (i + 1)))}</option>`).join("");
+    // Abstrakcyjne patrole (Patrol 1..N) – nie z zakładki Patrole
+    const nPat = Math.max(1, Math.min(12, Number(_planNumPatroli) || 2));
+    _planNumPatroli = nPat;
+    const patrolOpts = planBuildAbstractPatrolOpts(null);
 
     const zglOpts = (appState.zgloszenia?.rows || []).map((r, i) => {
         const label = (r.OpisKrotki || r.Opis || ("Zgł. " + (i + 1))).slice(0, 50);
@@ -751,9 +774,7 @@ function renderPlanSluzbyModal() {
         draftHtml = _planDraft.map((r, idx) => {
             acc += (idx === 0 ? 0 : (Number(r.offsetMin) || 0));
             const godzPreview = minutesToHHMM(acc); // preview od 00:00 – przy starcie się przesunie
-            const patrolName = (r.patrolIndex == null || r.patrolIndex === "")
-                ? "bez patrolu"
-                : getPatrolName(Number(r.patrolIndex));
+            const patrolName = planAbstractPatrolName(r.patrolIndex);
             return `
             <div style="border:1px solid #334155; border-radius:10px; padding:10px; margin-bottom:8px; background:#0f172a;">
                 <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
@@ -774,10 +795,7 @@ function renderPlanSluzbyModal() {
                     <div style="flex:1; min-width:140px;">
                         <label style="font-size:12px;">Patrol</label>
                         <select class="plan-patrol" data-idx="${idx}" style="width:100%;" onchange="planDraftUpdatePatrol(${idx}, this.value)">
-                            ${patrole.map((p, i) =>
-                                `<option value="${i}" ${Number(r.patrolIndex) === i ? "selected" : ""}>${escapeHtml(p.nazwa || ("Patrol " + (i + 1)))}</option>`
-                            ).join("")}
-                            <option value="" ${r.patrolIndex == null || r.patrolIndex === "" ? "selected" : ""}>— bez patrolu —</option>
+                            ${planBuildAbstractPatrolOpts(r.patrolIndex)}
                         </select>
                     </div>
                 </div>
@@ -821,6 +839,15 @@ function renderPlanSluzbyModal() {
                             </div>`;
                         }).join("")
                     }
+                </div>
+            </div>
+
+            <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:14px;">
+                <div style="min-width:140px;">
+                    <label>Ilość patroli w planie</label>
+                    <input type="number" id="planNumPatroli" value="${nPat}" min="1" max="12" step="1" style="width:100%;"
+                           onchange="planSetNumPatroli(this.value)">
+                    <div style="font-size:11px; color:#94a3b8; margin-top:4px;">Tworzy: Patrol 1 … Patrol N (mapowanie na prawdziwe przy zapisie)</div>
                 </div>
             </div>
 
@@ -923,6 +950,16 @@ function planDraftUpdatePatrol(idx, val) {
     _planDraft[idx].patrolIndex = (val === "" || val == null) ? null : parseInt(val, 10);
 }
 
+function planSetNumPatroli(val) {
+    const n = Math.max(1, Math.min(12, parseInt(val, 10) || 2));
+    _planNumPatroli = n;
+    // Przytnij sloty poza zakresem → bez patrolu
+    _planDraft.forEach(r => {
+        if (r.patrolIndex != null && Number(r.patrolIndex) >= n) r.patrolIndex = null;
+    });
+    renderPlanSluzbyModal();
+}
+
 function planDraftUpdateTekst(idx, val) {
     if (!_planDraft[idx]) return;
     _planDraft[idx].tekst = val;
@@ -1021,6 +1058,13 @@ function planWczytajSzablon() {
     const s = appState.planSzablony[i];
     if (!s) return;
     _planEditTemplateId = s.id;
+    _planNumPatroli = Math.max(1, Math.min(12, Number(s.numPatroli) || 2));
+    // Upewnij się, że numPatroli pokrywa maksymalne sloty w rekordach
+    (s.rekordy || []).forEach(r => {
+        if (r.patrolIndex != null && Number(r.patrolIndex) + 1 > _planNumPatroli) {
+            _planNumPatroli = Number(r.patrolIndex) + 1;
+        }
+    });
     _planDraft = (s.rekordy || []).map(r => ({
         offsetMin: Number(r.offsetMin) || 0,
         tekst: r.tekst || "",
@@ -1059,6 +1103,7 @@ async function planZapiszJakoSzablon() {
         if (existing) {
             existing.nazwa = nazwa;
             existing.rekordy = rekordy;
+            existing.numPatroli = Math.max(1, Math.min(12, Number(_planNumPatroli) || 2));
             await saveState();
             if (typeof showToast === "function") showToast("✅ Zaktualizowano szablon");
             renderPlanSluzbyModal();
@@ -1070,6 +1115,7 @@ async function planZapiszJakoSzablon() {
         id: Date.now() + Math.random().toString(36).slice(2),
         nazwa,
         rekordy,
+        numPatroli: Math.max(1, Math.min(12, Number(_planNumPatroli) || 2)),
         createdAt: new Date().toISOString()
     });
     await saveState();
@@ -1097,6 +1143,7 @@ async function planUsunSzablon() {
 function planWyczyscDraft() {
     _planDraft = [];
     _planEditTemplateId = null;
+    // zostaw _planNumPatroli – użytkownik sam ustawia
     renderPlanSluzbyModal();
 }
 
@@ -1105,6 +1152,12 @@ function planWczytajSzablonPoIndex(i) {
     const s = appState.planSzablony[i];
     if (!s) return;
     _planEditTemplateId = s.id;
+    _planNumPatroli = Math.max(1, Math.min(12, Number(s.numPatroli) || 2));
+    (s.rekordy || []).forEach(r => {
+        if (r.patrolIndex != null && Number(r.patrolIndex) + 1 > _planNumPatroli) {
+            _planNumPatroli = Number(r.patrolIndex) + 1;
+        }
+    });
     _planDraft = (s.rekordy || []).map(r => ({
         offsetMin: Number(r.offsetMin) || 0,
         tekst: r.tekst || "",
@@ -1165,7 +1218,7 @@ function planPodglad() {
     if (!box) return;
     box.style.display = "block";
     box.textContent = abs.map(p => {
-        const pn = (p.patrole && p.patrole.length) ? getPatrolName(p.patrole[0]) : "bez patrolu";
+        const pn = (p.patrole && p.patrole.length) ? planAbstractPatrolName(p.patrole[0]) : "bez patrolu";
         return p.godzinaStart + "  [" + pn + "]\n" + (p.tekst || "").slice(0, 120);
     }).join("\n\n");
 }
@@ -1192,7 +1245,7 @@ async function planZapiszDoKsiazki() {
             groupsMap.set(key, {
                 key,
                 oldPatrolIndex: key === "none" ? null : parseInt(key, 10),
-                label: key === "none" ? "Bez patrolu" : getPatrolName(parseInt(key, 10)),
+                label: key === "none" ? "Bez patrolu" : planAbstractPatrolName(parseInt(key, 10)),
                 items: []
             });
         }
@@ -1245,10 +1298,10 @@ function planShowGroupMapStep() {
     overlay.style.display = "flex";
     overlay.innerHTML = `
         <div class="modal" style="max-width:560px; max-height:92vh; overflow:auto;">
-            <h2 style="margin-top:0;">Patrol w szablonie → obecny patrol</h2>
+            <h2 style="margin-top:0;">Patrol z planu → prawdziwy patrol</h2>
             <p style="color:#94a3b8; font-size:13px; margin-bottom:10px;">
                 Krok <strong>${step + 1}</strong> / ${groups.length}<br>
-                Grupa z szablonu: <strong>${escapeHtml(g.label)}</strong> (${g.items.length} wpisów)
+                W planie: <strong>${escapeHtml(g.label)}</strong> (${g.items.length} wpisów) — przypisz do patrolu z zakładki Patrole
             </p>
             <div style="max-height:240px; overflow:auto; margin-bottom:12px; border:1px solid #334155; border-radius:10px; padding:10px;">
                 ${list || "<div style='color:#64748b;'>Brak wpisów</div>"}
@@ -1265,12 +1318,17 @@ function planShowGroupMapStep() {
     `;
     document.body.appendChild(overlay);
 
-    // domyślnie: bez → bez; inaczej stary indeks jeśli nadal istnieje
+    // Abstrakcyjny slot → domyślnie puste (użytkownik wybiera prawdziwy patrol)
+    // Jeśli liczba realnych patroli >= slot+1, podpowiedz ten sam numer
     const sel = document.getElementById("planGroupMapSelect");
     if (sel) {
-        if (g.oldPatrolIndex == null) sel.value = "";
-        else if (patrole[g.oldPatrolIndex]) sel.value = String(g.oldPatrolIndex);
-        else sel.value = "";
+        if (g.oldPatrolIndex == null) {
+            sel.value = "";
+        } else if (patrole[g.oldPatrolIndex]) {
+            sel.value = String(g.oldPatrolIndex); // podpowiedź: Patrol N → realny index N jeśli istnieje
+        } else {
+            sel.value = "";
+        }
     }
 }
 
@@ -2133,6 +2191,9 @@ window.planWczytajSzablonPoIndex = planWczytajSzablonPoIndex;
 window.planUsunSzablonPoIndex = planUsunSzablonPoIndex;
 window.planZmienNazweSzablonu = planZmienNazweSzablonu;
 window.planUpdateAddPreview = planUpdateAddPreview;
+window.planSetNumPatroli = planSetNumPatroli;
+window.planAbstractPatrolName = planAbstractPatrolName;
+window.planBuildAbstractPatrolOpts = planBuildAbstractPatrolOpts;
 
 window.planGroupMapCancel = planGroupMapCancel;
 window.planShowDopiszNadpiszModal = planShowDopiszNadpiszModal;
