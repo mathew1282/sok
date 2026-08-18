@@ -877,8 +877,8 @@ async function exportKsiazkaFiltered() {
         return;
     }
 
-    // Format: *data* godzina \n opis (bez czarnych kropek/punktorów)
-    // *…* = pogrubienie w WhatsApp
+    // Format: _data_ *godzina* \n opis (bez czarnych kropek/punktorów)
+    // _…_ = kursywa, *…* = pogrubienie w WhatsApp
     const blocks = entries.map(e => {
         const data = String(e.data || "").trim() || "—";
         const godz = String(e.godzinaStart || "—").trim();
@@ -890,7 +890,7 @@ async function exportKsiazkaFiltered() {
             .replace(/[ \t]+\n/g, "\n")
             .replace(/\n{3,}/g, "\n\n")
             .trim();
-        return "*" + data + "* " + godz + "\n" + tekst;
+        return "_" + data + "_ *" + godz + "*\n" + tekst;
     });
 
     const text = blocks.join("\n\n");
