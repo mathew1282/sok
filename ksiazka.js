@@ -262,7 +262,22 @@ function renderKsiazka() {
     ensureKsiazkaState();
 
     const allEntries = sortEntriesOldestFirst(appState.ksiazkaWydarzen);
-    const patrole = appState.patrole || [];
+
+    // Patrole faktycznie obecne w książce (unikalne indeksy)
+    const usedPatrolSet = new Set();
+    let hasInne = false;
+    allEntries.forEach(e => {
+        const pats = e.patrole || [];
+        if (!pats.length) hasInne = true;
+        else pats.forEach(p => {
+            if (p != null && p !== "") usedPatrolSet.add(Number(p));
+        });
+    });
+    const usedPatrole = [...usedPatrolSet].filter(n => Number.isFinite(n)).sort((a, b) => a - b);
+
+    // Wyczyść filtr, jeśli wybrany patrol już nie występuje w książce
+    ksiazkaFilterPatrole = ksiazkaFilterPatrole.filter(i => usedPatrolSet.has(i));
+    if (ksiazkaFilterInne && !hasInne) ksiazkaFilterInne = false;
 
     let filtered = allEntries;
     if (ksiazkaFilterInne) {
@@ -275,6 +290,17 @@ function renderKsiazka() {
 
     const noPatrolFilter = !ksiazkaFilterInne && ksiazkaFilterPatrole.length === 0;
 
+    const patrolFilterPills = usedPatrole.map(idx => `
+                    <div class="line-pill ${ksiazkaFilterPatrole.includes(idx) ? "active" : ""}"
+                         onclick="toggleKsiazkaFilter(${idx})" style="cursor:pointer;">
+                        ${escapeHtml(getPatrolName(idx))}
+                    </div>`).join("");
+
+    const innePill = hasInne ? `
+                    <div class="line-pill ${ksiazkaFilterInne ? "active" : ""}" onclick="toggleKsiazkaFilterInne()" style="cursor:pointer;">
+                        Inne
+                    </div>` : "";
+
     let html = `
     <div class="card ksiazka-card">
         <div class="ksiazka-sticky-bar">
@@ -284,15 +310,8 @@ function renderKsiazka() {
                     <div class="line-pill ${noPatrolFilter ? "active" : ""}" onclick="clearKsiazkaFilter()" style="cursor:pointer;">
                         Wszystkie
                     </div>
-                    ${patrole.map((p, idx) => `
-                        <div class="line-pill ${ksiazkaFilterPatrole.includes(idx) ? "active" : ""}"
-                             onclick="toggleKsiazkaFilter(${idx})" style="cursor:pointer;">
-                            ${escapeHtml(p.nazwa || ("Patrol " + (idx + 1)))}
-                        </div>
-                    `).join("")}
-                    <div class="line-pill ${ksiazkaFilterInne ? "active" : ""}" onclick="toggleKsiazkaFilterInne()" style="cursor:pointer;">
-                        Inne
-                    </div>
+                    ${patrolFilterPills}
+                    ${innePill}
                 </div>
             </div>
             <div class="ksiazka-sticky-right">
