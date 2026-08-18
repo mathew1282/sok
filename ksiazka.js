@@ -106,7 +106,8 @@ function openKsiazkaSaveModal(tekst, patrolIndexes) {
                 <label>Godzina rozpoczęcia</label>
                 <input type="time" id="ksiazkaGodzStart" value="${now}" style="width:100%;">
                 <div style="font-size:12px; color:#94a3b8; margin-top:6px;">
-                    Praca w nocy: jeśli wpiszesz godzinę wcześniejszą niż teraz – automatycznie następny dzień.
+                    Po 18:00 godziny 0:00–11:59 → następny dzień (noc).
+                    Wcześniejsze godziny wieczorem (np. 22 przy 23) → dziś.
                 </div>
             </div>
 
@@ -143,14 +144,16 @@ async function confirmSaveToKsiazka() {
     const patrolIndexes = modal._patrolIndexes || [];
     const godzStart = document.getElementById("ksiazkaGodzStart")?.value || nowHHMM();
 
-    // Logika nocna: jeśli wybrana godzina < teraz → następny dzień
+    // Po 18:00: tylko godziny 0:00–11:59 (noc/poranek) → następny dzień.
+    // Wcześniejsza godzina wieczorem (np. 22:00 przy 23:00) → dziś.
+    // Przed 18:00: zawsze dziś (uzupełnianie wstecz).
     const parts = parseTimeParts(godzStart);
     let dataWpisu = todayPL();
     if (parts) {
         const now = new Date();
         const chosen = new Date();
         chosen.setHours(parts.h, parts.m, 0, 0);
-        if (chosen < now) {
+        if (chosen < now && now.getHours() >= 18 && parts.h < 12) {
             dataWpisu = tomorrowPL();
         }
     }
