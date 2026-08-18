@@ -796,17 +796,32 @@ function renderPlanSluzbyModal() {
                 Przy starcie podajesz godzinę rozpoczęcia – reszta się przelicza.
             </p>
 
-            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:flex-end;">
-                <div style="flex:1; min-width:180px;">
-                    <label>Szablon</label>
-                    <select id="planSzablonSelect" style="width:100%;">
-                        <option value="">— nowy / pusty —</option>
-                        ${szOptions}
-                    </select>
+            <div style="margin-bottom:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+                    <label style="margin:0; font-weight:600;">Szablony (${szablony.length})</label>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        <button type="button" class="btn-success" style="padding:5px 10px; font-size:13px;" onclick="planZapiszJakoSzablon()">+ Zapisz bieżący jako szablon</button>
+                        <button type="button" class="btn-primary" style="padding:5px 10px; font-size:13px;" onclick="planWyczyscDraft()">Nowy / pusty</button>
+                    </div>
                 </div>
-                <button type="button" class="btn-primary" onclick="planWczytajSzablon()">Wczytaj</button>
-                <button type="button" class="btn-success" onclick="planZapiszJakoSzablon()">Zapisz jako szablon</button>
-                <button type="button" class="btn-danger" onclick="planUsunSzablon()">Usuń szablon</button>
+                <div id="planSzablonyList" style="max-height:180px; overflow:auto; border:1px solid #334155; border-radius:10px; padding:6px; background:#0f172a;">
+                    ${szablony.length === 0
+                        ? `<div style="color:#64748b; padding:10px; font-size:13px;">Brak zapisanych szablonów</div>`
+                        : szablony.map((s, i) => {
+                            const active = _planEditTemplateId && s.id === _planEditTemplateId;
+                            return `
+                            <div style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; margin-bottom:4px; background:${active ? "rgba(59,130,246,0.18)" : "transparent"}; border:1px solid ${active ? "#3b82f6" : "transparent"};">
+                                <div style="flex:1; min-width:0;">
+                                    <div style="font-weight:600; color:#e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(s.nazwa || ("Szablon " + (i + 1)))}</div>
+                                    <div style="font-size:12px; color:#94a3b8;">${(s.rekordy || []).length} pkt</div>
+                                </div>
+                                <button type="button" class="btn-primary" style="padding:4px 8px; font-size:12px; white-space:nowrap;" onclick="planWczytajSzablonPoIndex(${i})">Wczytaj</button>
+                                <button type="button" class="btn-primary" style="padding:4px 8px; font-size:12px;" onclick="planZmienNazweSzablonu(${i})" title="Zmień nazwę">✎</button>
+                                <button type="button" class="btn-danger" style="padding:4px 8px; font-size:12px;" onclick="planUsunSzablonPoIndex(${i})">Usuń</button>
+                            </div>`;
+                        }).join("")
+                    }
+                </div>
             </div>
 
             <h3 style="margin:12px 0 8px;">Punkty planu</h3>
@@ -826,22 +841,23 @@ function renderPlanSluzbyModal() {
                 </div>
                 <div style="margin-bottom:8px;">
                     <label style="font-size:12px;">Treść (ręcznie)</label>
-                    <textarea id="planAddTekst" rows="2" style="width:100%;" placeholder="Opis wpisu…"></textarea>
+                    <textarea id="planAddTekst" rows="2" style="width:100%;" placeholder="Opis wpisu…" oninput="planUpdateAddPreview('Add')"></textarea>
                 </div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
                     <div style="flex:1; min-width:140px;">
                         <label style="font-size:12px;">lub ze Zgłoszeń</label>
-                        <select id="planAddZgl" style="width:100%;">
+                        <select id="planAddZgl" style="width:100%;" onchange="planUpdateAddPreview('Add')">
                             <option value="">—</option>${zglOpts}
                         </select>
                     </div>
                     <div style="flex:1; min-width:140px;">
                         <label style="font-size:12px;">lub z Poleceń</label>
-                        <select id="planAddPol" style="width:100%;">
+                        <select id="planAddPol" style="width:100%;" onchange="planUpdateAddPreview('Add')">
                             <option value="">—</option>${polOpts}
                         </select>
                     </div>
                 </div>
+                <div id="planAddPreview" style="display:none; background:#0f172a; border:1px solid #334155; border-radius:8px; padding:10px; margin-bottom:8px; max-height:140px; overflow:auto; font-size:13px; white-space:pre-wrap; color:#e2e8f0;"></div>
                 <button type="button" class="btn-success" onclick="planDraftDodaj()">+ Dodaj punkt</button>
             </div>
 
@@ -865,11 +881,12 @@ function renderPlanSluzbyModal() {
                         <select id="planCycPatrol" style="width:100%;">${patrolOpts}</select>
                     </div>
                 </div>
-                <textarea id="planCycTekst" rows="2" style="width:100%; margin-bottom:8px;" placeholder="Treść cykliczna (lub wybierz zgł./pol. poniżej)"></textarea>
+                <textarea id="planCycTekst" rows="2" style="width:100%; margin-bottom:8px;" placeholder="Treść cykliczna (lub wybierz zgł./pol. poniżej)" oninput="planUpdateAddPreview('Cyc')"></textarea>
                 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-                    <select id="planCycZgl" style="flex:1; min-width:120px;"><option value="">Zgłoszenie —</option>${zglOpts}</select>
-                    <select id="planCycPol" style="flex:1; min-width:120px;"><option value="">Polecenie —</option>${polOpts}</select>
+                    <select id="planCycZgl" style="flex:1; min-width:120px;" onchange="planUpdateAddPreview('Cyc')"><option value="">Zgłoszenie —</option>${zglOpts}</select>
+                    <select id="planCycPol" style="flex:1; min-width:120px;" onchange="planUpdateAddPreview('Cyc')"><option value="">Polecenie —</option>${polOpts}</select>
                 </div>
+                <div id="planCycPreview" style="display:none; background:#0f172a; border:1px solid #334155; border-radius:8px; padding:10px; margin-bottom:8px; max-height:140px; overflow:auto; font-size:13px; white-space:pre-wrap; color:#e2e8f0;"></div>
                 <button type="button" class="btn-primary" onclick="planDraftDodajCykliczne()">+ Dodaj serię cykliczną</button>
             </div>
 
@@ -918,21 +935,47 @@ function planDraftUsun(idx) {
 }
 
 function planResolveAddTekst(tekstId, zglId, polId) {
-    let t = (document.getElementById(tekstId)?.value || "").trim();
-    if (t) return t;
+    const manual = (document.getElementById(tekstId)?.value || "").trim();
+    if (manual) return manual;
+
+    const parts = [];
     const zgl = document.getElementById(zglId)?.value || "";
     const pol = document.getElementById(polId)?.value || "";
+
     if (zgl.startsWith("zgl_")) {
         const i = parseInt(zgl.slice(4), 10);
         const row = appState.zgloszenia?.rows?.[i];
-        if (row) return stripHtmlPlain(row.Opis || row.OpisKrotki || "");
+        if (row) {
+            const t = stripHtmlPlain(row.Opis || row.OpisKrotki || "");
+            if (t) parts.push(t);
+        }
     }
     if (pol.startsWith("pol_")) {
         const i = parseInt(pol.slice(4), 10);
         const row = appState.polecenia?.rows?.[i];
-        if (row) return stripHtmlPlain(row.Opis || row.OpisKrotki || "");
+        if (row) {
+            const t = stripHtmlPlain(row.Opis || row.OpisKrotki || "");
+            if (t) parts.push(t);
+        }
     }
-    return "";
+    return parts.join("\n\n");
+}
+
+function planUpdateAddPreview(prefix) {
+    const box = document.getElementById("plan" + prefix + "Preview");
+    if (!box) return;
+    const tekst = planResolveAddTekst(
+        "plan" + prefix + "Tekst",
+        "plan" + prefix + "Zgl",
+        "plan" + prefix + "Pol"
+    );
+    if (!tekst) {
+        box.style.display = "none";
+        box.textContent = "";
+        return;
+    }
+    box.style.display = "block";
+    box.textContent = tekst;
 }
 
 function planDraftDodaj() {
@@ -1035,6 +1078,7 @@ async function planZapiszJakoSzablon() {
 }
 
 async function planUsunSzablon() {
+    // legacy (select UI removed) – kept for compatibility
     ensurePlanSzablonyState();
     const sel = document.getElementById("planSzablonSelect")?.value;
     if (sel === "" || sel == null) {
@@ -1046,6 +1090,49 @@ async function planUsunSzablon() {
     if (!confirm("Usunąć szablon „" + (appState.planSzablony[i].nazwa || "") + "”?")) return;
     appState.planSzablony.splice(i, 1);
     _planEditTemplateId = null;
+    await saveState();
+    renderPlanSluzbyModal();
+}
+
+function planWyczyscDraft() {
+    _planDraft = [];
+    _planEditTemplateId = null;
+    renderPlanSluzbyModal();
+}
+
+function planWczytajSzablonPoIndex(i) {
+    ensurePlanSzablonyState();
+    const s = appState.planSzablony[i];
+    if (!s) return;
+    _planEditTemplateId = s.id;
+    _planDraft = (s.rekordy || []).map(r => ({
+        offsetMin: Number(r.offsetMin) || 0,
+        tekst: r.tekst || "",
+        patrolIndex: (r.patrolIndex == null || r.patrolIndex === "") ? null : Number(r.patrolIndex)
+    }));
+    if (_planDraft.length) _planDraft[0].offsetMin = 0;
+    renderPlanSluzbyModal();
+    if (typeof showToast === "function") showToast("Wczytano: " + (s.nazwa || "szablon"));
+}
+
+async function planUsunSzablonPoIndex(i) {
+    ensurePlanSzablonyState();
+    if (!appState.planSzablony[i]) return;
+    if (!confirm("Usunąć szablon „" + (appState.planSzablony[i].nazwa || "") + "”?")) return;
+    const removedId = appState.planSzablony[i].id;
+    appState.planSzablony.splice(i, 1);
+    if (_planEditTemplateId === removedId) _planEditTemplateId = null;
+    await saveState();
+    renderPlanSluzbyModal();
+}
+
+async function planZmienNazweSzablonu(i) {
+    ensurePlanSzablonyState();
+    const s = appState.planSzablony[i];
+    if (!s) return;
+    const nowa = prompt("Nowa nazwa szablonu:", s.nazwa || "");
+    if (nowa == null) return;
+    s.nazwa = String(nowa).trim() || s.nazwa;
     await saveState();
     renderPlanSluzbyModal();
 }
@@ -2041,6 +2128,12 @@ window.planPodglad = planPodglad;
 window.planZapiszDoKsiazki = planZapiszDoKsiazki;
 window.planShowGroupMapStep = planShowGroupMapStep;
 window.planGroupMapNext = planGroupMapNext;
+window.planWyczyscDraft = planWyczyscDraft;
+window.planWczytajSzablonPoIndex = planWczytajSzablonPoIndex;
+window.planUsunSzablonPoIndex = planUsunSzablonPoIndex;
+window.planZmienNazweSzablonu = planZmienNazweSzablonu;
+window.planUpdateAddPreview = planUpdateAddPreview;
+
 window.planGroupMapCancel = planGroupMapCancel;
 window.planShowDopiszNadpiszModal = planShowDopiszNadpiszModal;
 window.planSelectWriteMode = planSelectWriteMode;
