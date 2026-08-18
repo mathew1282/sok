@@ -296,7 +296,8 @@ function renderKsiazka() {
                 </div>
             </div>
             <div class="ksiazka-sticky-right">
-                <button class="btn-primary" onclick="openPlanSluzbyModal()">📅 Służba dzienna</button>
+                <button class="btn-primary" onclick="openPlanSluzbyModal()">📋 Planowanie</button>
+                <button class="btn-primary" onclick="openZapiszKsiazkeJakoSzablon()">💾 Zapisz książkę jako szablon</button>
                 <button class="btn-primary" onclick="openKsiazkaUwagiPicker()">Uwagi</button>
                 <button class="btn-success" onclick="openKsiazkaSprawdzenieModal()">Sprawdzenie</button>
                 <button class="btn-primary" onclick="exportKsiazkaFiltered()">📋 Eksport (kopiuj)</button>
@@ -640,110 +641,17 @@ async function confirmEditKsiazka() {
 }
 
 // =====================================
-// PLANOWANIE SŁUŻBY DZIENNEJ
+// PLANOWANIE SŁUŻBY (szablony względne)
 // =====================================
 
-function openPlanSluzbyModal() {
-    const old = document.getElementById("planSluzbyModal");
-    if (old) old.remove();
+/** Draft edytowanego planu w modalu: [{ offsetMin, tekst, patrolIndex|null }] */
+let _planDraft = [];
+let _planEditTemplateId = null; // null = nowy
 
-    const overlay = document.createElement("div");
-    overlay.id = "planSluzbyModal";
-    overlay.className = "modal-overlay";
-    overlay.style.display = "flex";
-
-    const patrolOptions = (appState.patrole || []).map((p, i) =>
-        `<label style="display:flex;align-items:center;gap:6px;margin-right:12px;cursor:pointer;">
-            <input type="checkbox" class="plan-patrol-cb" value="${i}" checked>
-            ${escapeHtml(p.nazwa || ("Patrol " + (i + 1)))}
-        </label>`
-    ).join("") || "<span style='color:#94a3b8;'>Brak patroli – dodaj je w zakładce Patrole</span>";
-
-    const zglOptions = (appState.zgloszenia?.rows || []).map((r, i) => {
-        const label = (r.OpisKrotki || r.Opis || ("Zgłoszenie " + (i + 1))).slice(0, 60);
-        return `<option value="zgl_${i}">${escapeHtml(label)}</option>`;
-    }).join("");
-
-    const polOptions = (appState.polecenia?.rows || []).map((r, i) => {
-        const label = (r.OpisKrotki || r.Opis || ("Polecenie " + (i + 1))).slice(0, 60);
-        return `<option value="pol_${i}">${escapeHtml(label)}</option>`;
-    }).join("");
-
-    overlay.innerHTML = `
-        <div class="modal" style="max-width:520px;">
-            <h2 style="margin-top:0;">📅 Służba dzienna – szablon</h2>
-            <p style="color:#94a3b8; font-size:14px; margin-bottom:16px;">
-                Ustaw godziny. Program utworzy punkty dnia w Książce wydarzeń.
-            </p>
-
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
-                <div>
-                    <label>Przyjęcie służby</label>
-                    <input type="time" id="planPrzyjecie" value="06:00" style="width:100%;">
-                </div>
-                <div>
-                    <label>Odprawa</label>
-                    <input type="time" id="planOdprawa" value="07:00" style="width:100%;">
-                </div>
-                <div>
-                    <label>Rozdysponowanie patroli</label>
-                    <input type="time" id="planRozdysponowanie" value="07:30" style="width:100%;">
-                </div>
-                <div>
-                    <label>Pierwsze zgłoszenie</label>
-                    <input type="time" id="planPierwszeZgl" value="08:00" style="width:100%;">
-                </div>
-                <div>
-                    <label>Interwał zgłoszeń (min)</label>
-                    <input type="number" id="planInterwal" value="60" min="15" max="180" step="15" style="width:100%;">
-                </div>
-                <div>
-                    <label>Zdanie służby</label>
-                    <input type="time" id="planZdanie" value="18:00" style="width:100%;">
-                </div>
-            </div>
-
-            <div style="margin-bottom:16px;">
-                <label style="margin-bottom:8px;display:block;">Patrole do planu:</label>
-                <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                    ${patrolOptions}
-                </div>
-            </div>
-
-            <div style="margin-bottom:12px;">
-                <label>Treść cyklicznych zgłoszeń (opcjonalnie)</label>
-                <textarea id="planTrescZgl" rows="2" placeholder="Np. Zgłoszenie lokalizacji i sytuacji – bez wydarzeń" style="width:100%;"></textarea>
-            </div>
-
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
-                <div>
-                    <label>Szablon ze Zgłoszeń</label>
-                    <select id="planSelectZgl" style="width:100%;">
-                        <option value="">— brak —</option>
-                        ${zglOptions}
-                    </select>
-                </div>
-                <div>
-                    <label>Szablon z Poleceń</label>
-                    <select id="planSelectPol" style="width:100%;">
-                        <option value="">— brak —</option>
-                        ${polOptions}
-                    </select>
-                </div>
-            </div>
-
-            <div class="modal-actions">
-                <button class="btn-success" onclick="confirmPlanSluzby()">Utwórz plan dnia</button>
-                <button class="btn-danger" onclick="closePlanSluzbyModal()">Anuluj</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-}
-
-function closePlanSluzbyModal() {
-    const m = document.getElementById("planSluzbyModal");
-    if (m) m.remove();
+function ensurePlanSzablonyState() {
+    if (!Array.isArray(appState.planSzablony)) {
+        appState.planSzablony = [];
+    }
 }
 
 function timeToMinutes(hhmm) {
@@ -753,77 +661,464 @@ function timeToMinutes(hhmm) {
 }
 
 function minutesToHHMM(mins) {
-    const h = Math.floor(mins / 60) % 24;
-    const m = mins % 60;
-    return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+    let m = ((mins % (24 * 60)) + (24 * 60)) % (24 * 60);
+    const h = Math.floor(m / 60);
+    const min = m % 60;
+    return String(h).padStart(2, "0") + ":" + String(min).padStart(2, "0");
 }
 
-async function confirmPlanSluzby() {
-    ensureKsiazkaState();
+/** Data wpisu wg reguły nocnej (po 18:00 + godzina 0–11 → jutro) */
+function resolveDataForGodzina(godzHHMM) {
+    const parts = parseTimeParts(godzHHMM);
+    let dataWpisu = todayPL();
+    if (parts) {
+        const now = new Date();
+        const chosen = new Date();
+        chosen.setHours(parts.h, parts.m, 0, 0);
+        if (chosen < now && now.getHours() >= 18 && parts.h < 12) {
+            dataWpisu = tomorrowPL();
+        }
+    }
+    return dataWpisu;
+}
 
-    const przyjecie = document.getElementById("planPrzyjecie")?.value || "06:00";
-    const odprawa = document.getElementById("planOdprawa")?.value || "07:00";
-    const rozdysp = document.getElementById("planRozdysponowanie")?.value || "07:30";
-    const pierwsze = document.getElementById("planPierwszeZgl")?.value || "08:00";
-    const interwal = parseInt(document.getElementById("planInterwal")?.value || "60", 10) || 60;
-    const zdanie = document.getElementById("planZdanie")?.value || "18:00";
+function stripHtmlPlain(html) {
+    return String(html || "")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/p>/gi, "\n")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/\s+/g, " ")
+        .trim();
+}
 
-    const patrolIndexes = [];
-    document.querySelectorAll(".plan-patrol-cb:checked").forEach(cb => {
-        patrolIndexes.push(parseInt(cb.value, 10));
+function openPlanSluzbyModal() {
+    ensurePlanSzablonyState();
+    _planDraft = [];
+    _planEditTemplateId = null;
+
+    const old = document.getElementById("planSluzbyModal");
+    if (old) old.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "planSluzbyModal";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "flex";
+    document.body.appendChild(overlay);
+    renderPlanSluzbyModal();
+}
+
+function closePlanSluzbyModal() {
+    const m = document.getElementById("planSluzbyModal");
+    if (m) m.remove();
+    _planDraft = [];
+    _planEditTemplateId = null;
+}
+
+function renderPlanSluzbyModal() {
+    const overlay = document.getElementById("planSluzbyModal");
+    if (!overlay) return;
+    ensurePlanSzablonyState();
+
+    const szablony = appState.planSzablony || [];
+    const patrole = appState.patrole || [];
+
+    const szOptions = szablony.map((s, i) =>
+        `<option value="${i}">${escapeHtml(s.nazwa || ("Szablon " + (i + 1)))} (${(s.rekordy || []).length} pkt)</option>`
+    ).join("");
+
+    const patrolOpts = `<option value="">— bez patrolu —</option>` +
+        patrole.map((p, i) => `<option value="${i}">${escapeHtml(p.nazwa || ("Patrol " + (i + 1)))}</option>`).join("");
+
+    const zglOpts = (appState.zgloszenia?.rows || []).map((r, i) => {
+        const label = (r.OpisKrotki || r.Opis || ("Zgł. " + (i + 1))).slice(0, 50);
+        return `<option value="zgl_${i}">${escapeHtml(label)}</option>`;
+    }).join("");
+
+    const polOpts = (appState.polecenia?.rows || []).map((r, i) => {
+        const label = (r.OpisKrotki || r.Opis || ("Pol. " + (i + 1))).slice(0, 50);
+        return `<option value="pol_${i}">${escapeHtml(label)}</option>`;
+    }).join("");
+
+    let draftHtml = "";
+    if (_planDraft.length === 0) {
+        draftHtml = `<div style="color:#64748b; padding:12px 0;">Brak punktów – dodaj rekord lub wczytaj szablon.</div>`;
+    } else {
+        let acc = 0;
+        draftHtml = _planDraft.map((r, idx) => {
+            acc += (idx === 0 ? 0 : (Number(r.offsetMin) || 0));
+            const godzPreview = minutesToHHMM(acc); // preview od 00:00 – przy starcie się przesunie
+            const patrolName = (r.patrolIndex == null || r.patrolIndex === "")
+                ? "bez patrolu"
+                : getPatrolName(Number(r.patrolIndex));
+            return `
+            <div style="border:1px solid #334155; border-radius:10px; padding:10px; margin-bottom:8px; background:#0f172a;">
+                <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
+                    <div style="font-weight:600; color:#60a5fa;">
+                        #${idx + 1}
+                        ${idx === 0 ? "(start)" : ("+" + (Number(r.offsetMin) || 0) + " min")}
+                        <span style="color:#94a3b8; font-weight:500; font-size:12px;"> · od startu ~${godzPreview}</span>
+                    </div>
+                    <button type="button" class="btn-danger" style="padding:3px 8px; font-size:12px;" onclick="planDraftUsun(${idx})">Usuń</button>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
+                    ${idx === 0 ? `<input type="hidden" class="plan-offset" data-idx="${idx}" value="0">` : `
+                    <div style="min-width:100px;">
+                        <label style="font-size:12px;">+ min od poprzedniego</label>
+                        <input type="number" class="plan-offset" data-idx="${idx}" value="${Number(r.offsetMin) || 0}" min="0" step="5"
+                               style="width:100%;" onchange="planDraftUpdateOffset(${idx}, this.value)">
+                    </div>`}
+                    <div style="flex:1; min-width:140px;">
+                        <label style="font-size:12px;">Patrol</label>
+                        <select class="plan-patrol" data-idx="${idx}" style="width:100%;" onchange="planDraftUpdatePatrol(${idx}, this.value)">
+                            ${patrole.map((p, i) =>
+                                `<option value="${i}" ${Number(r.patrolIndex) === i ? "selected" : ""}>${escapeHtml(p.nazwa || ("Patrol " + (i + 1)))}</option>`
+                            ).join("")}
+                            <option value="" ${r.patrolIndex == null || r.patrolIndex === "" ? "selected" : ""}>— bez patrolu —</option>
+                        </select>
+                    </div>
+                </div>
+                <label style="font-size:12px;">Treść</label>
+                <textarea class="plan-tekst" data-idx="${idx}" rows="2" style="width:100%; font-size:13px;"
+                          onchange="planDraftUpdateTekst(${idx}, this.value)">${escapeHtml(r.tekst || "")}</textarea>
+            </div>`;
+        }).join("");
+    }
+
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:720px; max-height:92vh; overflow:auto;">
+            <h2 style="margin-top:0;">📋 Planowanie służby</h2>
+            <p style="color:#94a3b8; font-size:13px; margin-bottom:12px;">
+                Szablon = kolejne rekordy z offsetem <strong>od poprzedniego</strong>.
+                Przy starcie podajesz godzinę rozpoczęcia – reszta się przelicza.
+            </p>
+
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:flex-end;">
+                <div style="flex:1; min-width:180px;">
+                    <label>Szablon</label>
+                    <select id="planSzablonSelect" style="width:100%;">
+                        <option value="">— nowy / pusty —</option>
+                        ${szOptions}
+                    </select>
+                </div>
+                <button type="button" class="btn-primary" onclick="planWczytajSzablon()">Wczytaj</button>
+                <button type="button" class="btn-success" onclick="planZapiszJakoSzablon()">Zapisz jako szablon</button>
+                <button type="button" class="btn-danger" onclick="planUsunSzablon()">Usuń szablon</button>
+            </div>
+
+            <h3 style="margin:12px 0 8px;">Punkty planu</h3>
+            <div id="planDraftList">${draftHtml}</div>
+
+            <div style="border:1px dashed #334155; border-radius:10px; padding:12px; margin:14px 0;">
+                <div style="font-weight:600; margin-bottom:8px;">Dodaj punkt</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+                    <div style="min-width:100px;">
+                        <label style="font-size:12px;">+ min (0 = start / od poprz.)</label>
+                        <input type="number" id="planAddOffset" value="${_planDraft.length === 0 ? 0 : 60}" min="0" step="5" style="width:100%;">
+                    </div>
+                    <div style="flex:1; min-width:120px;">
+                        <label style="font-size:12px;">Patrol</label>
+                        <select id="planAddPatrol" style="width:100%;">${patrolOpts}</select>
+                    </div>
+                </div>
+                <div style="margin-bottom:8px;">
+                    <label style="font-size:12px;">Treść (ręcznie)</label>
+                    <textarea id="planAddTekst" rows="2" style="width:100%;" placeholder="Opis wpisu…"></textarea>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+                    <div style="flex:1; min-width:140px;">
+                        <label style="font-size:12px;">lub ze Zgłoszeń</label>
+                        <select id="planAddZgl" style="width:100%;">
+                            <option value="">—</option>${zglOpts}
+                        </select>
+                    </div>
+                    <div style="flex:1; min-width:140px;">
+                        <label style="font-size:12px;">lub z Poleceń</label>
+                        <select id="planAddPol" style="width:100%;">
+                            <option value="">—</option>${polOpts}
+                        </select>
+                    </div>
+                </div>
+                <button type="button" class="btn-success" onclick="planDraftDodaj()">+ Dodaj punkt</button>
+            </div>
+
+            <div style="border:1px dashed #334155; border-radius:10px; padding:12px; margin:14px 0;">
+                <div style="font-weight:600; margin-bottom:8px;">Cykliczne zgłoszenia</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+                    <div style="min-width:90px;">
+                        <label style="font-size:12px;">Pierwszy +min</label>
+                        <input type="number" id="planCycOffset" value="60" min="0" step="5" style="width:100%;">
+                    </div>
+                    <div style="min-width:90px;">
+                        <label style="font-size:12px;">Co ile min</label>
+                        <input type="number" id="planCycInterwal" value="60" min="5" step="5" style="width:100%;">
+                    </div>
+                    <div style="min-width:90px;">
+                        <label style="font-size:12px;">Ile razy</label>
+                        <input type="number" id="planCycIle" value="8" min="1" max="48" style="width:100%;">
+                    </div>
+                    <div style="flex:1; min-width:120px;">
+                        <label style="font-size:12px;">Patrol</label>
+                        <select id="planCycPatrol" style="width:100%;">${patrolOpts}</select>
+                    </div>
+                </div>
+                <textarea id="planCycTekst" rows="2" style="width:100%; margin-bottom:8px;" placeholder="Treść cykliczna (lub wybierz zgł./pol. poniżej)"></textarea>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+                    <select id="planCycZgl" style="flex:1; min-width:120px;"><option value="">Zgłoszenie —</option>${zglOpts}</select>
+                    <select id="planCycPol" style="flex:1; min-width:120px;"><option value="">Polecenie —</option>${polOpts}</select>
+                </div>
+                <button type="button" class="btn-primary" onclick="planDraftDodajCykliczne()">+ Dodaj serię cykliczną</button>
+            </div>
+
+            <div style="border-top:1px solid #334155; padding-top:14px; margin-top:8px;">
+                <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px;">
+                    <div style="min-width:140px;">
+                        <label>Godzina startu planu</label>
+                        <input type="time" id="planStartGodz" value="07:00" style="width:100%;">
+                    </div>
+                    <button type="button" class="btn-primary" onclick="planPodglad()">Podgląd godzin</button>
+                </div>
+                <div id="planPodgladBox" style="display:none; background:#0f172a; border:1px solid #334155; border-radius:10px; padding:10px; margin-bottom:12px; max-height:160px; overflow:auto; font-size:13px; white-space:pre-wrap;"></div>
+                <div class="modal-actions">
+                    <button class="btn-success" onclick="planZapiszDoKsiazki()">Zapisz do Książki</button>
+                    <button class="btn-danger" onclick="closePlanSluzbyModal()">Anuluj</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function planDraftSyncFromUI() {
+    // offsets/teksty already updated via onchange; ensure array consistency
+}
+
+function planDraftUpdateOffset(idx, val) {
+    if (!_planDraft[idx]) return;
+    _planDraft[idx].offsetMin = Math.max(0, parseInt(val, 10) || 0);
+    if (idx === 0) _planDraft[idx].offsetMin = 0;
+}
+
+function planDraftUpdatePatrol(idx, val) {
+    if (!_planDraft[idx]) return;
+    _planDraft[idx].patrolIndex = (val === "" || val == null) ? null : parseInt(val, 10);
+}
+
+function planDraftUpdateTekst(idx, val) {
+    if (!_planDraft[idx]) return;
+    _planDraft[idx].tekst = val;
+}
+
+function planDraftUsun(idx) {
+    _planDraft.splice(idx, 1);
+    if (_planDraft.length) _planDraft[0].offsetMin = 0;
+    renderPlanSluzbyModal();
+}
+
+function planResolveAddTekst(tekstId, zglId, polId) {
+    let t = (document.getElementById(tekstId)?.value || "").trim();
+    if (t) return t;
+    const zgl = document.getElementById(zglId)?.value || "";
+    const pol = document.getElementById(polId)?.value || "";
+    if (zgl.startsWith("zgl_")) {
+        const i = parseInt(zgl.slice(4), 10);
+        const row = appState.zgloszenia?.rows?.[i];
+        if (row) return stripHtmlPlain(row.Opis || row.OpisKrotki || "");
+    }
+    if (pol.startsWith("pol_")) {
+        const i = parseInt(pol.slice(4), 10);
+        const row = appState.polecenia?.rows?.[i];
+        if (row) return stripHtmlPlain(row.Opis || row.OpisKrotki || "");
+    }
+    return "";
+}
+
+function planDraftDodaj() {
+    const offset = _planDraft.length === 0 ? 0 : Math.max(0, parseInt(document.getElementById("planAddOffset")?.value || "0", 10) || 0);
+    const patrolVal = document.getElementById("planAddPatrol")?.value;
+    const patrolIndex = (patrolVal === "" || patrolVal == null) ? null : parseInt(patrolVal, 10);
+    const tekst = planResolveAddTekst("planAddTekst", "planAddZgl", "planAddPol");
+    if (!tekst) {
+        if (typeof showToast === "function") showToast("Podaj treść lub wybierz zgłoszenie/polecenie");
+        else alert("Podaj treść lub wybierz zgłoszenie/polecenie");
+        return;
+    }
+    _planDraft.push({ offsetMin: _planDraft.length === 0 ? 0 : offset, tekst, patrolIndex });
+    renderPlanSluzbyModal();
+}
+
+function planDraftDodajCykliczne() {
+    const firstOff = Math.max(0, parseInt(document.getElementById("planCycOffset")?.value || "0", 10) || 0);
+    const interwal = Math.max(5, parseInt(document.getElementById("planCycInterwal")?.value || "60", 10) || 60);
+    const ile = Math.min(48, Math.max(1, parseInt(document.getElementById("planCycIle")?.value || "1", 10) || 1));
+    const patrolVal = document.getElementById("planCycPatrol")?.value;
+    const patrolIndex = (patrolVal === "" || patrolVal == null) ? null : parseInt(patrolVal, 10);
+    let tekst = planResolveAddTekst("planCycTekst", "planCycZgl", "planCycPol");
+    if (!tekst) tekst = "Zgłoszenie sytuacji / lokalizacji";
+
+    for (let i = 0; i < ile; i++) {
+        const off = (_planDraft.length === 0 && i === 0) ? 0 : (i === 0 ? firstOff : interwal);
+        _planDraft.push({ offsetMin: off, tekst, patrolIndex });
+    }
+    renderPlanSluzbyModal();
+}
+
+function planWczytajSzablon() {
+    ensurePlanSzablonyState();
+    const sel = document.getElementById("planSzablonSelect")?.value;
+    if (sel === "" || sel == null) {
+        _planDraft = [];
+        _planEditTemplateId = null;
+        renderPlanSluzbyModal();
+        return;
+    }
+    const i = parseInt(sel, 10);
+    const s = appState.planSzablony[i];
+    if (!s) return;
+    _planEditTemplateId = s.id;
+    _planDraft = (s.rekordy || []).map(r => ({
+        offsetMin: Number(r.offsetMin) || 0,
+        tekst: r.tekst || "",
+        patrolIndex: (r.patrolIndex == null || r.patrolIndex === "") ? null : Number(r.patrolIndex)
+    }));
+    if (_planDraft.length) _planDraft[0].offsetMin = 0;
+    renderPlanSluzbyModal();
+    if (typeof showToast === "function") showToast("Wczytano: " + (s.nazwa || "szablon"));
+}
+
+async function planZapiszJakoSzablon() {
+    ensurePlanSzablonyState();
+    if (!_planDraft.length) {
+        if (typeof showToast === "function") showToast("Brak punktów do zapisania");
+        else alert("Brak punktów do zapisania");
+        return;
+    }
+    // sync tekst from textareas if still open
+    document.querySelectorAll(".plan-tekst").forEach(ta => {
+        const idx = parseInt(ta.getAttribute("data-idx"), 10);
+        if (_planDraft[idx]) _planDraft[idx].tekst = ta.value;
     });
 
-    let trescCykliczna = (document.getElementById("planTrescZgl")?.value || "").trim();
-    const selZgl = document.getElementById("planSelectZgl")?.value || "";
-    const selPol = document.getElementById("planSelectPol")?.value || "";
-    if (!trescCykliczna && selZgl.startsWith("zgl_")) {
-        const i = parseInt(selZgl.slice(4), 10);
-        const row = appState.zgloszenia?.rows?.[i];
-        if (row) trescCykliczna = row.Opis || row.OpisKrotki || "";
-    }
-    if (!trescCykliczna && selPol.startsWith("pol_")) {
-        const i = parseInt(selPol.slice(4), 10);
-        const row = appState.polecenia?.rows?.[i];
-        if (row) trescCykliczna = row.Opis || row.OpisKrotki || "";
-    }
+    let nazwa = prompt("Nazwa szablonu:", "");
+    if (nazwa == null) return;
+    nazwa = String(nazwa).trim() || ("Szablon " + new Date().toLocaleString("pl-PL"));
 
-    const punkty = [];
+    const rekordy = _planDraft.map((r, idx) => ({
+        offsetMin: idx === 0 ? 0 : (Number(r.offsetMin) || 0),
+        tekst: r.tekst || "",
+        patrolIndex: r.patrolIndex == null ? null : Number(r.patrolIndex)
+    }));
 
-    punkty.push({ godzinaStart: przyjecie, tekst: "Przyjęcie służby", patrole: [] });
-    punkty.push({ godzinaStart: odprawa, tekst: "Odprawa", patrole: [] });
-    punkty.push({ godzinaStart: rozdysp, tekst: "Rozdysponowanie patroli", patrole: [...patrolIndexes] });
-
-    let cur = timeToMinutes(pierwsze);
-    const koniec = timeToMinutes(zdanie);
-
-    while (cur < koniec) {
-        const startHH = minutesToHHMM(cur);
-        if (patrolIndexes.length === 0) {
-            punkty.push({
-                godzinaStart: startHH,
-                tekst: trescCykliczna || "Zgłoszenie sytuacji / lokalizacji patroli",
-                patrole: []
-            });
-        } else {
-            patrolIndexes.forEach(idx => {
-                const base = trescCykliczna || ("Zgłoszenie – " + getPatrolName(idx));
-                punkty.push({
-                    godzinaStart: startHH,
-                    tekst: base,
-                    patrole: [idx]
-                });
-            });
+    if (_planEditTemplateId) {
+        const existing = appState.planSzablony.find(s => s.id === _planEditTemplateId);
+        if (existing) {
+            existing.nazwa = nazwa;
+            existing.rekordy = rekordy;
+            await saveState();
+            if (typeof showToast === "function") showToast("✅ Zaktualizowano szablon");
+            renderPlanSluzbyModal();
+            return;
         }
-        cur += interwal;
     }
 
-    punkty.push({ godzinaStart: zdanie, tekst: "Zdanie służby", patrole: [] });
+    appState.planSzablony.push({
+        id: Date.now() + Math.random().toString(36).slice(2),
+        nazwa,
+        rekordy,
+        createdAt: new Date().toISOString()
+    });
+    await saveState();
+    if (typeof showToast === "function") showToast("✅ Zapisano szablon");
+    renderPlanSluzbyModal();
+}
 
-    const data = todayPL();
-    punkty.forEach(p => {
+async function planUsunSzablon() {
+    ensurePlanSzablonyState();
+    const sel = document.getElementById("planSzablonSelect")?.value;
+    if (sel === "" || sel == null) {
+        if (typeof showToast === "function") showToast("Wybierz szablon do usunięcia");
+        return;
+    }
+    const i = parseInt(sel, 10);
+    if (!appState.planSzablony[i]) return;
+    if (!confirm("Usunąć szablon „" + (appState.planSzablony[i].nazwa || "") + "”?")) return;
+    appState.planSzablony.splice(i, 1);
+    _planEditTemplateId = null;
+    await saveState();
+    renderPlanSluzbyModal();
+}
+
+function planBuildAbsoluteTimes(startHHMM) {
+    const startMin = timeToMinutes(startHHMM);
+    let acc = startMin;
+    return _planDraft.map((r, idx) => {
+        if (idx > 0) acc += (Number(r.offsetMin) || 0);
+        return {
+            godzinaStart: minutesToHHMM(acc),
+            tekst: r.tekst || "",
+            patrole: (r.patrolIndex == null || r.patrolIndex === "") ? [] : [Number(r.patrolIndex)]
+        };
+    });
+}
+
+function planPodglad() {
+    if (!_planDraft.length) {
+        if (typeof showToast === "function") showToast("Brak punktów");
+        return;
+    }
+    document.querySelectorAll(".plan-tekst").forEach(ta => {
+        const idx = parseInt(ta.getAttribute("data-idx"), 10);
+        if (_planDraft[idx]) _planDraft[idx].tekst = ta.value;
+    });
+    const start = document.getElementById("planStartGodz")?.value || "07:00";
+    const abs = planBuildAbsoluteTimes(start);
+    const box = document.getElementById("planPodgladBox");
+    if (!box) return;
+    box.style.display = "block";
+    box.textContent = abs.map(p => {
+        const pn = (p.patrole && p.patrole.length) ? getPatrolName(p.patrole[0]) : "bez patrolu";
+        return p.godzinaStart + "  [" + pn + "]\n" + (p.tekst || "").slice(0, 120);
+    }).join("\n\n");
+}
+
+async function planZapiszDoKsiazki() {
+    if (!_planDraft.length) {
+        if (typeof showToast === "function") showToast("Brak punktów w planie");
+        else alert("Brak punktów w planie");
+        return;
+    }
+    document.querySelectorAll(".plan-tekst").forEach(ta => {
+        const idx = parseInt(ta.getAttribute("data-idx"), 10);
+        if (_planDraft[idx]) _planDraft[idx].tekst = ta.value;
+    });
+
+    const start = document.getElementById("planStartGodz")?.value || "07:00";
+    const abs = planBuildAbsoluteTimes(start);
+    ensureKsiazkaState();
+
+    const hasAny = (appState.ksiazkaWydarzen || []).length > 0;
+    let mode = "dopisz";
+    if (hasAny) {
+        const wybor = prompt(
+            "W Książce są już wpisy.\n\nWpisz:\n  D = dopisz do istniejących\n  N = nadpisz CAŁĄ książkę (usuń wszystkie i wstaw plan)\n\n(Anuluj = przerwij)",
+            "D"
+        );
+        if (wybor == null) return;
+        const w = String(wybor).trim().toLowerCase();
+        if (w === "n" || w === "nadpisz") mode = "nadpisz";
+        else mode = "dopisz";
+    }
+
+    if (mode === "nadpisz") {
+        appState.ksiazkaWydarzen = [];
+    }
+
+    abs.forEach(p => {
         appState.ksiazkaWydarzen.push({
             id: Date.now() + Math.random().toString(36).slice(2),
-            data: data,
+            data: resolveDataForGodzina(p.godzinaStart),
             godzinaStart: p.godzinaStart,
             tekst: p.tekst,
             patrole: p.patrole,
@@ -835,21 +1130,164 @@ async function confirmPlanSluzby() {
 
     await saveState();
     closePlanSluzbyModal();
-
     if (typeof showToast === "function") {
-        showToast("✅ Utworzono plan dnia (" + punkty.length + " punktów)");
+        showToast("✅ Zapisano plan (" + abs.length + " pkt, " + mode + ")");
     } else {
-        alert("Utworzono plan dnia: " + punkty.length + " punktów");
+        alert("Zapisano plan: " + abs.length + " punktów");
     }
-
-    if (document.getElementById("ksiazkaContainer")) {
-        renderKsiazka();
-    }
+    if (document.getElementById("ksiazkaContainer")) renderKsiazka();
 }
 
+// -------------------------------------
+// Zapisz książkę jako szablon (grupowanie patroli)
+// -------------------------------------
 
+function openZapiszKsiazkeJakoSzablon() {
+    ensureKsiazkaState();
+    ensurePlanSzablonyState();
+    const entries = sortEntriesOldestFirst(appState.ksiazkaWydarzen || []);
+    if (!entries.length) {
+        if (typeof showToast === "function") showToast("Książka jest pusta");
+        else alert("Książka jest pusta");
+        return;
+    }
 
+    // Grupy wg klucza patrolu (posortowane indeksy albo "none")
+    const groupsMap = new Map();
+    entries.forEach(e => {
+        const pats = Array.isArray(e.patrole) ? [...e.patrole].map(Number).filter(n => Number.isFinite(n)).sort((a, b) => a - b) : [];
+        const key = pats.length ? pats.join(",") : "none";
+        if (!groupsMap.has(key)) {
+            groupsMap.set(key, {
+                key,
+                oldIndexes: pats,
+                label: pats.length ? pats.map(i => getPatrolName(i)).join(", ") : "Bez patrolu",
+                entries: []
+            });
+        }
+        groupsMap.get(key).entries.push(e);
+    });
 
+    const groups = [...groupsMap.values()];
+
+    const old = document.getElementById("planSaveTplModal");
+    if (old) old.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "planSaveTplModal";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "flex";
+    overlay._groups = groups;
+    overlay._allEntries = entries;
+
+    const patrole = appState.patrole || [];
+    const patrolOpts = `<option value="">— bez patrolu —</option>` +
+        patrole.map((p, i) => `<option value="${i}">${escapeHtml(p.nazwa || ("Patrol " + (i + 1)))}</option>`).join("");
+
+    const groupsHtml = groups.map((g, gi) => {
+        const list = g.entries.map(e =>
+            `<div style="font-size:12px; color:#94a3b8; padding:2px 0;">${escapeHtml(e.godzinaStart || "—")} · ${escapeHtml(String(e.tekst || "").slice(0, 80))}</div>`
+        ).join("");
+        const defaultSel = g.key === "none" ? "" : (g.oldIndexes[0] != null ? String(g.oldIndexes[0]) : "");
+        return `
+        <div style="border:1px solid #334155; border-radius:10px; padding:12px; margin-bottom:10px;">
+            <div style="font-weight:600; margin-bottom:6px;">Grupa ${gi + 1}: ${escapeHtml(g.label)} <span style="color:#94a3b8; font-weight:500;">(${g.entries.length} wpisów)</span></div>
+            <div style="max-height:100px; overflow:auto; margin-bottom:8px;">${list}</div>
+            <label style="font-size:12px;">Przypisz do aktualnego patrolu</label>
+            <select class="plan-group-map" data-gkey="${escapeHtml(g.key)}" style="width:100%;">
+                ${patrolOpts.replace(`value="${defaultSel}"`, `value="${defaultSel}" selected`)}
+            </select>
+        </div>`;
+    }).join("");
+
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:600px; max-height:92vh; overflow:auto;">
+            <h2 style="margin-top:0;">💾 Zapisz książkę jako szablon</h2>
+            <p style="color:#94a3b8; font-size:13px; margin-bottom:12px;">
+                Wpisy pogrupowane według patroli z książki. Przypisz każdą grupę do <strong>aktualnego</strong> patrolu
+                (nazwy mogły się zmienić). Offsety liczone od poprzedniego wpisu w kolejności czasu.
+            </p>
+            <div style="margin-bottom:12px;">
+                <label>Nazwa szablonu</label>
+                <input type="text" id="planSaveTplNazwa" value="Służba ${escapeHtml(todayPL())}" style="width:100%;">
+            </div>
+            ${groupsHtml}
+            <div class="modal-actions">
+                <button class="btn-success" onclick="confirmZapiszKsiazkeJakoSzablon()">Zapisz szablon</button>
+                <button class="btn-danger" onclick="closeZapiszKsiazkeJakoSzablon()">Anuluj</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // fix selected options (replace trick may fail) – set via JS
+    groups.forEach(g => {
+        const sel = overlay.querySelector(`.plan-group-map[data-gkey="${g.key}"]`);
+        if (!sel) return;
+        if (g.key === "none") sel.value = "";
+        else if (g.oldIndexes[0] != null) sel.value = String(g.oldIndexes[0]);
+    });
+}
+
+function closeZapiszKsiazkeJakoSzablon() {
+    const m = document.getElementById("planSaveTplModal");
+    if (m) m.remove();
+}
+
+async function confirmZapiszKsiazkeJakoSzablon() {
+    const modal = document.getElementById("planSaveTplModal");
+    if (!modal) return;
+    const entries = modal._allEntries || [];
+    if (!entries.length) return;
+
+    // map group key -> patrolIndex|null
+    const map = {};
+    modal.querySelectorAll(".plan-group-map").forEach(sel => {
+        const k = sel.getAttribute("data-gkey");
+        const v = sel.value;
+        map[k] = (v === "" || v == null) ? null : parseInt(v, 10);
+    });
+
+    const rekordy = [];
+    let prevMin = null;
+    entries.forEach((e, idx) => {
+        const pats = Array.isArray(e.patrole) ? [...e.patrole].map(Number).filter(n => Number.isFinite(n)).sort((a, b) => a - b) : [];
+        const key = pats.length ? pats.join(",") : "none";
+        const patrolIndex = map.hasOwnProperty(key) ? map[key] : null;
+
+        const curMin = timeToMinutes(e.godzinaStart || "00:00");
+        let offsetMin = 0;
+        if (idx === 0) {
+            offsetMin = 0;
+        } else {
+            // różnica od poprzedniego; obsługa przejścia przez północ
+            let diff = curMin - prevMin;
+            if (diff < 0) diff += 24 * 60;
+            offsetMin = diff;
+        }
+        prevMin = curMin;
+
+        rekordy.push({
+            offsetMin,
+            tekst: e.tekst || "",
+            patrolIndex
+        });
+    });
+
+    const nazwa = (document.getElementById("planSaveTplNazwa")?.value || "").trim() || ("Służba " + todayPL());
+    ensurePlanSzablonyState();
+    appState.planSzablony.push({
+        id: Date.now() + Math.random().toString(36).slice(2),
+        nazwa,
+        rekordy,
+        createdAt: new Date().toISOString(),
+        zKsiazki: true
+    });
+    await saveState();
+    closeZapiszKsiazkeJakoSzablon();
+    if (typeof showToast === "function") showToast("✅ Zapisano szablon „" + nazwa + "” (" + rekordy.length + " pkt)");
+    else alert("Zapisano szablon: " + nazwa);
+}
 
 // =====================================
 // EKSPORT FILTROWANEJ LISTY (godzina + opis → schowek)
@@ -1372,7 +1810,21 @@ window.closeKsiazkaEditModal = closeKsiazkaEditModal;
 window.confirmEditKsiazka = confirmEditKsiazka;
 window.openPlanSluzbyModal = openPlanSluzbyModal;
 window.closePlanSluzbyModal = closePlanSluzbyModal;
-window.confirmPlanSluzby = confirmPlanSluzby;
+window.renderPlanSluzbyModal = renderPlanSluzbyModal;
+window.planDraftUpdateOffset = planDraftUpdateOffset;
+window.planDraftUpdatePatrol = planDraftUpdatePatrol;
+window.planDraftUpdateTekst = planDraftUpdateTekst;
+window.planDraftUsun = planDraftUsun;
+window.planDraftDodaj = planDraftDodaj;
+window.planDraftDodajCykliczne = planDraftDodajCykliczne;
+window.planWczytajSzablon = planWczytajSzablon;
+window.planZapiszJakoSzablon = planZapiszJakoSzablon;
+window.planUsunSzablon = planUsunSzablon;
+window.planPodglad = planPodglad;
+window.planZapiszDoKsiazki = planZapiszDoKsiazki;
+window.openZapiszKsiazkeJakoSzablon = openZapiszKsiazkeJakoSzablon;
+window.closeZapiszKsiazkeJakoSzablon = closeZapiszKsiazkeJakoSzablon;
+window.confirmZapiszKsiazkeJakoSzablon = confirmZapiszKsiazkeJakoSzablon;
 window.toggleKsiazkaFilterInne = toggleKsiazkaFilterInne;
 window.exportKsiazkaFiltered = exportKsiazkaFiltered;
 window.openKsiazkaSprawdzenieModal = openKsiazkaSprawdzenieModal;
