@@ -296,6 +296,7 @@ function renderKsiazka() {
                 <button class="btn-primary" onclick="openPlanSluzbyModal()">📅 Służba dzienna</button>
                 <button class="btn-primary" onclick="openKsiazkaUwagiPicker()">Uwagi</button>
                 <button class="btn-success" onclick="openKsiazkaSprawdzenieModal()">Sprawdzenie</button>
+                <button class="btn-primary" onclick="exportKsiazkaFiltered()">📋 Eksport (kopiuj)</button>
                 <button class="btn-danger" onclick="clearAllKsiazka()">Kasuj wszystkie</button>
             </div>
         </div>
@@ -846,6 +847,62 @@ async function confirmPlanSluzby() {
 
 
 
+
+// =====================================
+// EKSPORT FILTROWANEJ LISTY (godzina + opis → schowek)
+// =====================================
+
+function getKsiazkaFilteredEntries() {
+    ensureKsiazkaState();
+    const allEntries = (typeof sortEntriesOldestFirst === "function")
+        ? sortEntriesOldestFirst(appState.ksiazkaWydarzen)
+        : [...(appState.ksiazkaWydarzen || [])];
+
+    if (ksiazkaFilterInne) {
+        return allEntries.filter(e => !e.patrole || e.patrole.length === 0);
+    }
+    if (ksiazkaFilterPatrole.length > 0) {
+        return allEntries.filter(e =>
+            (e.patrole || []).some(p => ksiazkaFilterPatrole.includes(p))
+        );
+    }
+    return allEntries;
+}
+
+async function exportKsiazkaFiltered() {
+    const entries = getKsiazkaFilteredEntries();
+    if (!entries.length) {
+        if (typeof showToast === "function") showToast("Brak wpisów do eksportu");
+        else alert("Brak wpisów do eksportu");
+        return;
+    }
+
+    // Format: godzina <TAB> opis (jedna linia) – wygodne do SMS / WhatsApp
+    const lines = entries.map(e => {
+        const godz = String(e.godzinaStart || "—").trim();
+        const tekst = String(e.tekst || "")
+            .replace(/\r\n/g, "\n")
+            .replace(/\n+/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+        return godz + "\t" + tekst;
+    });
+
+    const text = lines.join("\n");
+
+    try {
+        await navigator.clipboard.writeText(text);
+        if (typeof showToast === "function") {
+            showToast("✅ Skopiowano " + entries.length + " wpisów (godzina + opis)");
+        } else {
+            alert("Skopiowano " + entries.length + " wpisów");
+        }
+    } catch (err) {
+        // fallback – pokaż w promptcie
+        prompt("Skopiuj ręcznie (Ctrl+C):", text);
+    }
+}
+
 // =====================================
 // SPRAWDZENIE
 // 1) lista wpisów z książki – kliknięcie odznacza/zaznacza (domyślnie wszystkie zaznaczone)
@@ -1310,6 +1367,7 @@ window.openPlanSluzbyModal = openPlanSluzbyModal;
 window.closePlanSluzbyModal = closePlanSluzbyModal;
 window.confirmPlanSluzby = confirmPlanSluzby;
 window.toggleKsiazkaFilterInne = toggleKsiazkaFilterInne;
+window.exportKsiazkaFiltered = exportKsiazkaFiltered;
 window.openKsiazkaSprawdzenieModal = openKsiazkaSprawdzenieModal;
 window.closeKsiazkaSprawdzenieModal = closeKsiazkaSprawdzenieModal;
 window.ksiazkaSprawdzenieToggleEntry = ksiazkaSprawdzenieToggleEntry;
