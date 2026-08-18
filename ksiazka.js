@@ -877,28 +877,32 @@ async function exportKsiazkaFiltered() {
         return;
     }
 
-    // Format: godzina <TAB> opis (jedna linia) – wygodne do SMS / WhatsApp
-    const lines = entries.map(e => {
+    // Format: *data* godzina \n opis (bez czarnych kropek/punktorów)
+    // *…* = pogrubienie w WhatsApp
+    const blocks = entries.map(e => {
+        const data = String(e.data || "").trim() || "—";
         const godz = String(e.godzinaStart || "—").trim();
-        const tekst = String(e.tekst || "")
+        let tekst = String(e.tekst || "")
             .replace(/\r\n/g, "\n")
-            .replace(/\n+/g, " ")
-            .replace(/\s+/g, " ")
+            // usuń typowe czarne kropki / punktory
+            .replace(/[•·●▪▫○◦‣⁃∙]/g, "")
+            .replace(/^\s*[-*–—]\s+/gm, "")
+            .replace(/[ \t]+\n/g, "\n")
+            .replace(/\n{3,}/g, "\n\n")
             .trim();
-        return godz + "\t" + tekst;
+        return "*" + data + "* " + godz + "\n" + tekst;
     });
 
-    const text = lines.join("\n");
+    const text = blocks.join("\n\n");
 
     try {
         await navigator.clipboard.writeText(text);
         if (typeof showToast === "function") {
-            showToast("✅ Skopiowano " + entries.length + " wpisów (godzina + opis)");
+            showToast("✅ Skopiowano " + entries.length + " wpisów");
         } else {
             alert("Skopiowano " + entries.length + " wpisów");
         }
     } catch (err) {
-        // fallback – pokaż w promptcie
         prompt("Skopiuj ręcznie (Ctrl+C):", text);
     }
 }
