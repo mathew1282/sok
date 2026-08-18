@@ -1094,34 +1094,248 @@ async function planZapiszDoKsiazki() {
         if (_planDraft[idx]) _planDraft[idx].tekst = ta.value;
     });
 
-    const start = document.getElementById("planStartGodz")?.value || "07:00";
-    const abs = planBuildAbsoluteTimes(start);
-    ensureKsiazkaState();
+    const startGodz = document.getElementById("planStartGodz")?.value || "07:00";
+    const abs = planBuildAbsoluteTimes(startGodz);
 
-    const hasAny = (appState.ksiazkaWydarzen || []).length > 0;
-    let mode = "dopisz";
-    if (hasAny) {
-        const wybor = prompt(
-            "W Książce są już wpisy.\n\nWpisz:\n  D = dopisz do istniejących\n  N = nadpisz CAŁĄ książkę (usuń wszystkie i wstaw plan)\n\n(Anuluj = przerwij)",
-            "D"
-        );
-        if (wybor == null) return;
-        const w = String(wybor).trim().toLowerCase();
-        if (w === "n" || w === "nadpisz") mode = "nadpisz";
-        else mode = "dopisz";
+    // Grupy wg patrolIndex z szablonu (null = bez)
+    const groupsMap = new Map();
+    abs.forEach((p, i) => {
+        const key = (p.patrole && p.patrole.length) ? String(p.patrole[0]) : "none";
+        if (!groupsMap.has(key)) {
+            groupsMap.set(key, {
+                key,
+                oldPatrolIndex: key === "none" ? null : parseInt(key, 10),
+                label: key === "none" ? "Bez patrolu" : getPatrolName(parseInt(key, 10)),
+                items: []
+            });
+        }
+        groupsMap.get(key).items.push({ ...p, _absIndex: i });
+    });
+    const groups = [...groupsMap.values()];
+
+    // Zapisz stan do modalu mapowania
+    window._planPendingAbs = abs;
+    window._planPendingGroups = groups;
+    window._planGroupMap = {}; // key -> newPatrolIndex|null
+    window._planGroupStep = 0;
+
+    closePlanSluzbyModal();
+    planShowGroupMapStep();
+}
+
+/** Krok mapowania: jedno okno na grupę patrolu z szablonu */
+function planShowGroupMapStep() {
+    const groups = window._planPendingGroups || [];
+    const step = window._planGroupStep || 0;
+
+    // koniec mapowania → wybór dopisz/nadpisz
+    if (step >= groups.length) {
+        planShowDopiszNadpiszModal();
+        return;
     }
+
+    const g = groups[step];
+    const old = document.getElementById("planGroupMapModal");
+    if (old) old.remove();
+
+    const patrole = appState.patrole || [];
+    const patrolOpts = `<option value="">— bez patrolu —</option>` +
+        patrole.map((p, i) => {
+            const sel = (g.oldPatrolIndex != null && g.oldPatrolIndex === i) ? " selected" : "";
+            return `<option value="${i}"${sel}>${escapeHtml(p.nazwa || ("Patrol " + (i + 1)))}</option>`;
+        }).join("");
+
+    const list = g.items.map(it =>
+        `<div style="font-size:13px; padding:6px 0; border-bottom:1px solid #334155;">
+            <strong style="color:#60a5fa;">${escapeHtml(it.godzinaStart)}</strong>
+            <div style="color:#e2e8f0; margin-top:2px; white-space:pre-wrap;">${escapeHtml(String(it.tekst || "").slice(0, 160))}${(it.tekst || "").length > 160 ? "…" : ""}</div>
+        </div>`
+    ).join("");
+
+    const overlay = document.createElement("div");
+    overlay.id = "planGroupMapModal";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "flex";
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:560px; max-height:92vh; overflow:auto;">
+            <h2 style="margin-top:0;">Patrol w szablonie → obecny patrol</h2>
+            <p style="color:#94a3b8; font-size:13px; margin-bottom:10px;">
+                Krok <strong>${step + 1}</strong> / ${groups.length}<br>
+                Grupa z szablonu: <strong>${escapeHtml(g.label)}</strong> (${g.items.length} wpisów)
+            </p>
+            <div style="max-height:240px; overflow:auto; margin-bottom:12px; border:1px solid #334155; border-radius:10px; padding:10px;">
+                ${list || "<div style='color:#64748b;'>Brak wpisów</div>"}
+            </div>
+            <label>Przypisz te wpisy do patrolu</label>
+            <select id="planGroupMapSelect" style="width:100%; margin-bottom:14px;">
+                ${patrolOpts}
+            </select>
+            <div class="modal-actions">
+                <button class="btn-success" onclick="planGroupMapNext()">Dalej</button>
+                <button class="btn-danger" onclick="planGroupMapCancel()">Anuluj</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // domyślnie: bez → bez; inaczej stary indeks jeśli nadal istnieje
+    const sel = document.getElementById("planGroupMapSelect");
+    if (sel) {
+        if (g.oldPatrolIndex == null) sel.value = "";
+        else if (patrole[g.oldPatrolIndex]) sel.value = String(g.oldPatrolIndex);
+        else sel.value = "";
+    }
+}
+
+function planGroupMapNext() {
+    const groups = window._planPendingGroups || [];
+    const step = window._planGroupStep || 0;
+    const g = groups[step];
+    if (!g) {
+        planShowDopiszNadpiszModal();
+        return;
+    }
+    const sel = document.getElementById("planGroupMapSelect");
+    const v = sel ? sel.value : "";
+    window._planGroupMap[g.key] = (v === "" || v == null) ? null : parseInt(v, 10);
+
+    const m = document.getElementById("planGroupMapModal");
+    if (m) m.remove();
+
+    window._planGroupStep = step + 1;
+    planShowGroupMapStep();
+}
+
+function planGroupMapCancel() {
+    const m = document.getElementById("planGroupMapModal");
+    if (m) m.remove();
+    window._planPendingAbs = null;
+    window._planPendingGroups = null;
+    window._planGroupMap = null;
+    window._planGroupStep = 0;
+}
+
+/** Kafelki: Dopisz / Nadpisz */
+function planShowDopiszNadpiszModal() {
+    ensureKsiazkaState();
+    const hasAny = (appState.ksiazkaWydarzen || []).length > 0;
+
+    if (!hasAny) {
+        planFinalizeWriteToKsiazka("dopisz");
+        return;
+    }
+
+    const old = document.getElementById("planDopiszModal");
+    if (old) old.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "planDopiszModal";
+    overlay.className = "modal-overlay";
+    overlay.style.display = "flex";
+    overlay.innerHTML = `
+        <div class="modal" style="max-width:480px;">
+            <h2 style="margin-top:0;">Jak zapisać plan?</h2>
+            <p style="color:#94a3b8; font-size:14px; margin-bottom:16px;">
+                W Książce są już wpisy. Wybierz jedną opcję:
+            </p>
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
+                <div id="planTileDopisz" onclick="planSelectWriteMode('dopisz')"
+                     style="flex:1; min-width:140px; cursor:pointer; border:2px solid #22c55e; background:rgba(34,197,94,0.12);
+                            border-radius:12px; padding:16px; text-align:center;">
+                    <div style="font-size:22px; margin-bottom:6px;">➕</div>
+                    <div style="font-weight:700; font-size:16px;">Dopisz</div>
+                    <div style="font-size:12px; color:#94a3b8; margin-top:4px;">Dodaj plan do istniejących wpisów</div>
+                </div>
+                <div id="planTileNadpisz" onclick="planSelectWriteMode('nadpisz')"
+                     style="flex:1; min-width:140px; cursor:pointer; border:2px solid #475569; background:rgba(71,85,105,0.2);
+                            border-radius:12px; padding:16px; text-align:center; opacity:0.75;">
+                    <div style="font-size:22px; margin-bottom:6px;">♻️</div>
+                    <div style="font-weight:700; font-size:16px;">Nadpisz</div>
+                    <div style="font-size:12px; color:#94a3b8; margin-top:4px;">Usuń całą książkę i wstaw plan</div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-success" onclick="planConfirmWriteMode()">Zatwierdź</button>
+                <button class="btn-danger" onclick="planCancelWriteMode()">Anuluj</button>
+            </div>
+        </div>
+    `;
+    overlay._writeMode = "dopisz";
+    document.body.appendChild(overlay);
+}
+
+function planSelectWriteMode(mode) {
+    const modal = document.getElementById("planDopiszModal");
+    if (!modal) return;
+    modal._writeMode = mode;
+    const d = document.getElementById("planTileDopisz");
+    const n = document.getElementById("planTileNadpisz");
+    if (mode === "dopisz") {
+        if (d) { d.style.borderColor = "#22c55e"; d.style.background = "rgba(34,197,94,0.12)"; d.style.opacity = "1"; }
+        if (n) { n.style.borderColor = "#475569"; n.style.background = "rgba(71,85,105,0.2)"; n.style.opacity = "0.75"; }
+    } else {
+        if (n) { n.style.borderColor = "#ef4444"; n.style.background = "rgba(239,68,68,0.15)"; n.style.opacity = "1"; }
+        if (d) { d.style.borderColor = "#475569"; d.style.background = "rgba(71,85,105,0.2)"; d.style.opacity = "0.75"; }
+    }
+}
+
+function planCancelWriteMode() {
+    const m = document.getElementById("planDopiszModal");
+    if (m) m.remove();
+    planGroupMapCancel();
+}
+
+function planConfirmWriteMode() {
+    const modal = document.getElementById("planDopiszModal");
+    const mode = (modal && modal._writeMode) || "dopisz";
+    if (modal) modal.remove();
+    planFinalizeWriteToKsiazka(mode);
+}
+
+/** Podmiana znaczników @KZ, @dowodca, @patrol… wg patrolu */
+function planApplyTagsToText(tekst, patrolIndexes) {
+    const idxs = Array.isArray(patrolIndexes) ? patrolIndexes : [];
+    if (typeof buildReplacementsForPatrols === "function" && typeof applyTags === "function") {
+        const rep = buildReplacementsForPatrols(idxs);
+        // godzina/data z kontekstu wpisu – nadpisz jeśli podane później
+        return applyTags(tekst, rep);
+    }
+    // fallback minimalny
+    let out = String(tekst || "");
+    const kz = appState.kz || "";
+    const mkk = appState.mkk || "";
+    out = out.replace(/@KZ\b/gi, kz).replace(/@MKK\b/gi, mkk);
+    out = out.replace(/@data\b/gi, todayPL()).replace(/@godzina\b/gi, nowHHMM());
+    return out;
+}
+
+async function planFinalizeWriteToKsiazka(mode) {
+    ensureKsiazkaState();
+    const abs = window._planPendingAbs || [];
+    const groupMap = window._planGroupMap || {};
+    if (!abs.length) return;
 
     if (mode === "nadpisz") {
         appState.ksiazkaWydarzen = [];
     }
 
     abs.forEach(p => {
+        const key = (p.patrole && p.patrole.length) ? String(p.patrole[0]) : "none";
+        const mapped = groupMap.hasOwnProperty(key) ? groupMap[key] : (p.patrole && p.patrole[0] != null ? p.patrole[0] : null);
+        const patrolIndexes = (mapped == null || mapped === "") ? [] : [Number(mapped)];
+
+        const data = resolveDataForGodzina(p.godzinaStart);
+        let tekst = planApplyTagsToText(p.tekst || "", patrolIndexes);
+        // @godzina / @data pod konkretny wpis
+        tekst = tekst.replace(/@godzina\b/gi, p.godzinaStart || nowHHMM());
+        tekst = tekst.replace(/@data\b/gi, data);
+
         appState.ksiazkaWydarzen.push({
             id: Date.now() + Math.random().toString(36).slice(2),
-            data: resolveDataForGodzina(p.godzinaStart),
+            data: data,
             godzinaStart: p.godzinaStart,
-            tekst: p.tekst,
-            patrole: p.patrole,
+            tekst: tekst,
+            patrole: patrolIndexes,
             zrobione: false,
             createdAt: new Date().toISOString(),
             zPlanu: true
@@ -1129,7 +1343,7 @@ async function planZapiszDoKsiazki() {
     });
 
     await saveState();
-    closePlanSluzbyModal();
+    planGroupMapCancel();
     if (typeof showToast === "function") {
         showToast("✅ Zapisano plan (" + abs.length + " pkt, " + mode + ")");
     } else {
@@ -1138,6 +1352,9 @@ async function planZapiszDoKsiazki() {
     if (document.getElementById("ksiazkaContainer")) renderKsiazka();
 }
 
+// -------------------------------------
+// Zapisz książkę jako szablon (grupowanie patroli)
+// -------------------------------------
 // -------------------------------------
 // Zapisz książkę jako szablon (grupowanie patroli)
 // -------------------------------------
@@ -1822,6 +2039,15 @@ window.planZapiszJakoSzablon = planZapiszJakoSzablon;
 window.planUsunSzablon = planUsunSzablon;
 window.planPodglad = planPodglad;
 window.planZapiszDoKsiazki = planZapiszDoKsiazki;
+window.planShowGroupMapStep = planShowGroupMapStep;
+window.planGroupMapNext = planGroupMapNext;
+window.planGroupMapCancel = planGroupMapCancel;
+window.planShowDopiszNadpiszModal = planShowDopiszNadpiszModal;
+window.planSelectWriteMode = planSelectWriteMode;
+window.planCancelWriteMode = planCancelWriteMode;
+window.planConfirmWriteMode = planConfirmWriteMode;
+window.planFinalizeWriteToKsiazka = planFinalizeWriteToKsiazka;
+window.planApplyTagsToText = planApplyTagsToText;
 window.openZapiszKsiazkeJakoSzablon = openZapiszKsiazkeJakoSzablon;
 window.closeZapiszKsiazkeJakoSzablon = closeZapiszKsiazkeJakoSzablon;
 window.confirmZapiszKsiazkeJakoSzablon = confirmZapiszKsiazkeJakoSzablon;
