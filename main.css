@@ -172,11 +172,9 @@ body{
     cursor:pointer;
     transition:.2s;
 }
-
 .menu-btn:hover{
     background:var(--sidebar-hover);
 }
-
 .menu-btn.active{
     background:var(--primary);
     color:#fff;
@@ -206,12 +204,10 @@ body{
     align-items:center;
     padding:0 25px;
 }
-
 .title{
     font-size:20px;
     font-weight:600;
 }
-
 .topbar-actions{
     display:flex;
     gap:10px;
@@ -246,19 +242,10 @@ button{
     color:white;
     font-weight:600;
 }
-
-#saveDataBtn{
-    background:var(--success);
-}
-#saveDataBtn:hover{
-    background:var(--success-hover);
-}
-#loadDataBtn{
-    background:var(--primary);
-}
-#loadDataBtn:hover{
-    background:var(--primary-hover);
-}
+#saveDataBtn{ background:var(--success); }
+#saveDataBtn:hover{ background:var(--success-hover); }
+#loadDataBtn{ background:var(--primary); }
+#loadDataBtn:hover{ background:var(--primary-hover); }
 
 /* ==========================
    CONTENT
@@ -269,7 +256,6 @@ button{
     overflow:auto;
     padding:25px;
 }
-
 .loading{
     background:var(--bg-light);
     border:1px solid var(--border);
@@ -312,9 +298,7 @@ select:focus,
 textarea:focus{
     border-color:var(--primary-light);
 }
-textarea{
-    resize:vertical;
-}
+textarea{ resize:vertical; }
 
 /* ==========================
    TABELE
@@ -353,7 +337,7 @@ tr:hover{
 .btn-danger:hover{ background:var(--danger-hover); }
 
 /* ==========================
-   KSIĄŻKA WYDARZEŃ
+   LINIE
 ========================== */
 
 .line-box{
@@ -366,9 +350,7 @@ tr:hover{
     cursor:pointer;
     transition:.2s;
 }
-.line-box:hover{
-    background:var(--primary);
-}
+.line-box:hover{ background:var(--primary); }
 
 /* ==========================
    KAFELKI
@@ -422,9 +404,7 @@ tr:hover{
     line-height:1.4;
     color:var(--text);
 }
-.item-card:hover{
-    border-color:var(--primary-light);
-}
+.item-card:hover{ border-color:var(--primary-light); }
 .item-card.selected{
     background:var(--primary-deep);
     border-color:var(--primary-light);
@@ -445,9 +425,7 @@ tr:hover{
     transition:.2s;
     color:var(--text);
 }
-.line-pill:hover{
-    border-color:var(--primary-light);
-}
+.line-pill:hover{ border-color:var(--primary-light); }
 .line-pill.active{
     background:var(--primary-soft);
     border-color:var(--primary-light);
