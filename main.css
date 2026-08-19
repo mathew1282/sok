@@ -68,7 +68,7 @@ body{
 [data-theme="light"]{
     --bg:#f5f6f8;
     --bg-light:#ffffff;
-    --bg-input:#f9fafb;
+    --bg-input:#ffffff;
     --sidebar:#ffffff;
     --sidebar-hover:#f3f4f6;
     --primary:#2563eb;
@@ -89,7 +89,7 @@ body{
     --text-dim:#6b7280;
     --text-soft:#374151;
     --shadow:0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
-    --tile:#f3f4f6;
+    --tile:#ffffff;
     --tile-hover-shadow:0 0 0 2px rgba(37,99,235,.2);
     --row-border:#e5e7eb;
     --table-header:#2563eb;
@@ -108,27 +108,15 @@ body{
     --theme-btn-bg:#f3f4f6;
 }
 
-/* ==========================
-   BODY
-========================== */
-
 body{
     background:var(--bg);
     color:var(--text);
 }
 
-/* ==========================
-   UKŁAD
-========================== */
-
 .app{
     display:flex;
     height:100vh;
 }
-
-/* ==========================
-   MENU
-========================== */
 
 .sidebar{
     width:280px;
@@ -143,12 +131,10 @@ body{
     padding:25px;
     border-bottom:1px solid var(--border);
 }
-
 .logo h2{
     color:var(--primary-light);
     margin-bottom:5px;
 }
-
 .logo span{
     color:var(--text-muted);
     font-size:14px;
@@ -160,7 +146,6 @@ body{
     padding:15px;
     gap:10px;
 }
-
 .menu-btn{
     width:100%;
     border:none;
@@ -172,17 +157,11 @@ body{
     cursor:pointer;
     transition:.2s;
 }
-.menu-btn:hover{
-    background:var(--sidebar-hover);
-}
+.menu-btn:hover{ background:var(--sidebar-hover); }
 .menu-btn.active{
     background:var(--primary);
     color:#fff;
 }
-
-/* ==========================
-   GŁÓWNA CZĘŚĆ
-========================== */
 
 .main-content{
     flex:1;
@@ -190,10 +169,6 @@ body{
     flex-direction:column;
     overflow:hidden;
 }
-
-/* ==========================
-   TOP BAR
-========================== */
 
 .topbar{
     height:70px;
@@ -204,10 +179,7 @@ body{
     align-items:center;
     padding:0 25px;
 }
-.title{
-    font-size:20px;
-    font-weight:600;
-}
+.title{ font-size:20px; font-weight:600; }
 .topbar-actions{
     display:flex;
     gap:10px;
@@ -225,13 +197,7 @@ body{
     line-height:1;
     transition:.2s;
 }
-#themeToggle:hover{
-    border-color:var(--primary-light);
-}
-
-/* ==========================
-   PRZYCISKI
-========================== */
+#themeToggle:hover{ border-color:var(--primary-light); }
 
 button{
     border:none;
@@ -247,10 +213,6 @@ button{
 #loadDataBtn{ background:var(--primary); }
 #loadDataBtn:hover{ background:var(--primary-hover); }
 
-/* ==========================
-   CONTENT
-========================== */
-
 #content{
     flex:1;
     overflow:auto;
@@ -265,10 +227,6 @@ button{
     color:var(--text-muted);
 }
 
-/* ==========================
-   KARTY
-========================== */
-
 .card{
     background:var(--bg-light);
     border:1px solid var(--border);
@@ -277,10 +235,6 @@ button{
     margin-bottom:15px;
     box-shadow:var(--shadow);
 }
-
-/* ==========================
-   INPUTY
-========================== */
 
 input,
 select,
@@ -295,14 +249,8 @@ textarea{
 }
 input:focus,
 select:focus,
-textarea:focus{
-    border-color:var(--primary-light);
-}
+textarea:focus{ border-color:var(--primary-light); }
 textarea{ resize:vertical; }
-
-/* ==========================
-   TABELE
-========================== */
 
 table{
     width:100%;
@@ -321,13 +269,7 @@ td{
     padding:12px;
     border-bottom:1px solid var(--border);
 }
-tr:hover{
-    background:var(--tr-hover);
-}
-
-/* ==========================
-   PRZYCISKI AKCJI
-========================== */
+tr:hover{ background:var(--tr-hover); }
 
 .btn-primary{ background:var(--primary); }
 .btn-primary:hover{ background:var(--primary-hover); }
@@ -335,10 +277,6 @@ tr:hover{
 .btn-success:hover{ background:var(--success-hover); }
 .btn-danger{ background:var(--danger); }
 .btn-danger:hover{ background:var(--danger-hover); }
-
-/* ==========================
-   LINIE
-========================== */
 
 .line-box{
     display:inline-block;
@@ -351,10 +289,6 @@ tr:hover{
     transition:.2s;
 }
 .line-box:hover{ background:var(--primary); }
-
-/* ==========================
-   KAFELKI
-========================== */
 
 .select-card{
     min-width:180px;
@@ -375,17 +309,9 @@ tr:hover{
     background:var(--primary-deep);
     color:#fff;
 }
-.select-card-title{
-    font-weight:700;
-    margin-bottom:6px;
-}
-.select-card-sub{
-    font-size:13px;
-    color:var(--text-muted);
-}
-.select-card.active .select-card-sub{
-    color:rgba(255,255,255,.85);
-}
+.select-card-title{ font-weight:700; margin-bottom:6px; }
+.select-card-sub{ font-size:13px; color:var(--text-muted); }
+.select-card.active .select-card-sub{ color:rgba(255,255,255,.85); }
 
 .item-card{
     padding:12px 16px;
@@ -412,10 +338,6 @@ tr:hover{
     color:#fff;
 }
 
-/* ==========================
-   LINIE
-========================== */
-
 .line-pill{
     padding:10px 18px;
     background:var(--tile);
@@ -431,10 +353,6 @@ tr:hover{
     border-color:var(--primary-light);
     color:#fff;
 }
-
-/* ==========================
-   PODGLĄD PATROLU
-========================== */
 
 .patrol-preview{
     background:var(--bg-light);
@@ -463,15 +381,11 @@ tr:hover{
     color:#22c55e;
 }
 
-/* ==========================
-   WYNIK GENERATORA
-========================== */
-
 #generatedEntry{
     width:100%;
     min-height:350px;
     resize:vertical;
-    background:var(--bg);
+    background:var(--bg-input);
     color:var(--text);
     border:1px solid var(--border);
     border-radius:12px;
@@ -479,10 +393,6 @@ tr:hover{
     font-size:14px;
     font-family:inherit;
 }
-
-/* ==========================
-   MODAL
-========================== */
 
 .modal-overlay{
     position:fixed;
@@ -520,10 +430,6 @@ tr:hover{
     margin-bottom:15px;
 }
 
-/* ==========================
-   GENERATOR
-========================== */
-
 .generator-section{ margin-bottom:25px; }
 .generator-title{
     font-size:18px;
@@ -544,10 +450,6 @@ tr:hover{
 }
 .generator-field{ flex:1; }
 
-/* ==========================
-   RESPONSYWNOŚĆ
-========================== */
-
 @media(max-width:900px){
     .sidebar{ width:220px; min-width:220px; }
 }
@@ -556,10 +458,6 @@ tr:hover{
     .sidebar{ width:100%; min-width:100%; }
     .menu{ flex-direction:row; overflow:auto; }
 }
-
-/* ==========================
-   LINIE Z ZAZNACZONYMI
-========================== */
 
 .line-pill.has-selected {
     background: var(--danger);
@@ -572,15 +470,11 @@ tr:hover{
     color: white;
 }
 
-/* ==========================
-   CONTENTEDITABLE
-========================== */
-
 .generated-entry-editable,
 .rich-opis-editor {
     word-wrap: break-word;
     overflow-wrap: break-word;
-    background: var(--bg);
+    background: var(--bg-input);
     color: var(--text);
     border: 1px solid var(--border);
 }
@@ -595,10 +489,6 @@ tr:hover{
 .rich-opis-editor strong { font-weight: 700; }
 .generated-entry-editable u,
 .rich-opis-editor u { text-decoration: underline; }
-
-/* ==========================
-   EXCEL BUTTONS
-========================== */
 
 .btn-export {
     background: var(--export);
@@ -624,10 +514,6 @@ tr:hover{
 }
 .btn-import:hover { background: var(--import-hover); }
 
-/* ==========================
-   @patrol
-========================== */
-
 #sequentialPatrolPill.sequential-pill-on {
     background: var(--border);
     border-color: var(--border-mid);
@@ -643,10 +529,6 @@ tr:hover{
     border-color: var(--danger-light);
     color: #fff;
 }
-
-/* ==========================
-   KSIĄŻKA – LISTA
-========================== */
 
 .ksiazka-card { position: relative; }
 
