@@ -176,3 +176,28 @@ function importFromJSON(event) {
     reader.readAsText(file);
     event.target.value = "";
 }
+// ===== TRYB JASNY / CIEMNY =====
+(function () {
+    const toggle = document.getElementById('themeToggle');
+    const saved = localStorage.getItem('sok-theme');
+
+    if (saved === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        if (toggle) toggle.textContent = '☀️';
+    }
+
+    if (toggle) {
+        toggle.addEventListener('click', () => {
+            const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            if (isLight) {
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('sok-theme', 'dark');
+                toggle.textContent = '🌙';
+            } else {
+                document.documentElement.setAttribute('data-theme', 'light');
+                localStorage.setItem('sok-theme', 'light');
+                toggle.textContent = '☀️';
+            }
+        });
+    }
+})();
